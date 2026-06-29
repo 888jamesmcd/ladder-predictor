@@ -122,7 +122,7 @@
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
   .content {
     flex-direction: column;
     padding: 16px;
@@ -6815,6 +6815,7 @@ function renderRound(roundIndex) {
       input.addEventListener('input', function() {
         const homeScore = parseInt(inputs[0].textContent) || 0;
         const awayScore = parseInt(inputs[1].textContent) || 0;
+        if (!seasons[currentSeason].scores) seasons[currentSeason].scores = {};
         seasons[currentSeason].scores[scoreKey] = { home: homeScore, away: awayScore };
         calculateLadder();
         populateFinals();
@@ -7542,9 +7543,9 @@ function lsLoad() {
     const nrlFinals = JSON.parse(localStorage.getItem('lp_nrl_finals') || '{}');
     Object.keys(nrlFinals).forEach(k => { if (seasons[k]) seasons[k].finalsData = nrlFinals[k]; });
     const aflScores = JSON.parse(localStorage.getItem('lp_afl_scores') || '{}');
-    Object.keys(aflScores).forEach(k => { if (aflSeasons[k]) aflSeasons[k].scores = aflScores[k]; });
+    Object.keys(aflScores).forEach(k => { if (typeof aflSeasons !== 'undefined' && aflSeasons[k]) aflSeasons[k].scores = aflScores[k]; });
     const aflFinals = JSON.parse(localStorage.getItem('lp_afl_finals') || '{}');
-    Object.keys(aflFinals).forEach(k => { if (aflSeasons[k]) aflSeasons[k].finalsData = aflFinals[k]; });
+    Object.keys(aflFinals).forEach(k => { if (typeof aflSeasons !== 'undefined' && aflSeasons[k]) aflSeasons[k].finalsData = aflFinals[k]; });
   } catch(e) { console.warn('early lsLoad failed', e); }
 })();
 
