@@ -6813,6 +6813,12 @@ function renderRound(roundIndex) {
       input.addEventListener('keypress', function(e) {
         if (!/[0-9]/.test(e.key)) e.preventDefault();
       });
+      input.addEventListener('focus', function() {
+        const allTables = container.querySelectorAll('.data-table');
+        allTables.forEach(t => { t.classList.remove('game-selected'); t.classList.add('game-dimmed'); });
+        table.classList.remove('game-dimmed');
+        table.classList.add('game-selected');
+      });
       input.addEventListener('input', function() {
         const homeScore = parseInt(inputs[0].textContent) || 0;
         const awayScore = parseInt(inputs[1].textContent) || 0;
@@ -7988,9 +7994,8 @@ function renderAFLProgression(seasonKey) {
         tableHTML += `<td style="text-align:center;padding:4px 6px;color:#444;">—</td>`;
       } else {
         let bg = 'transparent', color = '#ffffff';
-if (pos === 1) { bg = '#b8860b'; color = '#ffffff'; }
-else if (pos <= 8) { bg = '#1a3a1a'; color = '#4CAF50'; }
-else if (pos === numTeams) { bg = '#8B3A00'; color = '#ffffff'; }
+        if (pos === 1) { bg = '#b8860b'; color = '#ffffff'; }
+        else if (pos === numTeams) { bg = '#8B3A00'; color = '#ffffff'; }
         tableHTML += `<td style="text-align:center;padding:4px 6px;background:${bg};color:${color};border-radius:3px;">${pos}</td>`;
       }
     });
@@ -9461,10 +9466,10 @@ function renderProgression(seasonKey) {
       if (pos === undefined) {
         tableHTML += `<td style="text-align:center;padding:4px 6px;color:#444;">—</td>`;
       } else {
-        let bg = 'transparent', color = '#ffffff';
-if (pos === 1) { bg = '#b8860b'; color = '#ffffff'; }
-else if (pos <= 8) { bg = '#1a3a1a'; color = '#4CAF50'; }
-else if (pos === numTeams) { bg = '#8B3A00'; color = '#ffffff'; }
+        let bg = 'transparent';
+        let color = '#ffffff';
+        if (pos === 1) { bg = '#b8860b'; color = '#ffffff'; }
+        else if (pos === numTeams) { bg = '#8B3A00'; color = '#ffffff'; }
         tableHTML += `<td style="text-align:center;padding:4px 6px;background:${bg};color:${color};border-radius:3px;">${pos}</td>`;
       }
     });
