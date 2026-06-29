@@ -2007,25 +2007,25 @@ const seasons = {
     ],
     // Round 25
     [
-      { home: 'Sea Eagles',   away: 'Broncos'      },
-      { home: 'Raiders',      away: 'Bulldogs'   },
-      { home: 'Panthers',     away: 'Titans'       },
-      { home: 'Cowboys',      away: 'Knights'     },
-      { home: 'Roosters',     away: 'Wests Tigers'    },
-      { home: 'Dragons',      away: 'Warriors'      },
-      { home: 'Rabbitohs',    away: 'Eels'     },
-      { home: 'Storm',        away: 'Sharks'      },
+      { home: 'Panthers',     away: 'Broncos'      },
+      { home: 'Storm',        away: 'Sea Eagles'   },
+      { home: 'Eels',         away: 'Titans'       },
+      { home: 'Roosters',     away: 'Warriors'     },
+      { home: 'Cowboys',      away: 'Rabbitohs'    },
+      { home: 'Wests Tigers', away: 'Knights'      },
+      { home: 'Sharks',       away: 'Bulldogs'     },
+      { home: 'Dragons',      away: 'Raiders'      },
     ],
     // Round 26
     [
-      { home: 'Knights',      away: 'Rabbitohs'    },
-      { home: 'Broncos',      away: 'Panthers'     },
-      { home: 'Titans',       away: 'Sea Eagles'     },
-      { home: 'Bulldogs',     away: 'Roosters'       },
-      { home: 'Wests Tigers', away: 'Storm'        },
-      { home: 'Warriors',     away: 'Raiders'       },
-      { home: 'Sharks',       away: 'Cowboys'         },
-      { home: 'Eels',        away: 'Dragons' },
+      { home: 'Broncos',      away: 'Rabbitohs'    },
+      { home: 'Raiders',      away: 'Warriors'     },
+      { home: 'Bulldogs',     away: 'Panthers'     },
+      { home: 'Sea Eagles',   away: 'Sharks'       },
+      { home: 'Roosters',     away: 'Storm'        },
+      { home: 'Knights',      away: 'Titans'       },
+      { home: 'Cowboys',      away: 'Eels'         },
+      { home: 'Dragons',      away: 'Wests Tigers' },
     ],
   ],
   scores: {},
@@ -6813,12 +6813,6 @@ function renderRound(roundIndex) {
       input.addEventListener('keypress', function(e) {
         if (!/[0-9]/.test(e.key)) e.preventDefault();
       });
-      input.addEventListener('focus', function() {
-        const allTables = container.querySelectorAll('.data-table');
-        allTables.forEach(t => { t.classList.remove('game-selected'); t.classList.add('game-dimmed'); });
-        table.classList.remove('game-dimmed');
-        table.classList.add('game-selected');
-      });
       input.addEventListener('input', function() {
         const homeScore = parseInt(inputs[0].textContent) || 0;
         const awayScore = parseInt(inputs[1].textContent) || 0;
@@ -7420,6 +7414,7 @@ document.getElementById('afl-btn-reset').addEventListener('click', function() {
       if (!/[0-9]/.test(e.key)) e.preventDefault();
     });
     el.addEventListener('input', function() {
+      if (!seasons[currentSeason]) return;
       seasons[currentSeason].finalsData[id].homeScore = parseInt(homeScore.textContent) || 0;
       seasons[currentSeason].finalsData[id].awayScore = parseInt(awayScore.textContent) || 0;
       populateFinals();
@@ -7524,10 +7519,10 @@ function lsLoad() {
     Object.keys(nrlScores).forEach(k => { if (seasons[k]) seasons[k].scores = nrlScores[k]; });
 
     const aflScores = JSON.parse(localStorage.getItem('lp_afl_scores') || '{}');
-    Object.keys(aflScores).forEach(k => { if (aflSeasons[k]) aflSeasons[k].scores = aflScores[k]; });
+    Object.keys(aflScores).forEach(k => { if (typeof aflSeasons !== 'undefined' && aflSeasons[k]) aflSeasons[k].scores = aflScores[k]; });
 
     const aflFinals = JSON.parse(localStorage.getItem('lp_afl_finals') || '{}');
-    Object.keys(aflFinals).forEach(k => { if (aflSeasons[k]) aflSeasons[k].finalsData = aflFinals[k]; });
+    Object.keys(aflFinals).forEach(k => { if (typeof aflSeasons !== 'undefined' && aflSeasons[k]) aflSeasons[k].finalsData = aflFinals[k]; });
 
     const nrlFinals = JSON.parse(localStorage.getItem('lp_nrl_finals') || '{}');
     Object.keys(nrlFinals).forEach(k => { if (seasons[k]) seasons[k].finalsData = nrlFinals[k]; });
