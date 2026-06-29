@@ -6841,13 +6841,13 @@ function renderAFLRound(roundIndex) {
   const games = aflSeasons[currentSeason].rounds[roundIndex];
   const container = document.getElementById('afl-games-container');
   container.innerHTML = '';
-  container.closest('.panel').style.minHeight = `${185 + (76 + 14) * games.length}px`;
+  container.closest('.panel').style.minHeight = `${185 + (76 + 8) * games.length}px`;
   games.forEach((game, i) => {
     const scoreKey = `R${roundIndex + 1}G${i}`;
     const saved = aflSeasons[currentSeason].scores[scoreKey] || { home: 0, away: 0 };
     const homeConfig = aflSeasons[currentSeason].teamConfig[game.home];
     const awayConfig = aflSeasons[currentSeason].teamConfig[game.away];
-    const top = `calc(185px + (76px + 14px) * ${i})`;
+    const top = `calc(185px + (76px + 8px) * ${i})`;
     const table = document.createElement('table');
     table.className = 'afl-data-table';
     table.style.top = top;
