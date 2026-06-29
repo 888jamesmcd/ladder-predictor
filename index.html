@@ -6855,7 +6855,7 @@ function renderAFLRound(roundIndex) {
       <tr>
         <td class="afl-cell-dark" style="width:auto;height:38px;position:relative;">
           <img src="${homeConfig.logo}" style="height:100%;width:auto;object-fit:contain;position:absolute;left:0;top:0;">
-          <div style="position:absolute;left:calc(105px + 8px);top:50%;transform:translateY(calc(-50% + 2.5px));font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;white-space:nowrap;">${game.home.toUpperCase()}</div>
+          <div style="position:absolute;left:calc(80px + 8px);top:50%;transform:translateY(calc(-50% + 2.5px));font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;white-space:nowrap;">${game.home.toUpperCase()}</div>
         </td>
         <td class="afl-cell-red" style="width:70px;height:38px;position:relative;">
           <div contenteditable="true" class="score-input" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;cursor:text;min-width:10px;text-align:center;">${saved.home}</div>
@@ -6864,7 +6864,7 @@ function renderAFLRound(roundIndex) {
       <tr>
         <td class="afl-cell-dark" style="width:auto;height:38px;position:relative;">
           <img src="${awayConfig.logo}" style="height:100%;width:auto;object-fit:contain;position:absolute;left:0;top:0;">
-          <div style="position:absolute;left:calc(105px + 8px);top:50%;transform:translateY(calc(-50% + 2.5px));font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;white-space:nowrap;">${game.away.toUpperCase()}</div>
+          <div style="position:absolute;left:calc(80px + 8px);top:50%;transform:translateY(calc(-50% + 2.5px));font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;white-space:nowrap;">${game.away.toUpperCase()}</div>
         </td>
         <td class="afl-cell-red" style="width:70px;height:38px;position:relative;">
           <div contenteditable="true" class="score-input" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;cursor:text;min-width:10px;text-align:center;">${saved.away}</div>
@@ -6971,17 +6971,17 @@ function calculateAFLLadder() {
       <div class="ladder-pos ${posClass}">${pos}</div>
       <div class="ladder-team">
         <img src="${config.logo}" alt="${team}">
-        <span class="ladder-team-name" style="font-family:'HelveticaNeueMediumCond',sans-serif;">${config.abbr}</span>
+        <span class="ladder-team-name" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;">${config.abbr}</span>
       </div>
-      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;">${t.p}</div>
-      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;">${t.w}</div>
-      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;">${t.l}</div>
-      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;">${t.d}</div>
-      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;">${t.f}</div>
-      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;">${t.a}</div>
-      <div class="ladder-cell ladder-pd ${pctClass}" style="font-family:'HelveticaNeueMediumCond',sans-serif;">${pct}</div>
+      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;">${t.p}</div>
+      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;">${t.w}</div>
+      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;">${t.l}</div>
+      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;">${t.d}</div>
+      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;">${t.f}</div>
+      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;">${t.a}</div>
+      <div class="ladder-cell ladder-pd ${pctClass}" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;">${pct}</div>
       ${streakHtml}
-      <div class="ladder-pts" style="font-family:'HelveticaNeueMediumCond',sans-serif;">${t.pts}</div>
+      <div class="ladder-pts" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;">${t.pts}</div>
     `;
     container.appendChild(row);
   });
