@@ -6567,6 +6567,11 @@ awayLogo.src = seasons[currentSeason].teamConfig[game.away].logoAway || seasons[
 
   const w = getWinner(game);
   winner.textContent = w ? `W: ${seasons[currentSeason].teamConfig[w].abbr}` : '';
+
+  const homeScoreEl = document.getElementById(`${id}-home-score`);
+  const awayScoreEl = document.getElementById(`${id}-away-score`);
+  if (homeScoreEl && document.activeElement !== homeScoreEl) homeScoreEl.textContent = game.homeScore || 0;
+  if (awayScoreEl && document.activeElement !== awayScoreEl) awayScoreEl.textContent = game.awayScore || 0;
 }
 
 function renderFinals() {
@@ -6611,6 +6616,11 @@ awayLogo.src = seasons[currentSeason].teamConfig[game.away].logoAway || seasons[
 
   const w = getWinner(game);
   winner.textContent = w ? `W: ${seasons[currentSeason].teamConfig[w].abbr}` : '';
+
+  const homeScoreEl = document.getElementById(`${id}-home-score`);
+  const awayScoreEl = document.getElementById(`${id}-away-score`);
+  if (homeScoreEl && document.activeElement !== homeScoreEl) homeScoreEl.textContent = game.homeScore || 0;
+  if (awayScoreEl && document.activeElement !== awayScoreEl) awayScoreEl.textContent = game.awayScore || 0;
 }
 
 function renderFinals() {
@@ -6738,6 +6748,11 @@ function renderAFLFinalsCard(id, game) {
 
   const w = getWinner(game);
   winner.textContent = w ? `W: ${aflSeasons[currentSeason].teamConfig[w].abbr}` : '';
+
+  const homeScoreEl = document.getElementById(`afl-${id}-home-score`);
+  const awayScoreEl = document.getElementById(`afl-${id}-away-score`);
+  if (homeScoreEl && document.activeElement !== homeScoreEl) homeScoreEl.textContent = game.homeScore || 0;
+  if (awayScoreEl && document.activeElement !== awayScoreEl) awayScoreEl.textContent = game.awayScore || 0;
 }
 
 function renderAFLFinals() {
@@ -7373,6 +7388,7 @@ document.querySelectorAll('.year-btn').forEach(btn => {
       renderRoundNav('afl-round-nav', aflSeasons[currentSeason].rounds.length);
       renderAFLRound(0);
       calculateAFLLadder();
+      populateAFLFinals();
     } else {
       document.getElementById('panel-title').textContent = `NRL ${year}`;
       document.querySelector('.ladder-title').textContent = `NRL ${year} Ladder`;
