@@ -195,7 +195,7 @@
 }
 
 .afl-cell-red {
-  background: linear-gradient(to bottom, rgb(221, 0, 18) 50%, rgb(212, 0, 5) 50%); !important
+  background: linear-gradient(to bottom, rgb(210, 12, 25) 50%, rgb(198, 5, 15) 50%); !important
 }
 
 .afl-data-table {
@@ -6976,21 +6976,22 @@ function calculateAFLLadder() {
     const config = aflSeasons[currentSeason].teamConfig[team];
     const row = document.createElement('div');
     row.className = 'ladder-row';
+    if (pos === 8) row.style.borderBottom = '2px solid #ffffff';
     row.innerHTML = `
       <div class="ladder-pos ${posClass}">${pos}</div>
-      <div class="ladder-team">
+      <div class="ladder-team" style="gap:14px;">
         <img src="${config.logo}" alt="${team}">
-        <span class="ladder-team-name" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;">${config.abbr}</span>
+        <span class="ladder-team-name" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;color:#e8e8e8;">${config.abbr}</span>
       </div>
-      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;">${t.p}</div>
-      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;">${t.w}</div>
-      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;">${t.l}</div>
-      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;">${t.d}</div>
-      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;">${t.f}</div>
-      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;">${t.a}</div>
-      <div class="ladder-cell ladder-pd ${pctClass}" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;">${pct}</div>
+      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;color:#e8e8e8;">${t.p}</div>
+      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;color:#e8e8e8;">${t.w}</div>
+      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;color:#e8e8e8;">${t.l}</div>
+      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;color:#e8e8e8;">${t.d}</div>
+      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;color:#e8e8e8;">${t.f}</div>
+      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;color:#e8e8e8;">${t.a}</div>
+      <div class="ladder-cell ladder-pd ${pctClass}" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;color:#e8e8e8;">${pct}</div>
       ${streakHtml}
-      <div class="ladder-pts" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;">${t.pts}</div>
+      <div class="ladder-pts" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;color:#e8e8e8;">${t.pts}</div>
     `;
     container.appendChild(row);
   });
@@ -7089,6 +7090,7 @@ function calculateLadder() {
     const config = seasons[currentSeason].teamConfig[team];
     const row = document.createElement('div');
     row.className = 'ladder-row';
+    if (pos === 8) row.style.borderBottom = '2px solid #ffffff';
     row.innerHTML = `
       <div class="ladder-pos ${posClass}">${pos}</div>
       <div class="ladder-team">
@@ -7270,8 +7272,10 @@ function populateRecordsSidebar() {
   Object.keys(seasons).reverse().forEach(seasonKey => {
     if (!seasonHasResults(seasonKey)) return;
     const year = seasonKey.replace('nrl', '');
+    const fd = seasons[seasonKey].finalsData;
+    const gfWinner = fd && fd.gf && fd.gf.homeScore > fd.gf.awayScore ? fd.gf.home : fd && fd.gf && fd.gf.awayScore > fd.gf.homeScore ? fd.gf.away : null;
     const ladder = getSeasonLadder(seasonKey);
-    const premiers = ladder.length ? ladder[0].team : '—';
+    const premiers = gfWinner || (ladder.length ? ladder[0].team : '—');
     const btn = document.createElement('button');
     btn.className = 'records-season-item';
     btn.dataset.season = seasonKey;
@@ -7298,8 +7302,10 @@ function populateAFLRecordsSidebar() {
   Object.keys(aflSeasons).reverse().forEach(seasonKey => {
     if (!aflSeasonHasResults(seasonKey)) return;
     const year = seasonKey.replace('afl', '');
+    const fd = aflSeasons[seasonKey].finalsData;
+    const gfWinner = fd && fd.gf && fd.gf.homeScore > fd.gf.awayScore ? fd.gf.home : fd && fd.gf && fd.gf.awayScore > fd.gf.homeScore ? fd.gf.away : null;
     const ladder = getAFLSeasonLadder(seasonKey);
-    const premiers = ladder.length ? ladder[0].team : '—';
+    const premiers = gfWinner || (ladder.length ? ladder[0].team : '—');
     const btn = document.createElement('button');
     btn.className = 'records-season-item';
     btn.dataset.season = seasonKey;
@@ -7546,17 +7552,13 @@ function lsLoad() {
   } catch(e) { console.warn('lsLoad failed', e); }
 }
 
-// Load NRL and AFL scores before first render
+// Load NRL scores before first render (AFL loads via main lsLoad after aflSeasons is defined)
 (function() {
   try {
     const nrlScores = JSON.parse(localStorage.getItem('lp_nrl_scores') || '{}');
     Object.keys(nrlScores).forEach(k => { if (seasons[k]) seasons[k].scores = nrlScores[k]; });
     const nrlFinals = JSON.parse(localStorage.getItem('lp_nrl_finals') || '{}');
     Object.keys(nrlFinals).forEach(k => { if (seasons[k]) seasons[k].finalsData = nrlFinals[k]; });
-    const aflScores = JSON.parse(localStorage.getItem('lp_afl_scores') || '{}');
-    Object.keys(aflScores).forEach(k => { if (typeof aflSeasons !== 'undefined' && aflSeasons[k]) aflSeasons[k].scores = aflScores[k]; });
-    const aflFinals = JSON.parse(localStorage.getItem('lp_afl_finals') || '{}');
-    Object.keys(aflFinals).forEach(k => { if (typeof aflSeasons !== 'undefined' && aflSeasons[k]) aflSeasons[k].finalsData = aflFinals[k]; });
   } catch(e) { console.warn('early lsLoad failed', e); }
 })();
 
@@ -7939,18 +7941,34 @@ function renderAFLProgression(seasonKey) {
   const xPos = (r) => padL + rounds.indexOf(r) * xStep;
   const yPos = (pos) => padT + (pos - 1) * yStep;
 
+  const AFL_TEAM_COLOURS = {
+    'Adelaide': '#002B5C',
+    'Brisbane Lions': '#A30046',
+    'Carlton': '#031A29',
+    'Collingwood': '#000000',
+    'Essendon': '#CC2031',
+    'Fremantle': '#2A0D54',
+    'Geelong Cats': '#1C3D6E',
+    'Gold Coast Suns': '#D71920',
+    'GWS Giants': '#F47920',
+    'Hawthorn': '#4D2004',
+    'Melbourne': '#0F1131',
+    'North Melbourne': '#003399',
+    'Port Adelaide': '#00B2A9',
+    'Richmond': '#FFD200',
+    'St Kilda': '#ED1B2F',
+    'Sydney': '#ED171F',
+    'West Coast Eagles': '#003087',
+    'Western Bulldogs': '#014896'
+  };
+
   function getTeamColour(team) {
-    const tmp = document.createElement('div');
-    tmp.style.cssText = 'position:absolute;opacity:0;background:#4CAF50;';
-    document.body.appendChild(tmp);
-    document.body.removeChild(tmp);
-    return '#4CAF50';
+    return AFL_TEAM_COLOURS[team] || '#4CAF50';
   }
 
   let linesHTML = '', dotsHTML = '';
   teams.forEach((team, ti) => {
-    const hue = (ti * 360 / numTeams);
-    const colour = `hsl(${hue},70%,55%)`;
+    const colour = getTeamColour(team);
     const pts = rounds.map(r => {
       const pos = positionData[team][r];
       if (pos === undefined) return null;
@@ -7999,6 +8017,7 @@ function renderAFLProgression(seasonKey) {
       } else {
         let bg = 'transparent', color = '#ffffff';
         if (pos === 1) { bg = '#b8860b'; color = '#ffffff'; }
+        else if (pos <= 8) { bg = '#1a3a1a'; color = '#4CAF50'; }
         else if (pos === numTeams) { bg = '#8B3A00'; color = '#ffffff'; }
         tableHTML += `<td style="text-align:center;padding:4px 6px;background:${bg};color:${color};border-radius:3px;">${pos}</td>`;
       }
