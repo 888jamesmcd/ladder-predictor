@@ -177,7 +177,7 @@
 }
 
 .afl-finals-row .finals-team-score {
-  background: linear-gradient(to bottom, rgb(224,165,0) 50%, rgb(208,154,0) 50%) !important;
+  background: linear-gradient(to bottom, rgb(210, 12, 25) 50%, rgb(198, 5, 15) 50%) !important;
   color: #ffffff !important;
   font-family: 'HelveticaNeueMediumCond', sans-serif !important;
 }
@@ -7378,12 +7378,10 @@ document.querySelectorAll('.year-btn').forEach(btn => {
       document.querySelector('.ladder-title').textContent = `NRL ${year} Ladder`;
       document.querySelector('.finals-title').textContent = `NRL ${year} Finals`;
       renderRoundNav('nrl-round-nav', seasons[currentSeason].rounds.length);
-      Object.keys(seasons[currentSeason].finalsData).forEach(k => {
-        seasons[currentSeason].finalsData[k] = { home: null, away: null, homeScore: 0, awayScore: 0 };
-      });
       ['qf1','qf2','ef1','ef2','sf1','sf2','pf1','pf2','gf'].forEach(id => {
-        document.getElementById(`${id}-home-score`).textContent = '0';
-        document.getElementById(`${id}-away-score`).textContent = '0';
+        const g = seasons[currentSeason].finalsData[id];
+        document.getElementById(`${id}-home-score`).textContent = g && g.homeScore ? g.homeScore : '0';
+        document.getElementById(`${id}-away-score`).textContent = g && g.awayScore ? g.awayScore : '0';
       });
       renderRound(0);
       calculateLadder();
@@ -7446,6 +7444,7 @@ document.getElementById('afl-btn-reset').addEventListener('click', function() {
       if (!/[0-9]/.test(e.key)) e.preventDefault();
     });
     el.addEventListener('input', function() {
+      if (!aflSeasons[currentSeason]) return;
       aflSeasons[currentSeason].finalsData[id].homeScore = parseInt(homeScore.textContent) || 0;
       aflSeasons[currentSeason].finalsData[id].awayScore = parseInt(awayScore.textContent) || 0;
       populateAFLFinals();
@@ -7700,12 +7699,12 @@ document.querySelectorAll('.records-sub-btn').forEach(btn => {
       if (tab === 'ladder') renderAFLRecordsLadder(activeSeason);
       if (tab === 'progression') renderAFLProgression(activeSeason);
       if (tab === 'results') renderAFLRecordsResults(activeSeason);
-      if (tab === 'finals') renderAFLRecordsFinals(activeSeason);
+      if (tab === 'finals') renderAFLRecordsFinalsDetail(activeSeason);
     } else {
       if (tab === 'ladder') renderRecordsLadder(activeSeason);
       if (tab === 'progression') renderProgression(activeSeason);
       if (tab === 'results') renderRecordsResults(activeSeason);
-      if (tab === 'finals') renderFinalsRecords(activeSeason);
+      if (tab === 'finals') renderRecordsFinalsDetail(activeSeason);
     }
   });
 });
@@ -9026,6 +9025,82 @@ function renderHeadToHead() {
   document.getElementById('h2h-team-a').addEventListener('change', updateH2H);
   document.getElementById('h2h-team-b').addEventListener('change', updateH2H);
   updateH2H();
+}
+
+function renderRecordsFinalsDetail(seasonKey) {
+  const fd = seasons[seasonKey].finalsData;
+  const config = seasons[seasonKey].teamConfig;
+  const games = ['qf1','qf2','ef1','ef2','sf1','sf2','pf1','pf2','gf'];
+  const labels = {
+    qf1:'1ST QF · 1 V 4', qf2:'2ND QF · 2 V 3',
+    ef1:'1ST EF · 5 V 8', ef2:'2ND EF · 6 V 7',
+    sf1:'1ST SF', sf2:'2ND SF',
+    pf1:'1ST PF', pf2:'2ND PF',
+    gf:'GRAND FINAL'
+  };
+  function teamRow(team, score) {
+    if (!team || !config[team]) return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;"><span style="color:#555;font-style:italic;">TBD</span><span style="min-width:32px;text-align:center;font-weight:700;font-size:14px;color:#666;">–</span></div>`;
+    const c = config[team];
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#1e1e2f;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <img src="${c.logo}" style="width:24px;height:24px;object-fit:contain;">
+        <span style="color:#fff;font-weight:700;font-size:13px;">${c.abbr}</span>
+      </div>
+      <span style="min-width:32px;text-align:center;font-weight:700;font-size:16px;color:#fff;">${score > 0 || score === 0 ? score : '–'}</span>
+    </div>`;
+  }
+  let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:8px;">';
+  games.forEach(id => {
+    const g = fd[id];
+    const winner = g.homeScore > g.awayScore ? g.home : g.awayScore > g.homeScore ? g.away : null;
+    html += `<div style="background:#1e1e2f;border-radius:8px;overflow:hidden;border:1px solid #2a2a3d;">
+      <div style="padding:4px 10px;font-size:10px;font-weight:700;color:${id==='gf'?'#f0c040':'#8888aa'};text-transform:uppercase;border-bottom:1px solid #2a2a3d;">${labels[id]}</div>
+      ${teamRow(g.home, g.homeScore)}
+      <div style="border-top:1px solid #2a2a3d;"></div>
+      ${teamRow(g.away, g.awayScore)}
+      ${winner ? `<div style="text-align:center;font-size:10px;font-weight:700;color:${id==='gf'?'#f0c040':'#4caf50'};padding:3px;background:rgba(76,175,80,0.05);">${id==='gf'?'🏆 ':''}W: ${config[winner]?.abbr||winner}</div>` : ''}
+    </div>`;
+  });
+  html += '</div>';
+  document.getElementById('records-content').innerHTML = html;
+}
+
+function renderAFLRecordsFinalsDetail(seasonKey) {
+  const fd = aflSeasons[seasonKey].finalsData;
+  const config = aflSeasons[seasonKey].teamConfig;
+  const games = ['qf1','qf2','ef1','ef2','sf1','sf2','pf1','pf2','gf'];
+  const labels = {
+    qf1:'1ST QF · 1 V 4', qf2:'2ND QF · 2 V 3',
+    ef1:'1ST EF · 5 V 8', ef2:'2ND EF · 6 V 7',
+    sf1:'1ST SF', sf2:'2ND SF',
+    pf1:'1ST PF', pf2:'2ND PF',
+    gf:'GRAND FINAL'
+  };
+  function teamRow(team, score) {
+    if (!team || !config[team]) return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;"><span style="color:#555;font-style:italic;">TBD</span><span style="min-width:32px;text-align:center;font-weight:700;font-size:14px;color:#666;">–</span></div>`;
+    const c = config[team];
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#1e1e2f;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <img src="${c.logo}" style="width:24px;height:24px;object-fit:contain;">
+        <span style="color:#fff;font-weight:700;font-size:13px;">${c.abbr}</span>
+      </div>
+      <span style="min-width:32px;text-align:center;font-weight:700;font-size:16px;color:#fff;">${score > 0 || score === 0 ? score : '–'}</span>
+    </div>`;
+  }
+  let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:8px;">';
+  games.forEach(id => {
+    const g = fd[id];
+    const winner = g.homeScore > g.awayScore ? g.home : g.awayScore > g.homeScore ? g.away : null;
+    html += `<div style="background:#1e1e2f;border-radius:8px;overflow:hidden;border:1px solid #2a2a3d;">
+      <div style="padding:4px 10px;font-size:10px;font-weight:700;color:${id==='gf'?'#f0c040':'#8888aa'};text-transform:uppercase;border-bottom:1px solid #2a2a3d;">${labels[id]}</div>
+      ${teamRow(g.home, g.homeScore)}
+      <div style="border-top:1px solid #2a2a3d;"></div>
+      ${teamRow(g.away, g.awayScore)}
+      ${winner ? `<div style="text-align:center;font-size:10px;font-weight:700;color:${id==='gf'?'#f0c040':'#4caf50'};padding:3px;background:rgba(76,175,80,0.05);">${id==='gf'?'🏆 ':''}W: ${config[winner]?.abbr||winner}</div>` : ''}
+    </div>`;
+  });
+  html += '</div>';
+  document.getElementById('records-content').innerHTML = html;
 }
 
 function renderFinalsRecords() {
