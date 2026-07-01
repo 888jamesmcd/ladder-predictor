@@ -8372,6 +8372,70 @@ function renderAFLStatRecords() {
     }).join('');
   }
 
+  // by team records
+  const teamRecords = {};
+  allGames.forEach(g => {
+    [
+      { team: g.home, scored: g.homeScore, conceded: g.awayScore, opp: g.away },
+      { team: g.away, scored: g.awayScore, conceded: g.homeScore, opp: g.home }
+    ].forEach(({ team, scored, conceded, opp }) => {
+      if (!teamRecords[team]) teamRecords[team] = {
+        biggestWin: null, biggestLoss: null, highScore: null, lowScore: null
+      };
+      const t = teamRecords[team];
+      const margin = scored - conceded;
+      if (margin > 0 && (!t.biggestWin || margin > t.biggestWin.margin))
+        t.biggestWin = { margin, scored, conceded, opp, year: g.year, round: g.round, seasonKey: g.seasonKey };
+      if (margin < 0 && (!t.biggestLoss || margin < t.biggestLoss.margin))
+        t.biggestLoss = { margin, scored, conceded, opp, year: g.year, round: g.round, seasonKey: g.seasonKey };
+      if (!t.highScore || scored > t.highScore.scored)
+        t.highScore = { scored, conceded, opp, year: g.year, round: g.round, seasonKey: g.seasonKey };
+      if (!t.lowScore || scored < t.lowScore.scored)
+        t.lowScore = { scored, conceded, opp, year: g.year, round: g.round, seasonKey: g.seasonKey };
+    });
+  });
+
+  const allTeams = [...new Set(allGames.flatMap(g => [g.home, g.away]))].sort();
+
+  let teamTableHTML = `<table style="border-collapse:collapse;width:100%;font-family:'DIN Next LT Pro',sans-serif;font-size:12px;">
+    <thead><tr>
+      <th style="text-align:left;padding:8px;color:#aaa;font-size:11px;">TEAM</th>
+      <th style="text-align:left;padding:8px;color:#aaa;font-size:11px;">BIGGEST WIN</th>
+      <th style="text-align:left;padding:8px;color:#aaa;font-size:11px;">BIGGEST LOSS</th>
+      <th style="text-align:left;padding:8px;color:#aaa;font-size:11px;">HIGH SCORE</th>
+      <th style="text-align:left;padding:8px;color:#aaa;font-size:11px;">LOW SCORE</th>
+    </tr></thead><tbody>`;
+
+  allTeams.forEach(team => {
+    const t = teamRecords[team];
+    const cfg = getLatestConfig(team);
+    if (!cfg || !t) return;
+
+    function statCell(data, scoreField, oppField) {
+      if (!data) return `<td style="padding:8px;color:#444;">—</td>`;
+      const oppCfg = getLatestConfig(data.opp);
+      return `<td style="padding:8px;">
+        <div style="color:#fff;font-weight:700;">${data[scoreField]}–${data[oppField]}</div>
+        <div style="color:#aaa;font-size:10px;">vs ${oppCfg ? oppCfg.abbr : data.opp}</div>
+        <div style="color:#555;font-size:10px;">${data.year} · ${data.round}</div>
+      </td>`;
+    }
+
+    teamTableHTML += `<tr style="border-top:1px solid #2a2a3d;">
+      <td style="padding:8px;">
+        <div style="display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border-radius:4px;background:#333;">
+          <img src="${cfg.logo}" style="width:16px;height:16px;object-fit:contain;">
+          <span style="color:#fff;font-weight:700;font-size:11px;">${cfg.abbr}</span>
+        </div>
+      </td>
+      ${statCell(t.biggestWin, 'scored', 'conceded')}
+      ${statCell(t.biggestLoss, 'scored', 'conceded')}
+      ${statCell(t.highScore, 'scored', 'conceded')}
+      ${statCell(t.lowScore, 'scored', 'conceded')}
+    </tr>`;
+  });
+  teamTableHTML += `</tbody></table>`;
+
   const draws = allGames.filter(g => g.homeScore === g.awayScore);
   const drawsHTML = draws.length === 0 ? '<p style="color:#aaa;font-size:12px;">No draws recorded.</p>' :
     draws.map(g => `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid #2a2a3d;">
@@ -8396,6 +8460,7 @@ function renderAFLStatRecords() {
     section('Lowest Scoring Games', scoringGameHTML(sortedByTotalAsc, 5)) +
     section('Biggest Winning Streak', streakHTML(winStreaks)) +
     section('Biggest Losing Streak', streakHTML(loseStreaks)) +
+    section('By Team Records', teamTableHTML) +
     section(`All Draws (${draws.length})`, drawsHTML);
 }
 
