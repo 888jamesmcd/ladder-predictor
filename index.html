@@ -6828,6 +6828,15 @@ function renderRound(roundIndex) {
       input.addEventListener('keypress', function(e) {
         if (!/[0-9]/.test(e.key)) e.preventDefault();
       });
+      input.addEventListener('focus', function() {
+        const allTables = container.querySelectorAll('.data-table');
+        allTables.forEach(t => {
+          t.classList.remove('game-selected');
+          t.classList.add('game-dimmed');
+        });
+        table.classList.remove('game-dimmed');
+        table.classList.add('game-selected');
+      });
       input.addEventListener('input', function() {
         const homeScore = parseInt(inputs[0].textContent) || 0;
         const awayScore = parseInt(inputs[1].textContent) || 0;
