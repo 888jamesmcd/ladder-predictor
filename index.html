@@ -2114,7 +2114,7 @@ const seasons = {
     [
       { home: 'Bulldogs',      away: 'Sea Eagles'   },
       { home: 'Titans',        away: 'Broncos'      },
-      { home: 'Eels',          away: 'Sharks'       },
+      { home: 'Eels',          away: 'Titans'       },
       { home: 'Cowboys',       away: 'Panthers'     },
       { home: 'Dragons',       away: 'Knights'      },
       { home: 'Warriors',      away: 'Rabbitohs'    },
@@ -9657,6 +9657,7 @@ function renderProgression(seasonKey) {
         let bg = 'transparent';
         let color = '#ffffff';
         if (pos === 1) { bg = '#b8860b'; color = '#ffffff'; }
+        else if (pos <= 8) { bg = '#1a3a1a'; color = '#4CAF50'; }
         else if (pos === numTeams) { bg = '#8B3A00'; color = '#ffffff'; }
         tableHTML += `<td style="text-align:center;padding:4px 6px;background:${bg};color:${color};border-radius:3px;">${pos}</td>`;
       }
