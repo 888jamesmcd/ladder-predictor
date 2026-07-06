@@ -2114,7 +2114,7 @@ const seasons = {
     [
       { home: 'Bulldogs',      away: 'Sea Eagles'   },
       { home: 'Titans',        away: 'Broncos'      },
-      { home: 'Eels',          away: 'Sharks'       },
+      { home: 'Eels',          away: 'Titans'       },
       { home: 'Cowboys',       away: 'Panthers'     },
       { home: 'Dragons',       away: 'Knights'      },
       { home: 'Warriors',      away: 'Rabbitohs'    },
@@ -8201,7 +8201,7 @@ function renderAFLGeneral() {
 
   let tableHTML = `
     <div style="margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
-      <div style="font-family:'DIN Next LT Pro',sans-serif;font-size:12px;color:#fff;"><strong>GF Winner (bold)</strong></div>
+      <div style="font-family:'DIN Next LT Pro',sans-serif;font-size:12px;color:#fff;"><u>GF Winner (underlined)</u></div>
       <div style="font-family:'DIN Next LT Pro',sans-serif;font-size:12px;color:#aaa;"><em>GF Finalist (italic)</em></div>
       <div style="font-family:'DIN Next LT Pro',sans-serif;font-size:12px;background:#1a3a1a;color:#4CAF50;padding:2px 8px;border-radius:4px;">Top 8</div>
       <div style="font-family:'DIN Next LT Pro',sans-serif;font-size:12px;background:#8B3A00;color:#fff;padding:2px 8px;border-radius:4px;">Last</div>
@@ -8232,12 +8232,16 @@ function renderAFLGeneral() {
       const ladder = getAFLSeasonLadder(seasonKey);
       const pos = ladder.findIndex(t => t.team === team) + 1;
       const numTeams = season.teams.length;
-      let bg = 'transparent', color = '#ffffff', fontWeight = '400', fontStyle = 'normal';
-      if (pos === 1) { fontWeight = '700'; }
-      else if (pos === 2) { fontStyle = 'italic'; color = '#aaaaaa'; }
+      const fd = season.finalsData;
+      const gfWinner = fd && fd.gf && fd.gf.homeScore > fd.gf.awayScore ? fd.gf.home : fd && fd.gf && fd.gf.awayScore > fd.gf.homeScore ? fd.gf.away : null;
+      const gfLoser = gfWinner ? (gfWinner === fd.gf.home ? fd.gf.away : fd.gf.home) : null;
+      let bg = 'transparent', color = '#ffffff', fontWeight = '400', fontStyle = 'normal', textDecoration = 'none';
+      if (pos === 1) { bg = '#b8860b'; color = '#ffffff'; }
       else if (pos <= 8) { bg = '#1a3a1a'; color = '#4CAF50'; }
       else if (pos === numTeams) { bg = '#8B3A00'; color = '#ffffff'; }
-      tableHTML += `<td style="text-align:center;padding:6px 8px;background:${bg};color:${color};font-weight:${fontWeight};font-style:${fontStyle};">${pos}</td>`;
+      if (team === gfWinner) { textDecoration = 'underline'; }
+      if (team === gfLoser) { fontStyle = 'italic'; }
+      tableHTML += `<td style="text-align:center;padding:6px 8px;background:${bg};color:${color};font-weight:${fontWeight};font-style:${fontStyle};text-decoration:${textDecoration};">${pos}</td>`;
     });
     tableHTML += `</tr>`;
   });
@@ -9343,7 +9347,7 @@ function renderGeneral() {
 
   let tableHTML = `
     <div style="margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
-      <div style="font-family:'DIN Next LT Pro',sans-serif;font-size:12px;color:#fff;"><strong>GF Winner (bold)</strong></div>
+      <div style="font-family:'DIN Next LT Pro',sans-serif;font-size:12px;color:#fff;"><u>GF Winner (underlined)</u></div>
       <div style="font-family:'DIN Next LT Pro',sans-serif;font-size:12px;color:#aaa;"><em>GF Finalist (italic)</em></div>
       <div style="font-family:'DIN Next LT Pro',sans-serif;font-size:12px;background:#1a3a1a;color:#4CAF50;padding:2px 8px;border-radius:4px;">Top 8</div>
       <div style="font-family:'DIN Next LT Pro',sans-serif;font-size:12px;background:#8B3A00;color:#fff;padding:2px 8px;border-radius:4px;">Last</div>
@@ -9377,15 +9381,20 @@ function renderGeneral() {
       const pos = ladder.findIndex(t => t.team === team) + 1;
       const numTeams = season.teams.length;
       const lastPlace = numTeams;
+      const fd = season.finalsData;
+      const gfWinner = fd && fd.gf && fd.gf.homeScore > fd.gf.awayScore ? fd.gf.home : fd && fd.gf && fd.gf.awayScore > fd.gf.homeScore ? fd.gf.away : null;
+      const gfLoser = gfWinner ? (gfWinner === fd.gf.home ? fd.gf.away : fd.gf.home) : null;
       let bg = 'transparent';
       let color = '#ffffff';
       let fontWeight = '400';
       let fontStyle = 'normal';
-      if (pos === 1) { fontWeight = '700'; color = '#ffffff'; }
-      else if (pos === 2) { fontStyle = 'italic'; color = '#aaaaaa'; }
+      let textDecoration = 'none';
+      if (pos === 1) { bg = '#b8860b'; color = '#ffffff'; }
       else if (pos <= 8) { bg = '#1a3a1a'; color = '#4CAF50'; }
       else if (pos === lastPlace) { bg = '#8B3A00'; color = '#ffffff'; }
-      tableHTML += `<td style="text-align:center;padding:6px 8px;background:${bg};color:${color};font-weight:${fontWeight};font-style:${fontStyle};">${pos}</td>`;
+      if (team === gfWinner) { textDecoration = 'underline'; }
+      if (team === gfLoser) { fontStyle = 'italic'; }
+      tableHTML += `<td style="text-align:center;padding:6px 8px;background:${bg};color:${color};font-weight:${fontWeight};font-style:${fontStyle};text-decoration:${textDecoration};">${pos}</td>`;
     });
 
     tableHTML += `</tr>`;
