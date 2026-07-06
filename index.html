@@ -7351,14 +7351,38 @@ function populateAFLRecordsSidebar() {
 }
 
 function renderRecordsLadder(seasonKey) {
-  const savedSeason = currentSeason;
-  currentSeason = seasonKey;
-  calculateLadder();
-  currentSeason = savedSeason;
-  if (!currentSeason.startsWith('afl')) calculateLadder();
-
-  // Copy the ladder HTML into records
-  const ladderHTML = document.getElementById('ladder-rows').innerHTML;
+  const ladder = getSeasonLadder(seasonKey);
+  const season = seasons[seasonKey];
+  let rowsHTML = '';
+  ladder.forEach((t, index) => {
+    const pos = index + 1;
+    const pd = t.f - t.a;
+    const pdStr = pd > 0 ? `+${pd}` : `${pd}`;
+    const pdClass = pd > 0 ? 'positive' : pd < 0 ? 'negative' : '';
+    let posClass = '';
+    if (pos <= 4) posClass = 'top4';
+    else if (pos <= 8) posClass = 'top8';
+    const config = season.teamConfig[t.team];
+    const borderStyle = pos === 8 ? 'border-bottom:2px solid #ffffff;' : '';
+    rowsHTML += `
+      <div class="ladder-row" style="${borderStyle}">
+        <div class="ladder-pos ${posClass}">${pos}</div>
+        <div class="ladder-team">
+          <img src="${config.logo}" alt="${t.team}">
+          <span class="ladder-team-name">${t.team}</span>
+        </div>
+        <div class="ladder-cell">${t.p}</div>
+        <div class="ladder-cell">${t.w}</div>
+        <div class="ladder-cell">${t.l}</div>
+        <div class="ladder-cell">${t.d}</div>
+        <div class="ladder-cell">${t.b}</div>
+        <div class="ladder-cell">${t.f}</div>
+        <div class="ladder-cell">${t.a}</div>
+        <div class="ladder-cell ladder-pd ${pdClass}">${pdStr}</div>
+        <div class="ladder-cell">-</div>
+        <div class="ladder-pts">${t.pts}</div>
+      </div>`;
+  });
   document.getElementById('records-content').innerHTML = `
     <div class="ladder-container">
       <div class="ladder-header">
@@ -7375,10 +7399,8 @@ function renderRecordsLadder(seasonKey) {
         <div class="ladder-cell-header">STREAK</div>
         <div class="ladder-cell-header">PTS</div>
       </div>
-      <div id="records-ladder-rows">${ladderHTML}</div>
+      <div id="records-ladder-rows">${rowsHTML}</div>
     </div>`;
-
-  // restore current season ladder
 }
 document.querySelectorAll('.year-btn').forEach(btn => {
   btn.addEventListener('click', function() {
