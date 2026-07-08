@@ -220,6 +220,117 @@
   width: 16%;
 }
 
+
+/* Season Preview Section */
+.preview-section {
+  margin-top: 12px;
+  border-top: 1px solid #2a2a4a;
+  padding-top: 12px;
+}
+.preview-toggle {
+  width: 100%;
+  background: #16213E;
+  border: 1px solid #2a2a4a;
+  border-radius: 6px;
+  padding: 10px 14px;
+  color: #ffffff;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  letter-spacing: 0.5px;
+}
+.preview-toggle:hover {
+  background: #1e2a4d;
+}
+.preview-toggle-arrow {
+  transition: transform 0.2s;
+  font-size: 10px;
+}
+.preview-toggle.open .preview-toggle-arrow {
+  transform: rotate(180deg);
+}
+.preview-body {
+  margin-top: 10px;
+  padding: 8px;
+}
+.preview-instructions {
+  color: #8888aa;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  text-align: center;
+}
+.preview-header {
+  display: grid;
+  gap: 8px;
+  padding: 6px 10px;
+  color: #8888aa;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  border-bottom: 1px solid #2a2a4a;
+  margin-bottom: 4px;
+}
+.preview-row {
+  display: grid;
+  gap: 8px;
+  padding: 6px 10px;
+  align-items: center;
+  border-radius: 4px;
+  margin-bottom: 2px;
+  background: #1e2a4d;
+  cursor: grab;
+  transition: background 0.2s;
+}
+.preview-row:hover {
+  background: #253358;
+}
+.preview-row.dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+.preview-row.drag-over {
+  background: #3a4a80;
+}
+.preview-pos {
+  color: #f0c040;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  text-align: center;
+}
+.preview-logo {
+  height: 24px;
+  width: 24px;
+  object-fit: contain;
+}
+.preview-abbr {
+  color: #ffffff;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+}
+.preview-prev {
+  color: #ccccdd;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-size: 13px;
+  text-align: center;
+}
+.preview-drag-handle {
+  color: #555;
+  font-size: 16px;
+  text-align: center;
+  cursor: grab;
+}
+
 /* Hide number input arrows globally */
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button {
@@ -1527,6 +1638,17 @@ transform-origin: left center;
         </div>
         <div id="ladder-rows"></div>
       </div>
+      <div class="preview-section" id="nrl-preview-section">
+        <button class="preview-toggle" id="nrl-preview-toggle">
+          <span class="preview-toggle-label">Season Preview</span>
+          <span class="preview-toggle-arrow">▼</span>
+        </button>
+        <div class="preview-body" id="nrl-preview-body" style="display:none;">
+          <div class="preview-instructions">Drag teams to predict your ranking</div>
+          <div class="preview-header" id="nrl-preview-header"></div>
+          <div class="preview-list" id="nrl-preview-list"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1713,6 +1835,17 @@ transform-origin: left center;
           <div>PTS</div>
         </div>
         <div id="afl-ladder-rows"></div>
+      </div>
+      <div class="preview-section" id="afl-preview-section">
+        <button class="preview-toggle" id="afl-preview-toggle">
+          <span class="preview-toggle-label">Season Preview</span>
+          <span class="preview-toggle-arrow">▼</span>
+        </button>
+        <div class="preview-body" id="afl-preview-body" style="display:none;">
+          <div class="preview-instructions">Drag teams to predict your ranking</div>
+          <div class="preview-header" id="afl-preview-header"></div>
+          <div class="preview-list" id="afl-preview-list"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -7420,6 +7553,7 @@ document.querySelectorAll('.year-btn').forEach(btn => {
       renderAFLRound(0);
       calculateAFLLadder();
       populateAFLFinals();
+      renderAFLPreview();
     } else {
       document.getElementById('panel-title').textContent = `NRL ${year}`;
       document.querySelector('.ladder-title').textContent = `NRL ${year} Ladder`;
@@ -7433,6 +7567,7 @@ document.querySelectorAll('.year-btn').forEach(btn => {
       renderRound(0);
       calculateLadder();
       populateFinals();
+      renderNRLPreview();
     }
   });
 });
@@ -7608,10 +7743,181 @@ function lsLoad() {
   } catch(e) { console.warn('early lsLoad failed', e); }
 })();
 
+
+// ================ SEASON PREVIEW ================
+// Historical ladder positions for years before 2012 (pre-predictor)
+const HISTORICAL_LADDERS = {
+  nrl2010: {
+    'Dragons': 1, 'Panthers': 2, 'Wests Tigers': 3, 'Titans': 4,
+    'Warriors': 5, 'Roosters': 6, 'Raiders': 7, 'Sea Eagles': 8,
+    'Rabbitohs': 9, 'Broncos': 10, 'Knights': 11, 'Eels': 12,
+    'Bulldogs': 13, 'Sharks': 14, 'Cowboys': 15, 'Storm': 16
+  },
+  nrl2011: {
+    'Storm': 1, 'Sea Eagles': 2, 'Broncos': 3, 'Wests Tigers': 4,
+    'Dragons': 5, 'Warriors': 6, 'Cowboys': 7, 'Knights': 8,
+    'Bulldogs': 9, 'Rabbitohs': 10, 'Roosters': 11, 'Panthers': 12,
+    'Sharks': 13, 'Eels': 14, 'Raiders': 15, 'Titans': 16
+  },
+  afl2010: {
+    'Collingwood': 1, 'Geelong Cats': 2, 'St Kilda': 3, 'Western Bulldogs': 4,
+    'Sydney': 5, 'Fremantle': 6, 'Hawthorn': 7, 'Carlton': 8,
+    'North Melbourne': 9, 'Port Adelaide': 10, 'Adelaide': 11, 'Melbourne': 12,
+    'Brisbane Lions': 13, 'Essendon': 14, 'Richmond': 15, 'West Coast Eagles': 16
+  },
+  afl2011: {
+    'Collingwood': 1, 'Geelong Cats': 2, 'Hawthorn': 3, 'West Coast Eagles': 4,
+    'Carlton': 5, 'St Kilda': 6, 'Sydney': 7, 'Essendon': 8,
+    'North Melbourne': 9, 'Western Bulldogs': 10, 'Fremantle': 11, 'Richmond': 12,
+    'Melbourne': 13, 'Adelaide': 14, 'Brisbane Lions': 15, 'Port Adelaide': 16
+  }
+};
+
+function getFinishPosForSeason(sport, seasonKey, team) {
+  // Check historical ladders first
+  if (HISTORICAL_LADDERS[seasonKey]) {
+    return HISTORICAL_LADDERS[seasonKey][team] || null;
+  }
+  const data = sport === 'nrl' ? seasons : aflSeasons;
+  if (!data[seasonKey]) return null;
+  const s = data[seasonKey];
+  if (!s.teams.includes(team)) return null;
+  const hasResults = s.scores && Object.keys(s.scores).length > 0;
+  if (!hasResults) return null;
+  const ladder = sport === 'nrl' ? getSeasonLadder(seasonKey) : getAFLSeasonLadder(seasonKey);
+  const idx = ladder.findIndex(l => l.team === team);
+  return idx >= 0 ? idx + 1 : null;
+}
+function ordinalSuffix(n) {
+  const s = ['th','st','nd','rd'], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+function renderPreview(sport) {
+  const listEl = document.getElementById(sport + '-preview-list');
+  const headerEl = document.getElementById(sport + '-preview-header');
+  if (!listEl || !headerEl) return;
+  const seasonKey = currentSeason;
+  const data = sport === 'nrl' ? seasons : aflSeasons;
+  if (!data[seasonKey]) return;
+  const currentYear = parseInt(seasonKey.replace(sport, ''));
+  const prev1Year = currentYear - 1;
+  const prev2Year = currentYear - 2;
+  const prev1Key = sport + prev1Year;
+  const prev2Key = sport + prev2Year;
+  const teams = data[seasonKey].teams.slice();
+  const cfg = data[seasonKey].teamConfig;
+
+  const cols = '32px 32px 60px 1fr 60px 60px 24px';
+  headerEl.style.gridTemplateColumns = cols;
+  headerEl.innerHTML = `
+    <div style="text-align:center;">#</div>
+    <div></div>
+    <div>TEAM</div>
+    <div></div>
+    <div style="text-align:center;">${prev2Year}</div>
+    <div style="text-align:center;">${prev1Year}</div>
+    <div></div>
+  `;
+
+  // Load saved order if exists
+  const savedOrder = JSON.parse(localStorage.getItem('lp_' + sport + '_preview_' + seasonKey) || 'null');
+  let orderedTeams;
+  if (savedOrder && savedOrder.length === teams.length && savedOrder.every(t => teams.includes(t))) {
+    orderedTeams = savedOrder;
+  } else {
+    orderedTeams = teams.slice();
+  }
+
+  listEl.innerHTML = '';
+  orderedTeams.forEach((team, idx) => {
+    const c = cfg[team];
+    if (!c) return;
+    const prev1Pos = getFinishPosForSeason(sport, prev1Key, team);
+    const prev2Pos = getFinishPosForSeason(sport, prev2Key, team);
+    const row = document.createElement('div');
+    row.className = 'preview-row';
+    row.style.gridTemplateColumns = cols;
+    row.draggable = true;
+    row.dataset.team = team;
+    row.innerHTML = `
+      <div class="preview-pos">${idx + 1}</div>
+      <img class="preview-logo" src="${c.logo}">
+      <div class="preview-abbr">${c.abbr}</div>
+      <div></div>
+      <div class="preview-prev">${prev2Pos ? ordinalSuffix(prev2Pos) : '—'}</div>
+      <div class="preview-prev">${prev1Pos ? ordinalSuffix(prev1Pos) : '—'}</div>
+      <div class="preview-drag-handle">≡</div>
+    `;
+    listEl.appendChild(row);
+  });
+
+  attachDragHandlers(sport);
+}
+function attachDragHandlers(sport) {
+  const listEl = document.getElementById(sport + '-preview-list');
+  let draggedEl = null;
+  listEl.querySelectorAll('.preview-row').forEach(row => {
+    row.addEventListener('dragstart', function(e) {
+      draggedEl = this;
+      this.classList.add('dragging');
+    });
+    row.addEventListener('dragend', function() {
+      this.classList.remove('dragging');
+      listEl.querySelectorAll('.preview-row').forEach(r => r.classList.remove('drag-over'));
+      // save order
+      const order = [...listEl.querySelectorAll('.preview-row')].map(r => r.dataset.team);
+      localStorage.setItem('lp_' + sport + '_preview_' + currentSeason, JSON.stringify(order));
+      // update position numbers
+      listEl.querySelectorAll('.preview-row').forEach((r, i) => {
+        r.querySelector('.preview-pos').textContent = i + 1;
+      });
+    });
+    row.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      if (this === draggedEl) return;
+      this.classList.add('drag-over');
+    });
+    row.addEventListener('dragleave', function() {
+      this.classList.remove('drag-over');
+    });
+    row.addEventListener('drop', function(e) {
+      e.preventDefault();
+      if (this === draggedEl) return;
+      const rows = [...listEl.querySelectorAll('.preview-row')];
+      const draggedIdx = rows.indexOf(draggedEl);
+      const targetIdx = rows.indexOf(this);
+      if (draggedIdx < targetIdx) {
+        this.after(draggedEl);
+      } else {
+        this.before(draggedEl);
+      }
+      this.classList.remove('drag-over');
+    });
+  });
+}
+function renderNRLPreview() { renderPreview('nrl'); }
+function renderAFLPreview() { renderPreview('afl'); }
+
+// Toggle preview open/close
+document.addEventListener('DOMContentLoaded', function() {
+  ['nrl', 'afl'].forEach(sport => {
+    const btn = document.getElementById(sport + '-preview-toggle');
+    const body = document.getElementById(sport + '-preview-body');
+    if (btn && body) {
+      btn.addEventListener('click', function() {
+        const isOpen = body.style.display !== 'none';
+        body.style.display = isOpen ? 'none' : 'block';
+        btn.classList.toggle('open', !isOpen);
+      });
+    }
+  });
+});
+
 renderRoundNav('nrl-round-nav', seasons[currentSeason].rounds.length);
 renderRound(0);
 calculateLadder();
 populateFinals();
+renderNRLPreview();
 
 document.getElementById('games-container').addEventListener('click', function(e) {
   if (!e.target.closest('.data-table')) {
@@ -7683,6 +7989,7 @@ document.querySelectorAll('.sport-btn').forEach(btn => {
       renderRoundNav('afl-round-nav', aflSeasons[currentSeason].rounds.length);
       renderAFLRound(0);
       calculateAFLLadder();
+      renderAFLPreview();
     }
   });
 });
