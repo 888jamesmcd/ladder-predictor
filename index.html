@@ -7,6 +7,7 @@
   <button class="sport-btn" data-sport="afl">AFL</button>
   <button class="sport-btn" data-sport="mens-wc">Men's WC</button>
   <button class="sport-btn" data-sport="records">Records</button>
+  <button id="lp-signout-btn" class="sport-btn" style="margin-left:auto;display:none;">Sign Out</button>
 </div>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1417,6 +1418,15 @@ transform-origin: left center;
   </style>
 </head>
 <body>
+  <div id="lp-login-overlay" style="position:fixed;inset:0;background:#1A192E;color:#fff;display:flex;align-items:center;justify-content:center;z-index:9999;font-family:sans-serif;">
+    <div style="width:320px;max-width:90vw;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:24px;text-align:center;">
+      <div style="font-weight:700;font-size:18px;margin-bottom:16px;">Ladder Predictor</div>
+      <input id="lp-login-email" type="email" placeholder="you@email.com" autocomplete="email" style="width:100%;padding:10px;border-radius:4px;border:none;margin-bottom:12px;font-size:14px;box-sizing:border-box;">
+      <button id="lp-login-btn" style="width:100%;padding:10px;border-radius:4px;border:none;cursor:pointer;font-weight:700;background:#6366f1;color:#fff;font-size:14px;">Send login link</button>
+      <div id="lp-login-status" style="margin-top:12px;font-size:12px;color:#aaa;min-height:16px;"></div>
+    </div>
+  </div>
+  <div id="app-root" style="display:none;">
   <div class="year-nav" id="nrl-year-nav">
     <button class="year-btn active" data-season="nrl2012">2012</button>
     <button class="year-btn" data-season="nrl2013">2013</button>
@@ -1881,7 +1891,110 @@ transform-origin: left center;
       </div>
     </div>
   </div>
+  </div><!-- /app-root -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
+(async function() {
+
+// ============================================================
+// SUPABASE CLOUD STORAGE (replaces localStorage)
+// ============================================================
+const SUPABASE_URL = 'https://pkylungddcizffdtnmhd.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_jw0reggu8JnnZaI1BtRe9g_vqGjh7u1';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const cloudCache = {};
+const cloudSaveTimers = {};
+let currentUserId = null;
+
+const cloudStorage = {
+  getItem(key) {
+    return Object.prototype.hasOwnProperty.call(cloudCache, key) ? cloudCache[key] : null;
+  },
+  setItem(key, value) {
+    cloudCache[key] = value;
+    clearTimeout(cloudSaveTimers[key]);
+    cloudSaveTimers[key] = setTimeout(() => persistKey(key, value), 500);
+  }
+};
+
+async function persistKey(key, value) {
+  if (!currentUserId) return;
+  let parsed;
+  try { parsed = JSON.parse(value); } catch (e) { return; }
+  const { error } = await supabaseClient.from('predictor_state').upsert({
+    user_id: currentUserId,
+    key,
+    value: parsed,
+    updated_at: new Date().toISOString()
+  });
+  if (error) console.warn('cloud save failed for', key, error);
+}
+
+async function loadAllCloudState(userId) {
+  const { data, error } = await supabaseClient.from('predictor_state').select('key,value').eq('user_id', userId);
+  if (error) { console.warn('cloud load failed', error); return; }
+  data.forEach(row => { cloudCache[row.key] = JSON.stringify(row.value); });
+}
+
+function waitForSession() {
+  return new Promise(resolve => {
+    supabaseClient.auth.getSession().then(({ data }) => {
+      if (data.session) { resolve(data.session); return; }
+      const { data: sub } = supabaseClient.auth.onAuthStateChange((event, session) => {
+        if (session) { sub.subscription.unsubscribe(); resolve(session); }
+      });
+    });
+  });
+}
+
+const lpLoginOverlay = document.getElementById('lp-login-overlay');
+const lpAppRoot = document.getElementById('app-root');
+const lpEmailInput = document.getElementById('lp-login-email');
+const lpLoginBtn = document.getElementById('lp-login-btn');
+const lpLoginStatus = document.getElementById('lp-login-status');
+const lpSignOutBtn = document.getElementById('lp-signout-btn');
+
+lpLoginBtn.addEventListener('click', async () => {
+  const email = lpEmailInput.value.trim();
+  if (!email) return;
+  lpLoginBtn.disabled = true;
+  lpLoginStatus.textContent = 'Sending link...';
+  const { error } = await supabaseClient.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: window.location.origin + window.location.pathname }
+  });
+  lpLoginBtn.disabled = false;
+  lpLoginStatus.textContent = error ? ('Error: ' + error.message) : 'Check your email for a login link.';
+});
+
+lpSignOutBtn.addEventListener('click', async () => {
+  await supabaseClient.auth.signOut();
+  window.location.reload();
+});
+
+const lpSession = await waitForSession();
+currentUserId = lpSession.user.id;
+await loadAllCloudState(currentUserId);
+lpLoginOverlay.style.display = 'none';
+lpAppRoot.style.display = '';
+lpSignOutBtn.style.display = '';
+
+// ============================================================
+// FUNCTIONS REFERENCED BY INLINE HTML EVENT HANDLERS
+// (must be attached to window since they're no longer global now
+// that the app script runs inside an async wrapper)
+// ============================================================
+window.wcBuildCustomDraw = (...args) => wcBuildCustomDraw(...args);
+window.wcCustomToggleTeam = (...args) => wcCustomToggleTeam(...args);
+window.wcGroupScoreChange = (...args) => wcGroupScoreChange(...args);
+window.wcReset = (...args) => wcReset(...args);
+window.wcScoreChange = (...args) => wcScoreChange(...args);
+window.wcSetCustom = (...args) => wcSetCustom(...args);
+window.wcSetCustomFormat = (...args) => wcSetCustomFormat(...args);
+window.wcSetView = (...args) => wcSetView(...args);
+window.wcSetYear = (...args) => wcSetYear(...args);
+
 const seasons = {
   nrl2012: {
   teams: [
@@ -7676,10 +7789,10 @@ function lsSaveNRL() {
   try {
     const nrlScores = {};
     Object.keys(seasons).forEach(k => { nrlScores[k] = seasons[k].scores; });
-    localStorage.setItem('lp_nrl_scores', JSON.stringify(nrlScores));
+    cloudStorage.setItem('lp_nrl_scores', JSON.stringify(nrlScores));
     const nrlFinals = {};
     Object.keys(seasons).forEach(k => { nrlFinals[k] = seasons[k].finalsData; });
-    localStorage.setItem('lp_nrl_finals', JSON.stringify(nrlFinals));
+    cloudStorage.setItem('lp_nrl_finals', JSON.stringify(nrlFinals));
   } catch(e) { console.warn('lsSaveNRL failed', e); }
 }
 
@@ -7687,10 +7800,10 @@ function lsSaveAFL() {
   try {
     const aflScores = {};
     Object.keys(aflSeasons).forEach(k => { aflScores[k] = aflSeasons[k].scores; });
-    localStorage.setItem('lp_afl_scores', JSON.stringify(aflScores));
+    cloudStorage.setItem('lp_afl_scores', JSON.stringify(aflScores));
     const aflFinals = {};
     Object.keys(aflSeasons).forEach(k => { aflFinals[k] = aflSeasons[k].finalsData; });
-    localStorage.setItem('lp_afl_finals', JSON.stringify(aflFinals));
+    cloudStorage.setItem('lp_afl_finals', JSON.stringify(aflFinals));
   } catch(e) { console.warn('lsSaveAFL failed', e); }
 }
 
@@ -7699,46 +7812,46 @@ function lsSave() {
   lsSaveAFL();
   if (typeof wcMens === 'undefined') return;
   try {
-    localStorage.setItem('lp_wc_group', JSON.stringify(wcMens.groupScores));
-    localStorage.setItem('lp_wc_knockout', JSON.stringify(wcMens.knockoutScores));
-    localStorage.setItem('lp_wc_custom_group', JSON.stringify(wcMens.customGroupScores));
-    localStorage.setItem('lp_wc_custom_knockout', JSON.stringify(wcMens.customKnockoutScores));
-    localStorage.setItem('lp_wc_custom_groups', JSON.stringify(wcMens.customGroups));
-    localStorage.setItem('lp_wc_custom_teams', JSON.stringify(wcMens.customTeams));
-    localStorage.setItem('lp_wc_custom_format', JSON.stringify(wcMens.customFormat));
+    cloudStorage.setItem('lp_wc_group', JSON.stringify(wcMens.groupScores));
+    cloudStorage.setItem('lp_wc_knockout', JSON.stringify(wcMens.knockoutScores));
+    cloudStorage.setItem('lp_wc_custom_group', JSON.stringify(wcMens.customGroupScores));
+    cloudStorage.setItem('lp_wc_custom_knockout', JSON.stringify(wcMens.customKnockoutScores));
+    cloudStorage.setItem('lp_wc_custom_groups', JSON.stringify(wcMens.customGroups));
+    cloudStorage.setItem('lp_wc_custom_teams', JSON.stringify(wcMens.customTeams));
+    cloudStorage.setItem('lp_wc_custom_format', JSON.stringify(wcMens.customFormat));
   } catch(e) { console.warn('lsSave WC failed', e); }
 }
 
 function lsLoad() {
   try {
-    const nrlScores = JSON.parse(localStorage.getItem('lp_nrl_scores') || '{}');
+    const nrlScores = JSON.parse(cloudStorage.getItem('lp_nrl_scores') || '{}');
     Object.keys(nrlScores).forEach(k => { if (seasons[k]) seasons[k].scores = nrlScores[k]; });
 
-    const aflScores = JSON.parse(localStorage.getItem('lp_afl_scores') || '{}');
+    const aflScores = JSON.parse(cloudStorage.getItem('lp_afl_scores') || '{}');
     Object.keys(aflScores).forEach(k => { if (typeof aflSeasons !== 'undefined' && aflSeasons[k]) aflSeasons[k].scores = aflScores[k]; });
 
-    const aflFinals = JSON.parse(localStorage.getItem('lp_afl_finals') || '{}');
+    const aflFinals = JSON.parse(cloudStorage.getItem('lp_afl_finals') || '{}');
     Object.keys(aflFinals).forEach(k => { if (typeof aflSeasons !== 'undefined' && aflSeasons[k]) aflSeasons[k].finalsData = aflFinals[k]; });
 
-    const nrlFinals = JSON.parse(localStorage.getItem('lp_nrl_finals') || '{}');
+    const nrlFinals = JSON.parse(cloudStorage.getItem('lp_nrl_finals') || '{}');
     Object.keys(nrlFinals).forEach(k => { if (seasons[k]) seasons[k].finalsData = nrlFinals[k]; });
 
-    wcMens.groupScores = JSON.parse(localStorage.getItem('lp_wc_group') || '{}');
-    wcMens.knockoutScores = JSON.parse(localStorage.getItem('lp_wc_knockout') || '{}');
-    wcMens.customGroupScores = JSON.parse(localStorage.getItem('lp_wc_custom_group') || '{}');
-    wcMens.customKnockoutScores = JSON.parse(localStorage.getItem('lp_wc_custom_knockout') || '{}');
-    wcMens.customGroups = JSON.parse(localStorage.getItem('lp_wc_custom_groups') || 'null');
-    wcMens.customTeams = JSON.parse(localStorage.getItem('lp_wc_custom_teams') || '[]');
-    wcMens.customFormat = JSON.parse(localStorage.getItem('lp_wc_custom_format') || '32');
+    wcMens.groupScores = JSON.parse(cloudStorage.getItem('lp_wc_group') || '{}');
+    wcMens.knockoutScores = JSON.parse(cloudStorage.getItem('lp_wc_knockout') || '{}');
+    wcMens.customGroupScores = JSON.parse(cloudStorage.getItem('lp_wc_custom_group') || '{}');
+    wcMens.customKnockoutScores = JSON.parse(cloudStorage.getItem('lp_wc_custom_knockout') || '{}');
+    wcMens.customGroups = JSON.parse(cloudStorage.getItem('lp_wc_custom_groups') || 'null');
+    wcMens.customTeams = JSON.parse(cloudStorage.getItem('lp_wc_custom_teams') || '[]');
+    wcMens.customFormat = JSON.parse(cloudStorage.getItem('lp_wc_custom_format') || '32');
   } catch(e) { console.warn('lsLoad failed', e); }
 }
 
 // Load NRL scores before first render (AFL loads via main lsLoad after aflSeasons is defined)
 (function() {
   try {
-    const nrlScores = JSON.parse(localStorage.getItem('lp_nrl_scores') || '{}');
+    const nrlScores = JSON.parse(cloudStorage.getItem('lp_nrl_scores') || '{}');
     Object.keys(nrlScores).forEach(k => { if (seasons[k]) seasons[k].scores = nrlScores[k]; });
-    const nrlFinals = JSON.parse(localStorage.getItem('lp_nrl_finals') || '{}');
+    const nrlFinals = JSON.parse(cloudStorage.getItem('lp_nrl_finals') || '{}');
     Object.keys(nrlFinals).forEach(k => { if (seasons[k]) seasons[k].finalsData = nrlFinals[k]; });
   } catch(e) { console.warn('early lsLoad failed', e); }
 })();
@@ -7820,7 +7933,7 @@ function renderPreview(sport) {
   `;
 
   // Load saved order if exists
-  const savedOrder = JSON.parse(localStorage.getItem('lp_' + sport + '_preview_' + seasonKey) || 'null');
+  const savedOrder = JSON.parse(cloudStorage.getItem('lp_' + sport + '_preview_' + seasonKey) || 'null');
   let orderedTeams;
   if (savedOrder && savedOrder.length === teams.length && savedOrder.every(t => teams.includes(t))) {
     orderedTeams = savedOrder;
@@ -7866,7 +7979,7 @@ function attachDragHandlers(sport) {
       listEl.querySelectorAll('.preview-row').forEach(r => r.classList.remove('drag-over'));
       // save order
       const order = [...listEl.querySelectorAll('.preview-row')].map(r => r.dataset.team);
-      localStorage.setItem('lp_' + sport + '_preview_' + currentSeason, JSON.stringify(order));
+      cloudStorage.setItem('lp_' + sport + '_preview_' + currentSeason, JSON.stringify(order));
       // update position numbers
       listEl.querySelectorAll('.preview-row').forEach((r, i) => {
         r.querySelector('.preview-pos').textContent = i + 1;
@@ -11980,6 +12093,8 @@ function wcReset() {
   }
   wcRender();
 }
+
+})();
 </script>
 </body>
 </html>
