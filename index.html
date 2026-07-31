@@ -35,6 +35,12 @@
   font-weight: 700;
   font-style: normal;
 }
+@font-face {
+  font-family: 'AFL Modern';
+  src: url('fonts/AFL-Modern.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
 .app-wrapper {
     width: 100%;
     overflow-x: auto;
@@ -221,6 +227,235 @@
   width: 16%;
 }
 
+/* ===================== NRL "MODERN" SCORECARD ===================== */
+/* One row, mirrored: logo | abbr | score / score | abbr | logo, with the two
+   team gradients meeting directly in the middle (no divider — the colour change
+   is the break). Proportions from the owner's mockup (~7.8:1), narrower than
+   the Classic strip. Height stays at Classic's 51.4px so the round layout and
+   card pitch don't shift. Each half carries the team's existing gradient class,
+   which already runs dark→light on home and light→dark on away, putting the
+   dark end under each logo. */
+.data-table.nrl-modern-table {
+  width: 400px;
+}
+
+.data-table td.nrl-modern-cell {
+  padding: 0;
+  height: 51.4px;
+}
+
+.nrl-modern-row {
+  display: flex;
+  width: 100%;
+  height: 51.4px;
+  overflow: hidden;
+}
+
+.nrl-modern-side {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  min-width: 0;
+}
+
+.nrl-modern-logo-wrap {
+  flex: 0 0 35%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.nrl-modern-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.nrl-modern-abbr,
+.nrl-modern-score {
+  flex: 1;
+  text-align: center;
+  white-space: nowrap;
+  font-family: 'AFL Modern', 'HelveticaNeueMediumCond', sans-serif;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.nrl-modern-abbr {
+  font-size: 25px;
+}
+
+.nrl-modern-score {
+  font-size: 31px;
+  font-weight: bold;
+  cursor: text;
+  min-width: 10px;
+}
+
+/* ===================== AFL "MODERN" SCORECARD ===================== */
+/* Proportions started from the owner's mockup (~2.8:1 width:height), then
+   trimmed a bit narrower per feedback (~2.6:1) — a much shorter, chunkier card
+   than the Classic strip either way. Row height is set by the 44px total,
+   which needs the headroom. Keep these three heights in sync with
+   AFL_MODERN_ROW_H in the JS. */
+/* Fixed width (not a %) so the proportion holds at every breakpoint — the row
+   height is a fixed px, so a % width would drift with the panel. */
+.afl-data-table.afl-modern-table {
+  left: 50%;
+  right: auto;
+  width: 248px;
+  max-width: 92%;
+  transform: translateX(-50%);
+}
+
+.afl-data-table td.afl-modern-cell {
+  border: none;
+  padding: 0;
+  height: 48px;
+}
+
+.afl-modern-row {
+  display: flex;
+  width: 100%;
+  height: 48px;
+  overflow: hidden;
+}
+
+.afl-modern-logo-wrap {
+  width: 40%;
+  height: 48px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.afl-modern-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.afl-modern-scorebox {
+  width: 60%;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 8% 0 4%;
+  flex-shrink: 0;
+}
+
+/* G and B sit in equal fixed-width centred columns so a 1-digit and a 2-digit
+   value line up with each other across the home/away rows. */
+.afl-modern-g,
+.afl-modern-b {
+  flex: 0 0 24%;
+  text-align: center;
+  font-family: 'AFL Modern', 'HelveticaNeueMediumCond', sans-serif;
+  font-size: 18px;
+  line-height: 1;
+  color: #ffffff;
+}
+
+/* Centred (not right-aligned) in its column for the same reason as G/B — so a
+   2-digit and a 3-digit total line up with each other across the two rows. */
+.afl-modern-total {
+  flex: 1;
+  margin-left: 14px;
+  text-align: center;
+  white-space: nowrap;
+  font-family: 'AFL Modern', 'HelveticaNeueMediumCond', sans-serif;
+  font-size: 34px;
+  font-weight: bold;
+  line-height: 1;
+  color: #ffffff;
+  cursor: text;
+  min-width: 10px;
+}
+
+/* NRL ladder type follows the selected card design. The NRL ladder rows carry
+   no inline font (unlike the AFL ones), so a scoped rule is enough here — it
+   outranks the single-class .ladder-* rules without !important. */
+#nrl-content.nrl-modern-type .ladder-team-name,
+#nrl-content.nrl-modern-type .ladder-cell,
+#nrl-content.nrl-modern-type .ladder-pts,
+#nrl-content.nrl-modern-type .ladder-pos {
+  font-family: 'AFL Modern', 'DIN Next LT Pro', sans-serif;
+}
+
+/* NRL Modern finals rows. The team gradient is already applied by
+   renderFinalsCard in both designs, so Modern only restyles the type and swaps
+   the light score box for a darkened panel, matching the Modern scorecard. */
+.nrl-finals-modern .finals-team-abbr {
+  color: #ffffff;
+  font-family: 'AFL Modern', 'DIN Next LT Pro', sans-serif;
+}
+
+.nrl-finals-modern .finals-team-score {
+  background: rgba(0, 0, 0, 0.28);
+  color: #ffffff;
+  font-family: 'AFL Modern', 'DIN Next LT Pro', sans-serif;
+}
+
+/* Modern finals rows — AFL Modern type over the team's own gradient. These beat
+   the single-class .finals-team-abbr/.finals-team-score rules on specificity,
+   so no !important is needed. */
+.afl-finals-modern .finals-team-abbr {
+  color: #ffffff;
+  font-family: 'AFL Modern', 'HelveticaNeueMediumCond', sans-serif;
+}
+
+.afl-finals-modern .finals-team-score {
+  color: #ffffff;
+  font-family: 'AFL Modern', 'HelveticaNeueMediumCond', sans-serif;
+}
+
+/* AFL ladder type follows the selected card design. Driving it through a CSS
+   variable means toggling the design restyles the ladder instantly, with no
+   re-render of the ladder/finals. */
+#afl-content {
+  --afl-ladder-font: 'HelveticaNeueMediumCond', sans-serif;
+}
+
+#afl-content.afl-modern-type {
+  --afl-ladder-font: 'AFL Modern', 'HelveticaNeueMediumCond', sans-serif;
+}
+
+/* Design toggle pill (Classic / Modern) */
+.design-toggle {
+  position: absolute;
+  top: 156px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 2;
+}
+
+.design-toggle-btn {
+  background: transparent;
+  color: #ffffff;
+  border: 1px solid #2a2a3d;
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.design-toggle-btn.active {
+  background: #ffffff;
+  color: #1A192E;
+  border-color: #ffffff;
+}
+
+/* On the Finals tab the round nav is hidden and the bracket starts immediately
+   below the header, so the toggle moves up onto the title line — between the
+   finals title and the Reset button — instead of sitting over week 2/3. */
+.design-toggle.on-finals {
+  top: 116px;
+}
 
 /* Season Preview Section */
 .preview-section {
@@ -945,6 +1180,30 @@ grid-template-columns: 32px 150px 40px 40px 40px 40px 40px 50px 50px 60px 65px 5
 .col-tigers-away-21-26 {
   background: linear-gradient(to right, rgb(216,83,1), rgb(228,95,7) 20%, rgb(241,107,14) 41%, rgb(247,113,17) 100%);
 }
+
+/* ===================== AFL TEAM GRADIENTS (Modern card) ===================== */
+/* Derived from the single AFL_TEAM_COLOURS source (see ladder position chart) — used for the Modern AFL scorecard's right-hand colour panel. */
+.col-adelaide-home { background: linear-gradient(135deg, rgb(0,43,92), rgb(41,77,118) 100%); }
+.col-brisbane-lions-home { background: linear-gradient(135deg, rgb(163,0,70), rgb(178,41,100) 100%); }
+/* Carlton and Melbourne are near-black already, so their gradients run DARKER
+   rather than lighter — lifting them toward white washed them out to grey. */
+.col-carlton-home { background: linear-gradient(135deg, rgb(3,26,41), rgb(2,16,25) 100%); }
+.col-collingwood-home { background: linear-gradient(135deg, rgb(0,0,0), rgb(41,41,41) 100%); }
+.col-essendon-home { background: linear-gradient(135deg, rgb(204,32,49), rgb(212,68,82) 100%); }
+.col-fremantle-home { background: linear-gradient(135deg, rgb(42,13,84), rgb(76,52,111) 100%); }
+.col-geelong-cats-home { background: linear-gradient(135deg, rgb(0,43,92), rgb(41,77,118) 100%); }
+.col-gold-coast-suns-home { background: linear-gradient(135deg, rgb(215,25,32), rgb(221,62,68) 100%); }
+.col-gws-giants-home { background: linear-gradient(135deg, rgb(244,121,32), rgb(246,142,68) 100%); }
+.col-hawthorn-home { background: linear-gradient(135deg, rgb(77,32,4), rgb(105,68,44) 100%); }
+.col-melbourne-home { background: linear-gradient(135deg, rgb(15,17,49), rgb(9,10,29) 100%); }
+.col-north-melbourne-home { background: linear-gradient(135deg, rgb(0,51,153), rgb(41,84,169) 100%); }
+.col-port-adelaide-home { background: linear-gradient(135deg, rgb(0,160,175), rgb(41,175,188) 100%); }
+.col-richmond-home { background: linear-gradient(135deg, rgb(255,210,0), rgb(255,217,41) 100%); }
+.col-st-kilda-home { background: linear-gradient(135deg, rgb(237,27,47), rgb(240,63,80) 100%); }
+.col-sydney-home { background: linear-gradient(135deg, rgb(228,30,49), rgb(232,66,82) 100%); }
+.col-west-coast-eagles-home { background: linear-gradient(135deg, rgb(242,169,0), rgb(244,183,41) 100%); }
+.col-western-bulldogs-home { background: linear-gradient(135deg, rgb(1,72,150), rgb(42,101,167) 100%); }
+
     .top-table {
       position: relative;
     }
@@ -1480,6 +1739,10 @@ transform-origin: left center;
         </div>
         <div class="round-nav" id="nrl-round-nav"></div>
       </div>
+      <div class="design-toggle" id="nrl-design-toggle" data-sport="nrl">
+        <button class="design-toggle-btn active" data-design="classic">Classic</button>
+        <button class="design-toggle-btn" data-design="modern">Modern</button>
+      </div>
       <div id="games-container"></div>
       <div class="finals-container" id="finals-container">
         <div class="finals-title">NRL 2012 Finals</div>
@@ -1678,6 +1941,10 @@ transform-origin: left center;
           <button class="reset-btn" id="afl-btn-reset">Reset</button>
         </div>
         <div class="round-nav" id="afl-round-nav"></div>
+      </div>
+      <div class="design-toggle" id="afl-design-toggle" data-sport="afl">
+        <button class="design-toggle-btn active" data-design="classic">Classic</button>
+        <button class="design-toggle-btn" data-design="modern">Modern</button>
       </div>
       <div id="afl-games-container"></div>
       <div class="finals-container" id="afl-finals-container">
@@ -6685,6 +6952,27 @@ const seasons = {
 
 let currentSeason = 'nrl2012';
 let currentRound = 0;
+// currentSeason is a single global shared by both sports, so switching tabs used
+// to leave it pointing at the other sport's season (seasons['afl2012'] is
+// undefined -> renders threw). Remember each sport's own season instead.
+let lastSeasonBySport = { nrl: 'nrl2012', afl: 'afl2012' };
+let cardDesign = {
+  nrl: JSON.parse(cloudStorage.getItem('lp_nrl_card_design') || '"classic"'),
+  afl: JSON.parse(cloudStorage.getItem('lp_afl_card_design') || '"classic"')
+};
+function syncDesignToggleUI() {
+  ['nrl', 'afl'].forEach(sport => {
+    document.querySelectorAll(`#${sport}-design-toggle .design-toggle-btn`).forEach(b => {
+      b.classList.toggle('active', b.dataset.design === cardDesign[sport]);
+    });
+  });
+  // Swaps --afl-ladder-font, so the AFL ladder picks up the Modern face too.
+  const aflContent = document.getElementById('afl-content');
+  if (aflContent) aflContent.classList.toggle('afl-modern-type', cardDesign.afl === 'modern');
+  const nrlContent = document.getElementById('nrl-content');
+  if (nrlContent) nrlContent.classList.toggle('nrl-modern-type', cardDesign.nrl === 'modern');
+}
+syncDesignToggleUI();
 
 function getWinner(game) {
   if (!game.home || !game.away) return null;
@@ -6784,6 +7072,8 @@ function renderFinalsCard(id, game) {
   const homeRow = document.getElementById(`${id}-home`) || homeLogo.closest('.finals-team-row');
   const awayRow = document.getElementById(`${id}-away`) || awayLogo.closest('.finals-team-row');
   const winner = document.getElementById(`${id}-winner`);
+  // Modern only adds type/score-box styling — the team gradient below is shared.
+  const modernCls = cardDesign.nrl === 'modern' ? 'nrl-finals-modern ' : '';
 
   if (game.home && seasons[currentSeason].teamConfig[game.home]) {
     homeAbbr.textContent = seasons[currentSeason].teamConfig[game.home].abbr;
@@ -6791,11 +7081,11 @@ homeLogo.src = seasons[currentSeason].teamConfig[game.home].logo;
     homeLogo.style.width = '100%';
     homeLogo.style.height = '100%';
     homeLogo.style.objectFit = 'cover';
-        homeRow.className = `finals-team-row ${seasons[currentSeason].teamConfig[game.home].gradient}`;
+        homeRow.className = `finals-team-row ${modernCls}${seasons[currentSeason].teamConfig[game.home].gradient}`;
   } else {
     homeAbbr.textContent = 'TBD';
     homeLogo.src = '';
-    homeRow.className = 'finals-team-row';
+    homeRow.className = 'finals-team-row ' + modernCls;
   }
 
   if (game.away && seasons[currentSeason].teamConfig[game.away]) {
@@ -6804,11 +7094,11 @@ awayLogo.src = seasons[currentSeason].teamConfig[game.away].logoAway || seasons[
     awayLogo.style.width = '100%';
     awayLogo.style.height = '100%';
     awayLogo.style.objectFit = 'cover';
-        awayRow.className = `finals-team-row ${seasons[currentSeason].teamConfig[game.away].gradientAway}`;
+        awayRow.className = `finals-team-row ${modernCls}${seasons[currentSeason].teamConfig[game.away].gradientAway}`;
   } else {
     awayAbbr.textContent = 'TBD';
     awayLogo.src = '';
-    awayRow.className = 'finals-team-row';
+    awayRow.className = 'finals-team-row ' + modernCls;
   }
 
   const w = getWinner(game);
@@ -6833,6 +7123,8 @@ function renderFinalsCard(id, game) {
   const homeRow = document.getElementById(`${id}-home`) || homeLogo.closest('.finals-team-row');
   const awayRow = document.getElementById(`${id}-away`) || awayLogo.closest('.finals-team-row');
   const winner = document.getElementById(`${id}-winner`);
+  // Modern only adds type/score-box styling — the team gradient below is shared.
+  const modernCls = cardDesign.nrl === 'modern' ? 'nrl-finals-modern ' : '';
 
   if (game.home && seasons[currentSeason].teamConfig[game.home]) {
     homeAbbr.textContent = seasons[currentSeason].teamConfig[game.home].abbr;
@@ -6840,11 +7132,11 @@ homeLogo.src = seasons[currentSeason].teamConfig[game.home].logo;
     homeLogo.style.width = '100%';
     homeLogo.style.height = '100%';
     homeLogo.style.objectFit = 'cover';
-        homeRow.className = `finals-team-row ${seasons[currentSeason].teamConfig[game.home].gradient}`;
+        homeRow.className = `finals-team-row ${modernCls}${seasons[currentSeason].teamConfig[game.home].gradient}`;
   } else {
     homeAbbr.textContent = 'TBD';
     homeLogo.src = '';
-    homeRow.className = 'finals-team-row';
+    homeRow.className = 'finals-team-row ' + modernCls;
   }
 
   if (game.away && seasons[currentSeason].teamConfig[game.away]) {
@@ -6853,11 +7145,11 @@ awayLogo.src = seasons[currentSeason].teamConfig[game.away].logoAway || seasons[
     awayLogo.style.width = '100%';
     awayLogo.style.height = '100%';
     awayLogo.style.objectFit = 'cover';
-        awayRow.className = `finals-team-row ${seasons[currentSeason].teamConfig[game.away].gradientAway}`;
+        awayRow.className = `finals-team-row ${modernCls}${seasons[currentSeason].teamConfig[game.away].gradientAway}`;
   } else {
     awayAbbr.textContent = 'TBD';
     awayLogo.src = '';
-    awayRow.className = 'finals-team-row';
+    awayRow.className = 'finals-team-row ' + modernCls;
   }
 
   const w = getWinner(game);
@@ -6957,14 +7249,30 @@ function renderAFLFinalsCard(id, game) {
   const awayScore = document.getElementById(`afl-${id}-away-score`);
   const winner = document.getElementById(`afl-${id}-winner`);
 
-  // Apply AFL dark gradient to row
+  // Finals rows follow the selected card design: Classic = the flat black/red
+  // AFL strip, Modern = the team's own 45° gradient, same as the Modern card.
+  const isModern = cardDesign.afl === 'modern';
   const rowStyle = 'linear-gradient(to bottom, rgb(21,21,21) 50%, rgb(0,0,0) 50%)';
   const scoreStyle = 'linear-gradient(to bottom, rgb(211,0,11) 50%, rgb(220,0,10) 50%)';
+  const modernTbdStyle = 'linear-gradient(135deg, rgb(30,42,69), rgb(52,68,104))';
 
-  homeRow.style.background = rowStyle;
-  awayRow.style.background = rowStyle;
-  if (homeScore) { homeScore.style.background = scoreStyle; homeScore.style.color = '#ffffff'; }
-  if (awayScore) { awayScore.style.background = scoreStyle; awayScore.style.color = '#ffffff'; }
+  function styleRow(row, scoreEl, team) {
+    const cfg = team && aflSeasons[currentSeason].teamConfig[team];
+    if (isModern) {
+      // Colour comes from the shared .col-<team>-home class, not a second copy
+      // of the palette. TBD rows have no team, so fall back to a neutral.
+      row.className = 'finals-team-row afl-finals-modern' + (cfg ? ' col-' + aflTeamSlug(team) + '-home' : '');
+      row.style.background = cfg ? '' : modernTbdStyle;
+      if (scoreEl) { scoreEl.style.background = 'rgba(0,0,0,0.28)'; scoreEl.style.color = '#ffffff'; }
+    } else {
+      row.className = 'finals-team-row afl-finals-row';
+      row.style.background = rowStyle;
+      if (scoreEl) { scoreEl.style.background = scoreStyle; scoreEl.style.color = '#ffffff'; }
+    }
+  }
+
+  styleRow(homeRow, homeScore, game.home);
+  styleRow(awayRow, awayScore, game.away);
 
   if (game.home && aflSeasons[currentSeason].teamConfig[game.home]) {
     homeAbbr.textContent = aflSeasons[currentSeason].teamConfig[game.home].abbr;
@@ -6972,11 +7280,9 @@ function renderAFLFinalsCard(id, game) {
     homeLogo.style.width = '100%';
     homeLogo.style.height = '100%';
     homeLogo.style.objectFit = 'cover';
-    homeRow.className = 'finals-team-row afl-finals-row';
   } else {
     homeAbbr.textContent = 'TBD';
     homeLogo.src = '';
-    homeRow.className = 'finals-team-row afl-finals-row';
   }
 
   if (game.away && aflSeasons[currentSeason].teamConfig[game.away]) {
@@ -6985,11 +7291,9 @@ function renderAFLFinalsCard(id, game) {
     awayLogo.style.width = '100%';
     awayLogo.style.height = '100%';
     awayLogo.style.objectFit = 'cover';
-    awayRow.className = 'finals-team-row afl-finals-row';
   } else {
     awayAbbr.textContent = 'TBD';
     awayLogo.src = '';
-    awayRow.className = 'finals-team-row afl-finals-row';
   }
 
   const w = getWinner(game);
@@ -7031,6 +7335,158 @@ function renderRoundNav(containerId, totalRounds) {
   if (row2.children.length > 0) container.appendChild(row2);
 }
 
+// ============================================================
+// SCORECARD DESIGNS (Classic / Modern, per sport)
+// ============================================================
+// Splits a total into a plausible goals/behinds scoreline.
+//
+// Models the BEHINDS-TO-GOALS RATIO rather than goals' share of the score. The
+// share model this replaced capped goals at 0.78-0.85 of the total, but a
+// realistic 14.11 (95) puts goals at 84/95 = 0.88 — so the cap forced behinds
+// to outnumber goals almost every time (32 came out 3.14 instead of 5.2).
+// Real teams kick roughly 0.8 behinds per goal, so that ratio is the anchor.
+function generateGoalsBehinds(total) {
+  if (total === 0) return { goals: 0, behinds: 0 };
+  if (total < 6) return { goals: 0, behinds: total };
+
+  const roll = Math.random();
+  let minR, maxR;
+  if (roll < 0.18)      { minR = 0.25; maxR = 0.55; } // accurate day
+  else if (roll < 0.85) { minR = 0.55; maxR = 1.05; } // typical
+  else                  { minR = 1.05; maxR = 1.70; } // wayward in front of goal
+
+  // total = goals*6 + behinds, and behinds = ratio*goals, so goals = total/(6+ratio)
+  const ratio = minR + Math.random() * (maxR - minR);
+  const maxGoals = Math.floor(total / 6);
+  let goals = Math.max(0, Math.min(maxGoals, Math.round(total / (6 + ratio))));
+  let behinds = total - (goals * 6);
+
+  // Rounding at the extremes can still throw up a freak split (e.g. 3.14) —
+  // walk goals up until the scoreline looks sane.
+  while (behinds > goals * 2.5 && goals < maxGoals) {
+    goals++;
+    behinds = total - (goals * 6);
+  }
+
+  return { goals, behinds };
+}
+
+// Height of one team row on the Modern AFL card. Must match the heights in the
+// .afl-modern-* CSS block.
+const AFL_MODERN_ROW_H = 48;
+
+function aflTeamSlug(team) {
+  return team.toLowerCase().replace(/\s+/g, '-');
+}
+
+// Object-position per team for the Modern card's cropped logo. Defaults to
+// centered; override individual teams here if a crest needs re-centering.
+const AFL_MODERN_LOGO_POS = {};
+function aflModernLogoPos(team) {
+  return AFL_MODERN_LOGO_POS[team] || 'center center';
+}
+
+const CARD_DESIGNS = {
+  nrl: {
+    classic: (game, saved, homeConfig, awayConfig, homeLogo, awayLogo, homeTextClass, awayTextClass) => `
+      <tr>
+        <td class="col-outer ${homeConfig.gradient}" style="position: relative;">
+          <div class="${homeTextClass}">${game.home.toUpperCase()}</div>
+          <div class="cell-logo logo-left"><img src="${homeLogo}" class="team-logo"></div>
+        </td>
+        <td class="col-inner" style="position: relative;">
+          <div contenteditable="true" class="score-input" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, calc(-50% + 3.5px)); font-family: 'DIN Next LT Pro', sans-serif; font-weight: 700; font-size: 40px; color: #000000; cursor: text; min-width: 10px; text-align: center;">${saved.home}</div>
+        </td>
+        <td class="col-inner" style="position: relative;">
+          <div contenteditable="true" class="score-input" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, calc(-50% + 3.5px)); font-family: 'DIN Next LT Pro', sans-serif; font-weight: 700; font-size: 40px; color: #000000; cursor: text; min-width: 10px; text-align: center;">${saved.away}</div>
+        </td>
+        <td class="col-outer ${awayConfig.gradientAway}" style="position: relative;">
+          <div class="${awayTextClass}">${game.away.toUpperCase()}</div>
+          <div class="cell-logo logo-right"><img src="${awayLogo}" class="team-logo"></div>
+        </td>
+      </tr>
+    `,
+    // Home score must stay ahead of away score in DOM order — renderRound reads
+    // the two .score-input nodes positionally as [home, away].
+    modern: (game, saved, homeConfig, awayConfig, homeLogo, awayLogo) => `
+      <tr>
+        <td class="nrl-modern-cell">
+          <div class="nrl-modern-row">
+            <div class="nrl-modern-side ${homeConfig.gradient}">
+              <div class="nrl-modern-logo-wrap"><img src="${homeLogo}" class="nrl-modern-logo-img"></div>
+              <div class="nrl-modern-abbr">${homeConfig.abbr}</div>
+              <div contenteditable="true" class="score-input nrl-modern-score">${saved.home}</div>
+            </div>
+            <div class="nrl-modern-side ${awayConfig.gradientAway}">
+              <div contenteditable="true" class="score-input nrl-modern-score">${saved.away}</div>
+              <div class="nrl-modern-abbr">${awayConfig.abbr}</div>
+              <div class="nrl-modern-logo-wrap"><img src="${awayLogo}" class="nrl-modern-logo-img"></div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    `,
+  },
+  afl: {
+    classic: (game, saved, homeConfig, awayConfig) => `
+      <tr>
+        <td class="afl-cell-dark" style="width:auto;height:38px;position:relative;">
+          <img src="${homeConfig.logo}" style="height:100%;width:auto;object-fit:contain;position:absolute;left:0;top:0;">
+          <div style="position:absolute;left:calc(80px + 8px);top:50%;transform:translateY(calc(-50% + 2.5px));font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;white-space:nowrap;">${game.home.toUpperCase()}</div>
+        </td>
+        <td class="afl-cell-red" style="width:70px;height:38px;position:relative;">
+          <div contenteditable="true" class="score-input" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;cursor:text;min-width:10px;text-align:center;">${saved.home}</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="afl-cell-dark" style="width:auto;height:38px;position:relative;">
+          <img src="${awayConfig.logo}" style="height:100%;width:auto;object-fit:contain;position:absolute;left:0;top:0;">
+          <div style="position:absolute;left:calc(80px + 8px);top:50%;transform:translateY(calc(-50% + 2.5px));font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;white-space:nowrap;">${game.away.toUpperCase()}</div>
+        </td>
+        <td class="afl-cell-red" style="width:70px;height:38px;position:relative;">
+          <div contenteditable="true" class="score-input" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;cursor:text;min-width:10px;text-align:center;">${saved.away}</div>
+        </td>
+      </tr>
+    `,
+    modern: (game, saved, homeConfig, awayConfig) => {
+      const homeGB = generateGoalsBehinds(parseInt(saved.home) || 0);
+      const awayGB = generateGoalsBehinds(parseInt(saved.away) || 0);
+      const homeGrad = 'col-' + aflTeamSlug(game.home) + '-home';
+      const awayGrad = 'col-' + aflTeamSlug(game.away) + '-home';
+      return `
+        <tr>
+          <td class="afl-modern-cell" style="position:relative;">
+            <div class="afl-modern-row">
+              <div class="afl-modern-logo-wrap"><img src="${homeConfig.logo}" class="afl-modern-logo-img" style="object-position:${aflModernLogoPos(game.home)};"></div>
+              <div class="afl-modern-scorebox ${homeGrad}">
+                <div class="afl-modern-g">${homeGB.goals}</div>
+                <div class="afl-modern-b">${homeGB.behinds}</div>
+                <div contenteditable="true" class="score-input afl-modern-total">${saved.home}</div>
+              </div>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="afl-modern-cell" style="position:relative;">
+            <div class="afl-modern-row">
+              <div class="afl-modern-logo-wrap"><img src="${awayConfig.logo}" class="afl-modern-logo-img" style="object-position:${aflModernLogoPos(game.away)};"></div>
+              <div class="afl-modern-scorebox ${awayGrad}">
+                <div class="afl-modern-g">${awayGB.goals}</div>
+                <div class="afl-modern-b">${awayGB.behinds}</div>
+                <div contenteditable="true" class="score-input afl-modern-total">${saved.away}</div>
+              </div>
+            </div>
+          </td>
+        </tr>
+      `;
+    },
+  },
+};
+function getCardHTML(sport, design, ...args) {
+  const sportDesigns = CARD_DESIGNS[sport];
+  return (sportDesigns[design] || sportDesigns.classic)(...args);
+}
+
 function renderRound(roundIndex) {
   const games = seasons[currentSeason].rounds[roundIndex];
   const container = document.getElementById('games-container');
@@ -7048,26 +7504,9 @@ function renderRound(roundIndex) {
     const top = `calc(185px + (51.4px + 10.6px) * ${i})`;
 
     const table = document.createElement('table');
-    table.className = 'data-table';
+    table.className = 'data-table' + (cardDesign.nrl === 'modern' ? ' nrl-modern-table' : '');
     table.style.top = top;
-    table.innerHTML = `
-      <tr>
-        <td class="col-outer ${homeConfig.gradient}" style="position: relative;">
-          <div class="${homeTextClass}">${game.home.toUpperCase()}</div>
-          <div class="cell-logo logo-left"><img src="${homeLogo}" class="team-logo"></div>
-        </td>
-        <td class="col-inner" style="position: relative;">
-          <div contenteditable="true" class="score-input" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, calc(-50% + 3.5px)); font-family: 'DIN Next LT Pro', sans-serif; font-weight: 700; font-size: 40px; color: #000000; cursor: text; min-width: 10px; text-align: center;">${saved.home}</div>
-        </td>
-        <td class="col-inner" style="position: relative;">
-          <div contenteditable="true" class="score-input" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, calc(-50% + 3.5px)); font-family: 'DIN Next LT Pro', sans-serif; font-weight: 700; font-size: 40px; color: #000000; cursor: text; min-width: 10px; text-align: center;">${saved.away}</div>
-        </td>
-        <td class="col-outer ${awayConfig.gradientAway}" style="position: relative;">
-          <div class="${awayTextClass}">${game.away.toUpperCase()}</div>
-          <div class="cell-logo logo-right"><img src="${awayLogo}" class="team-logo"></div>
-        </td>
-      </tr>
-    `;
+    table.innerHTML = getCardHTML('nrl', cardDesign.nrl, game, saved, homeConfig, awayConfig, homeLogo, awayLogo, homeTextClass, awayTextClass);
 
     const inputs = table.querySelectorAll('.score-input');
     inputs.forEach(input => {
@@ -7111,37 +7550,25 @@ function renderAFLRound(roundIndex) {
   const games = aflSeasons[currentSeason].rounds[roundIndex];
   const container = document.getElementById('afl-games-container');
   container.innerHTML = '';
-  container.closest('.panel').style.minHeight = `${185 + (76 + 8) * games.length}px`;
+  const isModern = cardDesign.afl === 'modern';
+  // Modern rows are taller (the 44px total needs the headroom) — see the
+  // .afl-modern-* CSS block, which these must stay in sync with.
+  const cardH = isModern ? AFL_MODERN_ROW_H * 2 : 76;
+  const gap = 8;
+  container.closest('.panel').style.minHeight = `${185 + (cardH + gap) * games.length}px`;
   games.forEach((game, i) => {
     const scoreKey = `R${roundIndex + 1}G${i}`;
     const saved = aflSeasons[currentSeason].scores[scoreKey] || { home: 0, away: 0 };
     const homeConfig = aflSeasons[currentSeason].teamConfig[game.home];
     const awayConfig = aflSeasons[currentSeason].teamConfig[game.away];
-    const top = `calc(185px + (76px + 8px) * ${i})`;
+    const top = `calc(185px + (${cardH}px + ${gap}px) * ${i})`;
     const table = document.createElement('table');
-    table.className = 'afl-data-table';
+    table.className = 'afl-data-table' + (isModern ? ' afl-modern-table' : '');
     table.style.top = top;
-    table.innerHTML = `
-      <tr>
-        <td class="afl-cell-dark" style="width:auto;height:38px;position:relative;">
-          <img src="${homeConfig.logo}" style="height:100%;width:auto;object-fit:contain;position:absolute;left:0;top:0;">
-          <div style="position:absolute;left:calc(80px + 8px);top:50%;transform:translateY(calc(-50% + 2.5px));font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;white-space:nowrap;">${game.home.toUpperCase()}</div>
-        </td>
-        <td class="afl-cell-red" style="width:70px;height:38px;position:relative;">
-          <div contenteditable="true" class="score-input" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;cursor:text;min-width:10px;text-align:center;">${saved.home}</div>
-        </td>
-      </tr>
-      <tr>
-        <td class="afl-cell-dark" style="width:auto;height:38px;position:relative;">
-          <img src="${awayConfig.logo}" style="height:100%;width:auto;object-fit:contain;position:absolute;left:0;top:0;">
-          <div style="position:absolute;left:calc(80px + 8px);top:50%;transform:translateY(calc(-50% + 2.5px));font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;white-space:nowrap;">${game.away.toUpperCase()}</div>
-        </td>
-        <td class="afl-cell-red" style="width:70px;height:38px;position:relative;">
-          <div contenteditable="true" class="score-input" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;cursor:text;min-width:10px;text-align:center;">${saved.away}</div>
-        </td>
-      </tr>
-    `;
+    table.innerHTML = getCardHTML('afl', cardDesign.afl, game, saved, homeConfig, awayConfig);
     const inputs = table.querySelectorAll('.score-input');
+    const gEls = table.querySelectorAll('.afl-modern-g');
+    const bEls = table.querySelectorAll('.afl-modern-b');
     inputs.forEach(input => {
       input.addEventListener('keypress', function(e) {
         if (!/[0-9]/.test(e.key)) e.preventDefault();
@@ -7163,6 +7590,15 @@ function renderAFLRound(roundIndex) {
         lsSaveAFL();
       });
     });
+    if (cardDesign.afl === 'modern') {
+      inputs.forEach((input, idx) => {
+        input.addEventListener('input', function() {
+          const gb = generateGoalsBehinds(parseInt(input.textContent) || 0);
+          if (gEls[idx]) gEls[idx].textContent = gb.goals;
+          if (bEls[idx]) bEls[idx].textContent = gb.behinds;
+        });
+      });
+    }
 
     table.addEventListener('click', function() {
       const allTables = container.querySelectorAll('.afl-data-table');
@@ -7251,17 +7687,17 @@ function calculateAFLLadder() {
       <div class="ladder-pos ${posClass}">${pos}</div>
       <div class="ladder-team" style="gap:14px;">
         <img src="${config.logo}" alt="${team}">
-        <span class="ladder-team-name" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;color:#e8e8e8;">${config.abbr}</span>
+        <span class="ladder-team-name" style="font-family:var(--afl-ladder-font);font-size:17px;color:#e8e8e8;">${config.abbr}</span>
       </div>
-      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;color:#e8e8e8;">${t.p}</div>
-      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;color:#e8e8e8;">${t.w}</div>
-      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;color:#e8e8e8;">${t.l}</div>
-      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;color:#e8e8e8;">${t.d}</div>
-      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;color:#e8e8e8;">${t.f}</div>
-      <div class="ladder-cell" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;color:#e8e8e8;">${t.a}</div>
-      <div class="ladder-cell ladder-pd ${pctClass}" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;color:#e8e8e8;">${pct}</div>
+      <div class="ladder-cell" style="font-family:var(--afl-ladder-font);font-size:17px;color:#e8e8e8;">${t.p}</div>
+      <div class="ladder-cell" style="font-family:var(--afl-ladder-font);font-size:17px;color:#e8e8e8;">${t.w}</div>
+      <div class="ladder-cell" style="font-family:var(--afl-ladder-font);font-size:17px;color:#e8e8e8;">${t.l}</div>
+      <div class="ladder-cell" style="font-family:var(--afl-ladder-font);font-size:17px;color:#e8e8e8;">${t.d}</div>
+      <div class="ladder-cell" style="font-family:var(--afl-ladder-font);font-size:17px;color:#e8e8e8;">${t.f}</div>
+      <div class="ladder-cell" style="font-family:var(--afl-ladder-font);font-size:17px;color:#e8e8e8;">${t.a}</div>
+      <div class="ladder-cell ladder-pd ${pctClass}" style="font-family:var(--afl-ladder-font);font-size:17px;color:#e8e8e8;">${pct}</div>
       ${streakHtml}
-      <div class="ladder-pts" style="font-family:'HelveticaNeueMediumCond',sans-serif;font-size:17px;color:#e8e8e8;">${t.pts}</div>
+      <div class="ladder-pts" style="font-family:var(--afl-ladder-font);font-size:17px;color:#e8e8e8;">${t.pts}</div>
     `;
     container.appendChild(row);
   });
@@ -7653,6 +8089,7 @@ document.querySelectorAll('.year-btn').forEach(btn => {
     document.querySelectorAll('.year-btn').forEach(b => b.classList.remove('active'));
     this.classList.add('active');
     currentSeason = this.dataset.season;
+    lastSeasonBySport[currentSeason.startsWith('afl') ? 'afl' : 'nrl'] = currentSeason;
     currentRound = 0;
     document.querySelectorAll('.round-btn').forEach(b => b.classList.remove('active'));
     document.querySelector('.round-btn[data-round="0"]').classList.add('active');
@@ -7695,6 +8132,29 @@ document.addEventListener('click', function(e) {
       renderRound(currentRound);
     }
   }
+});
+
+document.querySelectorAll('.design-toggle-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const sport = this.closest('.design-toggle').dataset.sport;
+    const design = this.dataset.design;
+    cardDesign[sport] = design;
+    syncDesignToggleUI();
+    cloudStorage.setItem('lp_' + sport + '_card_design', JSON.stringify(design));
+    // currentSeason is global and can belong to the other sport (switching to
+    // the AFL tab sets it to afl2012 and nothing restores an NRL season), so
+    // only re-render the sport whose season is actually loaded.
+    const seasonIsAfl = currentSeason.startsWith('afl');
+    if (sport === 'afl') {
+      if (seasonIsAfl) {
+        renderAFLRound(currentRound);
+        renderAFLFinals(); // restyle the 9 bracket cards to match; no bracket rebuild
+      }
+    } else if (!seasonIsAfl) {
+      renderRound(currentRound);
+      renderFinals(); // restyle the 9 bracket cards to match; no bracket rebuild
+    }
+  });
 });
 
 document.getElementById('btn-reset').addEventListener('click', function() {
@@ -7754,6 +8214,7 @@ document.getElementById('btn-season').addEventListener('click', function() {
   document.getElementById('games-container').style.display = '';
   document.getElementById('finals-container').classList.remove('active');
   document.getElementById('nrl-round-nav').style.display = '';
+  document.getElementById('nrl-design-toggle').classList.remove('on-finals');
 });
 
 document.getElementById('btn-finals').addEventListener('click', function() {
@@ -7762,6 +8223,7 @@ document.getElementById('btn-finals').addEventListener('click', function() {
   document.getElementById('games-container').style.display = 'none';
   document.getElementById('finals-container').classList.add('active');
   document.getElementById('nrl-round-nav').style.display = 'none';
+  document.getElementById('nrl-design-toggle').classList.add('on-finals');
   populateFinals();
 });
 
@@ -7771,6 +8233,7 @@ document.getElementById('afl-btn-season').addEventListener('click', function() {
   document.getElementById('afl-games-container').style.display = '';
   document.getElementById('afl-finals-container').classList.remove('active');
   document.getElementById('afl-round-nav').style.display = '';
+  document.getElementById('afl-design-toggle').classList.remove('on-finals');
 });
 
 document.getElementById('afl-btn-finals').addEventListener('click', function() {
@@ -7779,6 +8242,7 @@ document.getElementById('afl-btn-finals').addEventListener('click', function() {
   document.getElementById('afl-games-container').style.display = 'none';
   document.getElementById('afl-finals-container').classList.add('active');
   document.getElementById('afl-round-nav').style.display = 'none';
+  document.getElementById('afl-design-toggle').classList.add('on-finals');
   populateAFLFinals();
 });
 
@@ -8092,13 +8556,25 @@ document.querySelectorAll('.sport-btn').forEach(btn => {
     } else if (sport === 'nrl') {
       document.getElementById('nrl-content').style.display = '';
       document.getElementById('nrl-year-nav').style.display = '';
+      // Restore NRL's own season/round — the AFL tab leaves both pointing at AFL.
+      currentSeason = lastSeasonBySport.nrl;
+      currentRound = 0;
+      // The year handler clears .active across both navs, so re-mark this one.
+      document.querySelectorAll('.year-btn').forEach(b => b.classList.toggle('active', b.dataset.season === currentSeason));
+      renderRoundNav('nrl-round-nav', seasons[currentSeason].rounds.length);
+      renderRound(0);
+      calculateLadder();
+      populateFinals();
+      renderNRLPreview();
     } else if (sport === 'mens-wc') {
       document.getElementById('wc-mens-content').style.display = '';
       wcRender();
     } else if (sport === 'afl') {
       document.getElementById('afl-content').style.display = '';
       document.getElementById('afl-year-nav').style.display = '';
-      currentSeason = 'afl2012';
+      currentSeason = lastSeasonBySport.afl;
+      currentRound = 0;
+      document.querySelectorAll('.year-btn').forEach(b => b.classList.toggle('active', b.dataset.season === currentSeason));
       renderRoundNav('afl-round-nav', aflSeasons[currentSeason].rounds.length);
       renderAFLRound(0);
       calculateAFLLadder();
@@ -8414,17 +8890,17 @@ function renderAFLProgression(seasonKey) {
     'Collingwood': '#000000',
     'Essendon': '#CC2031',
     'Fremantle': '#2A0D54',
-    'Geelong Cats': '#1C3D6E',
+    'Geelong Cats': '#002B5C',
     'Gold Coast Suns': '#D71920',
     'GWS Giants': '#F47920',
     'Hawthorn': '#4D2004',
     'Melbourne': '#0F1131',
     'North Melbourne': '#003399',
-    'Port Adelaide': '#00B2A9',
+    'Port Adelaide': '#00A0AF',
     'Richmond': '#FFD200',
     'St Kilda': '#ED1B2F',
-    'Sydney': '#ED171F',
-    'West Coast Eagles': '#003087',
+    'Sydney': '#E41E31',
+    'West Coast Eagles': '#F2A900',
     'Western Bulldogs': '#014896'
   };
 
