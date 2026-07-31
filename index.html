@@ -1680,8 +1680,12 @@ transform-origin: left center;
   <div id="lp-login-overlay" style="position:fixed;inset:0;background:#1A192E;color:#fff;display:flex;align-items:center;justify-content:center;z-index:9999;font-family:sans-serif;">
     <div style="width:320px;max-width:90vw;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:24px;text-align:center;">
       <div style="font-weight:700;font-size:18px;margin-bottom:16px;">Ladder Predictor</div>
-      <input id="lp-login-email" type="email" placeholder="you@email.com" autocomplete="email" style="width:100%;padding:10px;border-radius:4px;border:none;margin-bottom:12px;font-size:14px;box-sizing:border-box;">
-      <button id="lp-login-btn" style="width:100%;padding:10px;border-radius:4px;border:none;cursor:pointer;font-weight:700;background:#6366f1;color:#fff;font-size:14px;">Send login link</button>
+      <form id="lp-login-form" autocomplete="on">
+        <input id="lp-login-email" name="email" type="email" placeholder="you@email.com" autocomplete="username" required style="width:100%;padding:10px;border-radius:4px;border:none;margin-bottom:10px;font-size:14px;box-sizing:border-box;">
+        <input id="lp-login-password" name="password" type="password" placeholder="Password" autocomplete="current-password" required style="width:100%;padding:10px;border-radius:4px;border:none;margin-bottom:12px;font-size:14px;box-sizing:border-box;">
+        <button id="lp-login-btn" type="submit" style="width:100%;padding:10px;border-radius:4px;border:none;cursor:pointer;font-weight:700;background:#6366f1;color:#fff;font-size:14px;">Sign in</button>
+        <button id="lp-signup-btn" type="button" style="width:100%;padding:10px;border-radius:4px;border:1px solid rgba(255,255,255,0.25);cursor:pointer;font-weight:700;background:transparent;color:#fff;font-size:14px;margin-top:8px;">Create account</button>
+      </form>
       <div id="lp-login-status" style="margin-top:12px;font-size:12px;color:#aaa;min-height:16px;"></div>
     </div>
   </div>
@@ -2218,21 +2222,64 @@ function waitForSession() {
 const lpLoginOverlay = document.getElementById('lp-login-overlay');
 const lpAppRoot = document.getElementById('app-root');
 const lpEmailInput = document.getElementById('lp-login-email');
+const lpPasswordInput = document.getElementById('lp-login-password');
+const lpLoginForm = document.getElementById('lp-login-form');
 const lpLoginBtn = document.getElementById('lp-login-btn');
+const lpSignUpBtn = document.getElementById('lp-signup-btn');
 const lpLoginStatus = document.getElementById('lp-login-status');
 const lpSignOutBtn = document.getElementById('lp-signout-btn');
 
-lpLoginBtn.addEventListener('click', async () => {
+function lpSetBusy(busy) {
+  lpLoginBtn.disabled = busy;
+  lpSignUpBtn.disabled = busy;
+}
+
+function lpCredentials() {
   const email = lpEmailInput.value.trim();
-  if (!email) return;
-  lpLoginBtn.disabled = true;
-  lpLoginStatus.textContent = 'Sending link...';
-  const { error } = await supabaseClient.auth.signInWithOtp({
-    email,
+  const password = lpPasswordInput.value;
+  if (!email || !password) {
+    lpLoginStatus.textContent = 'Enter an email and password.';
+    return null;
+  }
+  return { email, password };
+}
+
+// Sign in with an existing email/password account.
+lpLoginForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const creds = lpCredentials();
+  if (!creds) return;
+  lpSetBusy(true);
+  lpLoginStatus.textContent = 'Signing in...';
+  const { error } = await supabaseClient.auth.signInWithPassword(creds);
+  lpSetBusy(false);
+  if (error) {
+    lpLoginStatus.textContent = 'Error: ' + error.message;
+  } else {
+    // waitForSession() resolves via onAuthStateChange and reveals the app.
+    lpLoginStatus.textContent = 'Signed in.';
+  }
+});
+
+// Create a new account. If the project has email confirmation switched on,
+// Supabase returns a user with no session until the address is confirmed.
+lpSignUpBtn.addEventListener('click', async () => {
+  const creds = lpCredentials();
+  if (!creds) return;
+  lpSetBusy(true);
+  lpLoginStatus.textContent = 'Creating account...';
+  const { data, error } = await supabaseClient.auth.signUp({
+    ...creds,
     options: { emailRedirectTo: window.location.origin + window.location.pathname }
   });
-  lpLoginBtn.disabled = false;
-  lpLoginStatus.textContent = error ? ('Error: ' + error.message) : 'Check your email for a login link.';
+  lpSetBusy(false);
+  if (error) {
+    lpLoginStatus.textContent = 'Error: ' + error.message;
+  } else if (data.session) {
+    lpLoginStatus.textContent = 'Account created.';
+  } else {
+    lpLoginStatus.textContent = 'Account created — check your email to confirm, then sign in.';
+  }
 });
 
 lpSignOutBtn.addEventListener('click', async () => {
