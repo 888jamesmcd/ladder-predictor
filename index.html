@@ -8523,18 +8523,19 @@ function renderNRLPreview() { renderPreview('nrl'); }
 function renderAFLPreview() { renderPreview('afl'); }
 
 // Toggle preview open/close
-document.addEventListener('DOMContentLoaded', function() {
-  ['nrl', 'afl'].forEach(sport => {
-    const btn = document.getElementById(sport + '-preview-toggle');
-    const body = document.getElementById(sport + '-preview-body');
-    if (btn && body) {
-      btn.addEventListener('click', function() {
-        const isOpen = body.style.display !== 'none';
-        body.style.display = isOpen ? 'none' : 'block';
-        btn.classList.toggle('open', !isOpen);
-      });
-    }
-  });
+// This runs after `await waitForSession()`, by which point DOMContentLoaded has
+// long since fired — listening for it here would never run (that's what broke
+// the Season Preview toggle). The DOM is fully parsed by now, so wire directly.
+['nrl', 'afl'].forEach(sport => {
+  const btn = document.getElementById(sport + '-preview-toggle');
+  const body = document.getElementById(sport + '-preview-body');
+  if (btn && body) {
+    btn.addEventListener('click', function() {
+      const isOpen = body.style.display !== 'none';
+      body.style.display = isOpen ? 'none' : 'block';
+      btn.classList.toggle('open', !isOpen);
+    });
+  }
 });
 
 renderRoundNav('nrl-round-nav', seasons[currentSeason].rounds.length);
