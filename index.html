@@ -743,6 +743,11 @@ input[type=number] {
 .panel-header-reset {
   display: flex;
   justify-content: flex-end;
+  /* A 5th button (Quick Sim) made this the first row tight enough to overflow
+     the panel at some widths; wrapping keeps every button clickable instead of
+     letting the row run past the edge. */
+  flex-wrap: wrap;
+  row-gap: 4px;
 }
 
 .reset-btn {
@@ -791,6 +796,9 @@ input[type=number] {
   /* Baseline-aligned it sat down on the feet of a 28px all-caps name; middle
      centres it against the text instead. */
   vertical-align: middle;
+  /* Smaller than the base 10px — against a 28px all-caps name it read too
+     close in weight to the score itself. */
+  font-size: 8px;
 }
 /* The Modern cards are crest-forward (AFL Modern has no name at all), so the
    tag sits in the bottom corner of the crest itself. */
@@ -2158,6 +2166,7 @@ transform-origin: left center;
         </div>
         <div class="panel-header-reset">
           <button class="sim-btn" id="nrl-btn-automate">Automate</button>
+          <button class="sim-btn" id="nrl-btn-quicksim">Quick Sim</button>
           <button class="sim-btn" id="nrl-btn-reroll">Re-roll</button>
           <button class="sim-btn" id="nrl-btn-simrest">Sim Rest</button>
           <button class="reset-btn" id="btn-reset">Reset</button>
@@ -2366,6 +2375,7 @@ transform-origin: left center;
         </div>
         <div class="panel-header-reset">
           <button class="sim-btn" id="afl-btn-automate">Automate</button>
+          <button class="sim-btn" id="afl-btn-quicksim">Quick Sim</button>
           <button class="sim-btn" id="afl-btn-reroll">Re-roll</button>
           <button class="sim-btn" id="afl-btn-simrest">Sim Rest</button>
           <button class="reset-btn" id="afl-btn-reset">Reset</button>
@@ -9040,7 +9050,7 @@ function simScoredInRound(season, roundIdx) {
   return n;
 }
 
-async function simRunRound(overwrite) {
+async function simRunRound(overwrite, skipAnim) {
   const ctx = simContext();
   const written = window.LadderSim.simulateRound({
     sport: ctx.sport, teams: ctx.season.teams, rounds: ctx.season.rounds,
@@ -9052,7 +9062,7 @@ async function simRunRound(overwrite) {
   const keys = Object.keys(written);
   if (keys.length === 0) return 0;
 
-  if (!SIM_ANIM.enabled) {
+  if (!SIM_ANIM.enabled || skipAnim) {
     simApplyScores(written);
     return keys.length;
   }
@@ -9090,6 +9100,23 @@ async function simAutomateRound(sport) {
     return;
   }
   if (await simRunRound(false) === 0) {
+    alert('Every game in round ' + (currentRound + 1) + ' already has a score.\n\nUse Re-roll to replace them.');
+  }
+}
+
+// Quick Sim — same as Automate (fills empty games only, never overwrites a
+// score you've entered) but always skips the play-by-play animation, even when
+// SIM_ANIM.enabled is on. For when you want the round's result, not the show.
+async function simQuickSimRound(sport) {
+  if (!simPanelActive(sport) || simAnimRunning) return;
+  if (simFinalsActive(sport)) {
+    if (simulateFinals(sport, false) === 0) {
+      alert('The finals bracket is already complete.\n\nUse Re-roll to play it again.');
+    }
+    renderGrandFinal(sport);
+    return;
+  }
+  if (await simRunRound(false, true) === 0) {
     alert('Every game in round ' + (currentRound + 1) + ' already has a score.\n\nUse Re-roll to replace them.');
   }
 }
@@ -9166,6 +9193,7 @@ function simRestOfSeason(sport) {
 
 ['nrl', 'afl'].forEach(sport => {
   document.getElementById(sport + '-btn-automate').addEventListener('click', () => simAutomateRound(sport));
+  document.getElementById(sport + '-btn-quicksim').addEventListener('click', () => simQuickSimRound(sport));
   document.getElementById(sport + '-btn-reroll').addEventListener('click', () => simRerollRound(sport));
   document.getElementById(sport + '-btn-simrest').addEventListener('click', () => simRestOfSeason(sport));
 });
