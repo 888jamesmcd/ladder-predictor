@@ -2717,7 +2717,12 @@ transform-origin: left center;
   </div>
   </div><!-- /app-root -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="sim.js"></script>
+  <!-- sim.js is loaded with a cache-busting timestamp. Browsers cache a plain
+       <script src="sim.js"> aggressively, so after the engine is edited you can
+       end up running fresh HTML against a stale simulation — seeds and scores
+       silently come out with the previous tuning, which looks like the change
+       "didn't work". This forces a fresh copy every load. -->
+  <script>document.write('<script src="sim.js?v=' + Date.now() + '"><\/script>');</script>
   <script>
 (async function() {
 
@@ -9713,7 +9718,10 @@ const HISTORICAL_LADDERS = {
     'Collingwood': 1, 'Geelong Cats': 2, 'Hawthorn': 3, 'West Coast Eagles': 4,
     'Carlton': 5, 'St Kilda': 6, 'Sydney': 7, 'Essendon': 8,
     'North Melbourne': 9, 'Western Bulldogs': 10, 'Fremantle': 11, 'Richmond': 12,
-    'Melbourne': 13, 'Adelaide': 14, 'Brisbane Lions': 15, 'Port Adelaide': 16
+    'Melbourne': 13, 'Adelaide': 14, 'Brisbane Lions': 15, 'Port Adelaide': 16,
+    // Gold Coast entered in 2011 and ran last of 17. GWS didn't arrive until
+    // 2012, so it correctly has no 2011 finish.
+    'Gold Coast Suns': 17
   }
 };
 
