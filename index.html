@@ -7,7 +7,13 @@
   <button class="sport-btn" data-sport="afl">AFL</button>
   <button class="sport-btn" data-sport="mens-wc">Men's WC</button>
   <button class="sport-btn" data-sport="records">Records</button>
-  <button id="lp-signout-btn" class="sport-btn" style="margin-left:auto;display:none;">Sign Out</button>
+  <div class="save-slot-picker" id="save-slot-picker" style="margin-left:auto;display:none;">
+    <button class="sport-btn save-slot-btn" id="save-slot-btn">
+      Save: <span id="save-slot-label">Slot 1</span> <span class="save-slot-caret">&#9662;</span>
+    </button>
+    <div class="save-slot-menu" id="save-slot-menu"></div>
+  </div>
+  <button id="lp-signout-btn" class="sport-btn" style="display:none;">Sign Out</button>
 </div>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -87,6 +93,116 @@
 
 .sport-btn:hover {
   color: #ffffff;
+}
+
+/* Save slot picker */
+.save-slot-picker {
+  position: relative;
+}
+.save-slot-btn {
+  border: 1px solid #2a2a3d;
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+.save-slot-btn:hover {
+  border-color: #3a3a52;
+}
+#save-slot-label {
+  color: #f0c040;
+  font-weight: 700;
+}
+.save-slot-caret {
+  font-size: 10px;
+  color: #666;
+  margin-left: 2px;
+}
+.save-slot-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 220px;
+  background: #16213E;
+  border: 1px solid #2a2a4a;
+  border-radius: 8px;
+  padding: 6px;
+  z-index: 50;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.save-slot-menu.open {
+  display: block;
+}
+.save-slot-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 5px;
+  padding: 2px;
+}
+.save-slot-row:hover {
+  background: #1e2a4d;
+}
+.save-slot-row.active .save-slot-select {
+  color: #f0c040;
+}
+.save-slot-select {
+  flex: 1;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: #ccccdd;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 7px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.save-slot-icon-btn {
+  background: transparent;
+  border: none;
+  color: #8888aa;
+  font-size: 13px;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.save-slot-icon-btn:hover {
+  background: #2a2a4a;
+  color: #ffffff;
+}
+.save-slot-icon-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.save-slot-icon-btn:disabled:hover {
+  background: transparent;
+  color: #8888aa;
+}
+.save-slot-divider {
+  height: 1px;
+  background: #2a2a4a;
+  margin: 4px 2px;
+}
+.save-slot-new {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: #f0c040;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 5px;
+}
+.save-slot-new:hover {
+  background: #1e2a4d;
 }
     .header {
       width: 100%;
@@ -2616,14 +2732,40 @@ const cloudCache = {};
 const cloudSaveTimers = {};
 let currentUserId = null;
 
+// ============================================================
+// SAVE SLOTS
+// ============================================================
+// Every piece of game state the app persists — NRL/AFL scores and finals, card
+// design, seed inputs, preview order, the World Cup module — goes through
+// cloudStorage.getItem/setItem and every key it uses is prefixed 'lp_'. That
+// made it possible to add save slots as a thin layer UNDER cloudStorage rather
+// than touching the ~20 call sites individually: each key is transparently
+// namespaced by the active slot before it ever reaches cloudCache or Supabase.
+//
+// The registry itself (which slots exist, which is active) is the one key that
+// must NOT be namespaced — it has to be readable before a slot is chosen — so
+// it's special-cased to pass through untouched.
+const SAVE_REGISTRY_KEY = 'lp_save_registry';
+// '' is the very first slot. It deliberately carries NO prefix, so existing
+// data (everyone's current save, pre-dating this feature) becomes "Slot 1"
+// with zero migration and zero risk of appearing to go missing.
+let activeSaveSlotId = '';
+
+function slotPrefixedKey(key) {
+  if (key === SAVE_REGISTRY_KEY) return key;
+  return activeSaveSlotId ? ('slot_' + activeSaveSlotId + '__' + key) : key;
+}
+
 const cloudStorage = {
   getItem(key) {
-    return Object.prototype.hasOwnProperty.call(cloudCache, key) ? cloudCache[key] : null;
+    const k = slotPrefixedKey(key);
+    return Object.prototype.hasOwnProperty.call(cloudCache, k) ? cloudCache[k] : null;
   },
   setItem(key, value) {
-    cloudCache[key] = value;
-    clearTimeout(cloudSaveTimers[key]);
-    cloudSaveTimers[key] = setTimeout(() => persistKey(key, value), 500);
+    const k = slotPrefixedKey(key);
+    cloudCache[k] = value;
+    clearTimeout(cloudSaveTimers[k]);
+    cloudSaveTimers[k] = setTimeout(() => persistKey(k, value), 500);
   }
 };
 
@@ -2644,6 +2786,192 @@ async function loadAllCloudState(userId) {
   const { data, error } = await supabaseClient.from('predictor_state').select('key,value').eq('user_id', userId);
   if (error) { console.warn('cloud load failed', error); return; }
   data.forEach(row => { cloudCache[row.key] = JSON.stringify(row.value); });
+}
+
+// Every cloudStorage.setItem schedules its write 500ms out. Switching save
+// slots reloads the page — and timers don't survive a reload — so anything
+// still mid-debounce at that instant would be silently lost. This forces every
+// pending write through immediately first. Re-flushing an already-fired key is
+// harmless (persistKey is an upsert of the current cache value), so it's safe
+// to sweep the whole table rather than track exactly what's still outstanding.
+async function flushPendingSaves() {
+  const keys = Object.keys(cloudSaveTimers);
+  await Promise.all(keys.map(async k => {
+    clearTimeout(cloudSaveTimers[k]);
+    delete cloudSaveTimers[k];
+    if (Object.prototype.hasOwnProperty.call(cloudCache, k)) await persistKey(k, cloudCache[k]);
+  }));
+}
+
+// ---------- registry: which slots exist, which one is active ----------
+let saveRegistry = null;
+
+function loadSaveRegistry() {
+  let reg = null;
+  try { reg = JSON.parse(cloudStorage.getItem(SAVE_REGISTRY_KEY) || 'null'); } catch (e) { reg = null; }
+  if (!reg || !Array.isArray(reg.slots) || reg.slots.length === 0) {
+    reg = { slots: [{ id: '', name: 'Slot 1', createdAt: new Date().toISOString() }], activeSlotId: '' };
+  }
+  saveRegistry = reg;
+  activeSaveSlotId = reg.activeSlotId || '';
+}
+
+// Writes the registry immediately, bypassing the normal debounce — every
+// caller here is about to reload the page, so a delayed write would never fire.
+async function persistSaveRegistryNow() {
+  const value = JSON.stringify(saveRegistry);
+  cloudCache[SAVE_REGISTRY_KEY] = value;
+  clearTimeout(cloudSaveTimers[SAVE_REGISTRY_KEY]);
+  await persistKey(SAVE_REGISTRY_KEY, value);
+}
+
+function saveSlotNextName() {
+  let n = saveRegistry.slots.length + 1;
+  const names = new Set(saveRegistry.slots.map(s => s.name));
+  while (names.has('Slot ' + n)) n++;
+  return 'Slot ' + n;
+}
+
+// Creating, switching, and deleting the active slot all end the same way: the
+// registry is persisted synchronously and the page reloads. A reload is what
+// makes this safe — the app has no single "reset everything" function, since
+// nothing was ever designed to be torn down and rebuilt in place. Letting the
+// normal boot sequence run again (loadAllCloudState -> lsLoad -> first render)
+// guarantees every piece of state — NRL, AFL, World Cup, card design, the
+// currently-selected round — starts clean for the new slot, with no risk of a
+// stray value bleeding over from the slot you just left.
+async function saveSlotSwitchTo(id) {
+  await flushPendingSaves();
+  saveRegistry.activeSlotId = id;
+  await persistSaveRegistryNow();
+  window.location.reload();
+}
+
+async function saveSlotCreate() {
+  const suggested = saveSlotNextName();
+  const name = prompt('Name this save:', suggested);
+  if (name === null) return;
+  const trimmed = name.trim() || suggested;
+  const id = 'sv' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  await flushPendingSaves();
+  saveRegistry.slots.push({ id, name: trimmed, createdAt: new Date().toISOString() });
+  saveRegistry.activeSlotId = id;
+  await persistSaveRegistryNow();
+  window.location.reload();
+}
+
+async function saveSlotRename(id) {
+  const slot = saveRegistry.slots.find(s => s.id === id);
+  if (!slot) return;
+  const name = prompt('Rename this save:', slot.name);
+  if (name === null) return;
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  slot.name = trimmed;
+  await persistSaveRegistryNow();
+  renderSaveSlotMenu();
+}
+
+// Deleting a slot only removes it from the registry — the underlying rows for
+// that slot's keys are left behind in Supabase. They're inert (nothing reads a
+// slot_<id>__ prefix once the id is gone) and cheap to leave rather than risk
+// deleting the wrong thing; the registry, not the row table, is what defines
+// what exists.
+async function saveSlotDelete(id) {
+  if (saveRegistry.slots.length <= 1) return;
+  const slot = saveRegistry.slots.find(s => s.id === id);
+  if (!slot) return;
+  if (!confirm('Delete "' + slot.name + '"?\n\nThis removes it from your save list. This cannot be undone.')) return;
+  const wasActive = saveRegistry.activeSlotId === id;
+  saveRegistry.slots = saveRegistry.slots.filter(s => s.id !== id);
+  if (wasActive) {
+    await saveSlotSwitchTo(saveRegistry.slots[0].id); // persists + reloads
+    return;
+  }
+  await persistSaveRegistryNow();
+  renderSaveSlotMenu();
+}
+
+// ---------- UI ----------
+// Built with DOM methods rather than innerHTML string concatenation — slot
+// names are free text the user typed via prompt(), so they go in as textContent
+// rather than markup.
+function renderSaveSlotMenu() {
+  const menu = document.getElementById('save-slot-menu');
+  if (!menu) return;
+  menu.innerHTML = '';
+
+  saveRegistry.slots.forEach(slot => {
+    const row = document.createElement('div');
+    row.className = 'save-slot-row' + (slot.id === saveRegistry.activeSlotId ? ' active' : '');
+
+    const selectBtn = document.createElement('button');
+    selectBtn.className = 'save-slot-select';
+    selectBtn.textContent = (slot.id === saveRegistry.activeSlotId ? '● ' : '') + slot.name;
+    selectBtn.title = slot.id === saveRegistry.activeSlotId ? 'Current save' : ('Switch to "' + slot.name + '"');
+    selectBtn.addEventListener('click', () => {
+      if (slot.id !== saveRegistry.activeSlotId) saveSlotSwitchTo(slot.id);
+      else closeSaveSlotMenu();
+    });
+
+    const renameBtn = document.createElement('button');
+    renameBtn.className = 'save-slot-icon-btn';
+    renameBtn.textContent = '✎';
+    renameBtn.title = 'Rename';
+    renameBtn.addEventListener('click', (e) => { e.stopPropagation(); saveSlotRename(slot.id); });
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'save-slot-icon-btn';
+    deleteBtn.textContent = '✕';
+    deleteBtn.title = 'Delete';
+    deleteBtn.disabled = saveRegistry.slots.length <= 1;
+    deleteBtn.addEventListener('click', (e) => { e.stopPropagation(); saveSlotDelete(slot.id); });
+
+    row.appendChild(selectBtn);
+    row.appendChild(renameBtn);
+    row.appendChild(deleteBtn);
+    menu.appendChild(row);
+  });
+
+  const divider = document.createElement('div');
+  divider.className = 'save-slot-divider';
+  menu.appendChild(divider);
+
+  const newBtn = document.createElement('button');
+  newBtn.className = 'save-slot-new';
+  newBtn.textContent = '+ New Save';
+  newBtn.addEventListener('click', () => saveSlotCreate());
+  menu.appendChild(newBtn);
+
+  const label = document.getElementById('save-slot-label');
+  const active = saveRegistry.slots.find(s => s.id === saveRegistry.activeSlotId);
+  if (label) label.textContent = active ? active.name : 'Slot 1';
+}
+
+function closeSaveSlotMenu() {
+  const menu = document.getElementById('save-slot-menu');
+  if (menu) menu.classList.remove('open');
+}
+
+function initSaveSlotUI() {
+  const picker = document.getElementById('save-slot-picker');
+  const btn = document.getElementById('save-slot-btn');
+  const menu = document.getElementById('save-slot-menu');
+  if (!picker || !btn || !menu) return;
+
+  renderSaveSlotMenu();
+  picker.style.display = '';
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu.classList.toggle('open');
+  });
+  document.addEventListener('click', (e) => {
+    if (!picker.contains(e.target)) closeSaveSlotMenu();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeSaveSlotMenu();
+  });
 }
 
 function waitForSession() {
@@ -2728,9 +3056,12 @@ lpSignOutBtn.addEventListener('click', async () => {
 const lpSession = await waitForSession();
 currentUserId = lpSession.user.id;
 await loadAllCloudState(currentUserId);
+loadSaveRegistry(); // must run before anything else touches cloudStorage, so
+                     // every key that follows resolves against the right slot
 lpLoginOverlay.style.display = 'none';
 lpAppRoot.style.display = '';
 lpSignOutBtn.style.display = '';
+initSaveSlotUI();
 
 // ============================================================
 // FUNCTIONS REFERENCED BY INLINE HTML EVENT HANDLERS
