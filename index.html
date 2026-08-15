@@ -453,8 +453,13 @@
 /* On the Finals tab the round nav is hidden and the bracket starts immediately
    below the header, so the toggle moves up onto the title line — between the
    finals title and the Reset button — instead of sitting over week 2/3. */
+/* On the finals view the round nav is hidden, so the header's space-between
+   drops the Automate/Reset row to ~118px — the same band this toggle used to
+   move to at 116px, which collided as soon as the panel narrowed. The bracket
+   title also sits there. Between the header row (ends 40px) and the button row
+   (starts 118px) is empty, so the toggle goes there instead. */
 .design-toggle.on-finals {
-  top: 116px;
+  top: 62px;
 }
 
 /* Season Preview Section */
@@ -493,6 +498,10 @@
 .preview-body {
   margin-top: 10px;
   padding: 8px;
+  /* The seeding row is a wide fixed-column grid. On a narrow window it is wider
+     than the panel, which used to scroll the whole PAGE sideways; keep that
+     scroll inside the preview instead. */
+  overflow-x: auto;
 }
 .preview-instructions {
   color: #8888aa;
@@ -506,6 +515,14 @@
 .preview-header {
   display: grid;
   gap: 8px;
+  /* The header and each row are separate grid containers, so their tracks only
+     agree if both resolve identically. The recruitment track is 1fr — i.e.
+     minmax(auto, 1fr) — and its min-content differs between the two: the header
+     holds the unbreakable word "RECRUITMENT" (~85px) while the row holds a
+     shrinkable slider (~40px). Once the panel narrowed they clamped to
+     different widths and every column to the right drifted apart. A shared
+     min-width keeps both at full size and lets .preview-body scroll instead. */
+  min-width: 700px;
   padding: 6px 10px;
   color: #8888aa;
   font-family: 'DIN Next LT Pro', sans-serif;
@@ -518,6 +535,7 @@
 .preview-row {
   display: grid;
   gap: 8px;
+  min-width: 700px;   /* must match .preview-header — see the note there */
   padding: 6px 10px;
   align-items: center;
   border-radius: 4px;
@@ -565,6 +583,77 @@
   font-size: 16px;
   text-align: center;
   cursor: grab;
+}
+
+/* Preseason seeding controls (inside the Season Preview rows) */
+.seed-phase,
+.seed-consistency {
+  /* Every other column in this table centres its value (#, SEED, and the two
+     season columns), and the headers are centred over the tracks. A select
+     renders its text left-aligned by default, which left PHASE and CONSISTENCY
+     looking shifted off their contents even though the grid tracks line up
+     exactly. */
+  text-align: center;
+  background: #16213E;
+  border: 1px solid #2a2a4a;
+  border-radius: 3px;
+  color: #ccccdd;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-size: 11px;
+  padding: 3px 4px;
+  width: 100%;
+  cursor: pointer;
+}
+.seed-phase:hover,
+.seed-consistency:hover {
+  border-color: #3a4a80;
+}
+.seed-recruit-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.seed-recruit {
+  flex: 1;
+  min-width: 0;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #2a2a4a;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.seed-recruit::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #f0c040;
+  cursor: pointer;
+}
+.seed-recruit::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: none;
+  border-radius: 50%;
+  background: #f0c040;
+  cursor: pointer;
+}
+.seed-recruit-val {
+  color: #ccccdd;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-size: 11px;
+  width: 34px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.seed-rating {
+  color: #f0c040;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
 }
 
 /* Hide number input arrows globally */
@@ -657,6 +746,111 @@ input[type=number] {
   font-weight: 700;
   font-size: 12px;
   cursor: pointer;
+}
+
+/* Round headlines — sit under the scorecards. Positioned absolutely like the
+   cards themselves, because every card is absolute and so #games-container has
+   no height of its own on desktop. The mobile block returns them to the flow. */
+/* Ladder position beside a team on the scorecards. Small and low-contrast so it
+   reads as an annotation rather than competing with the team name or score. */
+.pos-tag:empty { display: none; }
+.pos-tag {
+  position: absolute;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.6);
+  pointer-events: none;
+}
+/* Classic cards carry a team name, so the tag tucks into the bottom corner of
+   the text block — under the name, just past the crest. */
+.pos-tag-under-home {
+  bottom: 3px;
+  left: calc(69.6px + 8.8px);
+}
+.pos-tag-under-away {
+  bottom: 3px;
+  right: calc(69.6px + 8.8px);
+}
+.pos-tag-afl-under {
+  bottom: 2px;
+  left: calc(80px + 8px);
+}
+/* The Modern cards are crest-forward (AFL Modern has no name at all), so the
+   tag sits in the bottom corner of the crest itself. */
+.pos-tag-crest {
+  bottom: 3px;
+  left: 5px;
+  z-index: 2;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+}
+.nrl-modern-logo-wrap,
+.afl-modern-logo-wrap {
+  position: relative;
+}
+
+.headlines {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  max-width: 92%;
+  box-sizing: border-box;
+  background: #16213E;
+  border: 1px solid #2a2a4a;
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+.headlines-title {
+  color: #8888aa;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+.headline {
+  position: relative;
+  padding-left: 14px;
+  color: #ffffff;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.headline + .headline {
+  margin-top: 6px;
+}
+.headline::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #f0c040;
+}
+
+/* Automate controls — same shape as .reset-btn, gold so the sim group reads
+   as one set. Margin rather than a gap on .panel-header-reset, to leave the
+   existing rule alone. */
+.sim-btn {
+  background: #2a2a3d;
+  color: #f0c040;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 12px;
+  margin-right: 6px;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+}
+.sim-btn:hover {
+  background: #3a3a52;
 }
 
 .round-nav {
@@ -833,6 +1027,96 @@ grid-template-columns: 32px 150px 40px 40px 40px 40px 40px 50px 50px 60px 65px 5
 
 .finals-container.active {
   display: block;
+}
+
+/* Premiers screen — a third view alongside Season and Finals. Same absolute
+   placement as the bracket so it drops into the panel the same way. */
+.gf-container {
+  position: absolute;
+  top: 110px;
+  left: 0;
+  width: 100%;
+  padding: 12px;
+  box-sizing: border-box;
+  display: none;
+}
+.gf-container.active {
+  display: block;
+}
+.gf-card {
+  border-radius: 10px;
+  padding: 26px 22px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.gf-eyebrow {
+  color: rgba(255,255,255,0.85);
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+.gf-logo {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  margin: 14px auto 6px;
+  display: block;
+}
+.gf-team {
+  color: #ffffff;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 38px;
+  line-height: 1.1;
+  text-transform: uppercase;
+  letter-spacing: -0.5px;
+}
+.gf-score {
+  color: rgba(255,255,255,0.92);
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-size: 17px;
+  margin-top: 10px;
+}
+.gf-summary {
+  margin-top: 18px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.gf-stat {
+  background: #16213E;
+  border: 1px solid #2a2a4a;
+  border-radius: 6px;
+  padding: 8px 14px;
+  min-width: 74px;
+}
+.gf-stat-label {
+  color: #8888aa;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.gf-stat-value {
+  color: #ffffff;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  margin-top: 2px;
+}
+.gf-minor {
+  margin-top: 14px;
+  color: #f0c040;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .finals-title {
@@ -1507,11 +1791,15 @@ transform-origin: left center;
 
 /* 2. Round selector buttons: allow wrapping on narrow panels */
 @media (max-width: 700px) {
+  /* Was `max-width: 200` — no units, so it never applied. The 18 buttons in row
+     one were instead flex-shrinking to ~17px each (unreadable) and still poking
+     past the viewport. Let them wrap and keep their width. */
   .round-nav-row {
-    max-width: 200;
+    flex-wrap: wrap;
   }
   .round-btn {
-    width: 28px;
+    width: 30px;
+    flex: 0 0 auto;
     font-size: 11px;
     padding: 3px 0;
   }
@@ -1522,6 +1810,33 @@ transform-origin: left center;
   .panel-header-top {
     flex-wrap: wrap;
     gap: 4px;
+  }
+
+  /* Classic/Modern toggle: absolutely positioned at top:156px on desktop, which
+     assumes the fixed 150px header. On mobile the header flows and grows past
+     that once the buttons and round nav wrap, so the toggle landed on top of the
+     first scorecard. Let it sit in the flow instead. Both selectors are listed
+     because .design-toggle.on-finals sets its own top and outranks the first. */
+  .design-toggle,
+  .design-toggle.on-finals {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    justify-content: center;
+    margin: 0 0 8px;
+  }
+
+  /* Headlines flow after the cards on mobile. `top` needs !important because
+     the desktop position is set as an inline style. */
+  .headlines {
+    position: relative;
+    top: auto !important;
+    left: auto;
+    transform: none;
+    width: 100%;
+    max-width: none;
+    margin-bottom: 8px;
   }
 .reset-btn {
   background: #2a2a3d;
@@ -1535,6 +1850,15 @@ transform-origin: left center;
   cursor: pointer;
   margin: 10px;
 }
+  /* Trim the header buttons — the 10px margin above plus the desktop padding
+     made them chunkier than they need to be on a phone. Declared after that
+     block so the margin here wins. */
+  .sim-btn,
+  .reset-btn {
+    padding: 2px 10px;
+    font-size: 11px;
+    margin: 3px 3px 3px 0;
+  }
   .panel-header {
     position: relative;
     height: auto;
@@ -1558,60 +1882,129 @@ transform-origin: left center;
   .data-table td {
     height: 40px;
   }
+  /* Give the name cells more room and the score cells less — at 38/12 the name
+     had only 66px beside a 54px logo, so anything longer than STORM spilled
+     across the scores ("SEA EAGLES" needs 78px). */
   .data-table td.col-outer {
-    width: 38%;
+    width: 41%;
   }
   .data-table td.col-inner {
-    width: 12%;
+    width: 9%;
   }
-  /* NRL team names: readable but compact (was 28px desktop) */
+  /* The crest renders ~54px wide at the 40px row height, which is a big slice of
+     a 343px card. Capping it buys the team name ~10px and lets the font go up.
+     The height stays explicit and object-fit does the scaling — these are SVGs
+     with no intrinsic size, so width:auto/height:auto collapses them to nothing. */
+  .cell-logo img {
+    height: 100%;
+    width: 44px;
+    object-fit: contain;
+  }
+  .logo-left img {
+    object-position: left center;
+  }
+  .logo-right img {
+    object-position: right center;
+  }
+  /* The crest is capped smaller on mobile, so the position tags move in with
+     the team names they sit under. */
+  .pos-tag-under-home { left: calc(44px + 4px); }
+  .pos-tag-under-away { right: calc(44px + 4px); }
+  .pos-tag-afl-under { left: calc(72px + 6px); }
+
+  /* NRL team names: readable but compact (was 28px desktop). The offset clears
+     the 54px logo, and max-width pins the text inside its own cell so a long
+     name clips instead of running over the score. */
   .team-text {
-    font-size: 20px;
+    font-size: 16px;
     letter-spacing: -0.2px;
     overflow: hidden;
   }
   .team-text-home {
-    left: calc(60px + 4px);
+    left: calc(44px + 4px);
+    max-width: calc(100% - 52px);
   }
   .team-text-away {
-    right: calc(60px + 4px);
+    right: calc(44px + 4px);
+    max-width: calc(100% - 52px);
+    text-align: right;
   }
+  /* "WESTS TIGERS" is ~95px at 14px and the cell allows 75px, so it gets the
+     same horizontal squeeze the desktop card uses rather than being clipped.
+     max-width is lifted because the transform does the fitting; the origin has
+     to match the edge each name is anchored to. */
   .team-text-tigers-home {
-    left: calc(60px + 4px);
-    font-size: 20px;
+    left: calc(44px + 4px);
+    font-size: 16px;
     width: auto;
-    transform: translateY(calc(-50% + 2.5px)) scaleX(0.852);
+    max-width: none;
+    transform: translateY(calc(-50% + 2.5px)) scaleX(0.82);
+    transform-origin: left center;
   }
   .team-text-tigers-away {
-    right: calc(60px + 4px);
-    font-size: 20px;
+    right: calc(44px + 4px);
+    font-size: 16px;
     width: auto;
-    transform: translateY(calc(-50% + 2.5px)) scaleX(0.852);
+    max-width: none;
+    transform: translateY(calc(-50% + 2.5px)) scaleX(0.82);
+    transform-origin: right center;
   }
   /* Score inputs: shrink from 40px on both NRL and AFL */
   .score-input {
     font-size: 30px !important;
   }
+  /* NRL classic scores sit in a 9% (~31px) cell. At 26px the digits filled it
+     edge to edge and the two scores read as one number — 23px restores a gap. */
+  .data-table td.col-inner .score-input {
+    font-size: 23px !important;
+  }
 
-  /* AFL game cards: scroll horizontally (inline widths block CSS override) */
+  /* AFL game cards: scale to the panel, the way the NRL ones do. These used to
+     be pinned at min-width:500px inside a ~340px panel and scrolled sideways,
+     which pushed the scores clean off screen — and the name/score font was set
+     to 32px, LARGER than the 28px desktop size. */
   #afl-games-container {
-    overflow-x: auto;
+    overflow-x: auto; /* safety net only; the card fits now */
     -webkit-overflow-scrolling: touch;
   }
   .afl-data-table {
     position: relative !important;
     top: 0 !important;
     left: 0 !important;
-    min-width: 500px;
+    right: auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
     margin-bottom: 8px;
   }
-  /* AFL team name text — override the JS-set inline font-size */
+  /* The Modern variant centres itself with left:50% + translateX(-50%). The
+     width/left above override its width but NOT the transform, which dragged
+     the card half its width off the left edge. Reset all four together. */
+  .afl-data-table.afl-modern-table {
+    left: 0 !important;
+    right: auto !important;
+    width: 100% !important;
+    max-width: none !important;
+    transform: none !important;
+  }
+  /* Inline width/height on the cells needs !important to shift. Classic only —
+     the Modern cell is 48px and its row/logo are fixed to match. */
+  .afl-data-table:not(.afl-modern-table) td {
+    height: 34px !important;
+  }
+  .afl-cell-red {
+    width: 54px !important;
+  }
+  /* AFL team name + score — override the JS-set inline font-size (28px) */
   .afl-cell-dark > div {
-    font-size: 32px !important;
-    left: calc(110px + 6px) !important;
+    font-size: 19px !important;
+    left: calc(72px + 6px) !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: calc(100% - 84px);
   }
   .afl-cell-red > div {
-    font-size: 32px !important;
+    font-size: 24px !important;
   }
 
   /* Finals bracket: flow below header + horizontal scroll */
@@ -1736,9 +2129,13 @@ transform-origin: left center;
           <div class="panel-header-controls">
             <button class="panel-toggle-btn active" id="btn-season">Season</button>
             <button class="panel-toggle-btn" id="btn-finals">Finals</button>
+            <button class="panel-toggle-btn" id="btn-gf" style="display:none;">Premiers</button>
           </div>
         </div>
         <div class="panel-header-reset">
+          <button class="sim-btn" id="nrl-btn-automate">Automate</button>
+          <button class="sim-btn" id="nrl-btn-reroll">Re-roll</button>
+          <button class="sim-btn" id="nrl-btn-simrest">Sim Rest</button>
           <button class="reset-btn" id="btn-reset">Reset</button>
         </div>
         <div class="round-nav" id="nrl-round-nav"></div>
@@ -1895,6 +2292,7 @@ transform-origin: left center;
           </div>
         </div>
       </div>
+      <div class="gf-container" id="gf-container"></div>
     </div>
     <div class="panel" id="ladder-panel">
       <div class="ladder">
@@ -1939,9 +2337,13 @@ transform-origin: left center;
           <div class="panel-header-controls">
             <button class="panel-toggle-btn active" id="afl-btn-season">Season</button>
             <button class="panel-toggle-btn" id="afl-btn-finals">Finals</button>
+            <button class="panel-toggle-btn" id="afl-btn-gf" style="display:none;">Premiers</button>
           </div>
         </div>
         <div class="panel-header-reset">
+          <button class="sim-btn" id="afl-btn-automate">Automate</button>
+          <button class="sim-btn" id="afl-btn-reroll">Re-roll</button>
+          <button class="sim-btn" id="afl-btn-simrest">Sim Rest</button>
           <button class="reset-btn" id="afl-btn-reset">Reset</button>
         </div>
         <div class="round-nav" id="afl-round-nav"></div>
@@ -2098,6 +2500,7 @@ transform-origin: left center;
           </div>
         </div>
       </div>
+      <div class="gf-container" id="afl-gf-container"></div>
     </div>
     <div class="panel" id="afl-ladder-panel">
       <div class="ladder">
@@ -2164,6 +2567,7 @@ transform-origin: left center;
   </div>
   </div><!-- /app-root -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="sim.js"></script>
   <script>
 (async function() {
 
@@ -7248,6 +7652,7 @@ function populateFinals() {
   seasons[currentSeason].finalsData.gf.home = winnerPF1 || null;
   seasons[currentSeason].finalsData.gf.away = winnerPF2 || null;
   renderFinals();
+  renderGrandFinal('nrl');
 }
 
 function populateAFLFinals() {
@@ -7283,6 +7688,7 @@ function populateAFLFinals() {
   aflSeasons[currentSeason].finalsData.gf.home = winnerPF1 || null;
   aflSeasons[currentSeason].finalsData.gf.away = winnerPF2 || null;
   renderAFLFinals();
+  renderGrandFinal('afl');
 }
 
 function renderAFLFinalsCard(id, game) {
@@ -7392,30 +7798,23 @@ function renderRoundNav(containerId, totalRounds) {
 // realistic 14.11 (95) puts goals at 84/95 = 0.88 — so the cap forced behinds
 // to outnumber goals almost every time (32 came out 3.14 instead of 5.2).
 // Real teams kick roughly 0.8 behinds per goal, so that ratio is the anchor.
-function generateGoalsBehinds(total) {
-  if (total === 0) return { goals: 0, behinds: 0 };
-  if (total < 6) return { goals: 0, behinds: total };
-
-  const roll = Math.random();
-  let minR, maxR;
-  if (roll < 0.18)      { minR = 0.25; maxR = 0.55; } // accurate day
-  else if (roll < 0.85) { minR = 0.55; maxR = 1.05; } // typical
-  else                  { minR = 1.05; maxR = 1.70; } // wayward in front of goal
-
-  // total = goals*6 + behinds, and behinds = ratio*goals, so goals = total/(6+ratio)
-  const ratio = minR + Math.random() * (maxR - minR);
-  const maxGoals = Math.floor(total / 6);
-  let goals = Math.max(0, Math.min(maxGoals, Math.round(total / (6 + ratio))));
-  let behinds = total - (goals * 6);
-
-  // Rounding at the extremes can still throw up a freak split (e.g. 3.14) —
-  // walk goals up until the scoreline looks sane.
-  while (behinds > goals * 2.5 && goals < maxGoals) {
-    goals++;
-    behinds = total - (goals * 6);
-  }
-
-  return { goals, behinds };
+// The algorithm itself now lives in sim.js, so the scorecard and the simulation
+// engine can never drift apart; the ratio bands are in SIM_CONFIG.goalsBehinds.
+//
+// `key` identifies the scoreline (team + side + total). It seeds the generator,
+// which makes the split STABLE: a card redraw — switching design, changing round,
+// recomputing the ladder — now shows the same G.B for the same score instead of
+// re-rolling a new one every render. Omit it and the split is stable on the
+// total alone.
+function gbSeedFrom(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function generateGoalsBehinds(total, key) {
+  const points = parseInt(total, 10) || 0;
+  const rng = window.LadderSim.makeRng(gbSeedFrom((key == null ? '' : String(key)) + ':' + points));
+  return window.LadderSim.generateGoalsBehinds(points, rng, window.LadderSim.SIM_CONFIG);
 }
 
 // Height of one team row on the Modern AFL card. Must match the heights in the
@@ -7433,13 +7832,60 @@ function aflModernLogoPos(team) {
   return AFL_MODERN_LOGO_POS[team] || 'center center';
 }
 
+// Ladder position shown against a team on a scorecard. Empty until the team has
+// actually played — before then every side is level and the "position" would be
+// nothing but the alphabetical tiebreak.
+function posTag(pos, cls) {
+  // Always emitted, even when empty, so refreshLadderPositions() can fill it in
+  // as results are typed without re-rendering the round and stealing focus.
+  return '<span class="pos-tag ' + cls + '">' + (pos ? ordinalSuffix(pos) : '') + '</span>';
+}
+
+// Update the tags in place. DOM order is home then away in all four designs.
+function refreshLadderPositions(sport) {
+  const isAfl = sport === 'afl';
+  if ((currentSeason.startsWith('afl')) !== isAfl) return;
+  const container = document.getElementById(isAfl ? 'afl-games-container' : 'games-container');
+  const season = (isAfl ? aflSeasons : seasons)[currentSeason];
+  if (!container || !season) return;
+  const pos = currentLadderPositions(sport);
+  const tables = container.querySelectorAll(isAfl ? '.afl-data-table' : '.data-table');
+  (season.rounds[currentRound] || []).forEach((game, i) => {
+    const t = tables[i];
+    if (!t) return;
+    const tags = t.querySelectorAll('.pos-tag');
+    if (tags.length < 2) return;
+    tags[0].textContent = pos[game.home] ? ordinalSuffix(pos[game.home]) : '';
+    tags[1].textContent = pos[game.away] ? ordinalSuffix(pos[game.away]) : '';
+  });
+}
+
+// Current live ladder positions, i.e. every result entered so far — not the
+// ladder as it stood in the round being viewed. Cached per render pass because
+// renderRound calls it once per game.
+function currentLadderPositions(sport) {
+  const isAfl = sport === 'afl';
+  const season = (isAfl ? aflSeasons : seasons)[currentSeason];
+  const out = {};
+  if (!season) return out;
+  const anyPlayed = season.scores && Object.keys(season.scores).some(k => {
+    const v = season.scores[k];
+    return v && ((parseInt(v.home, 10) || 0) !== 0 || (parseInt(v.away, 10) || 0) !== 0);
+  });
+  if (!anyPlayed) return out;
+  const ladder = (isAfl ? getAFLSeasonLadder : getSeasonLadder)(currentSeason);
+  ladder.forEach((row, i) => { out[row.team] = i + 1; });
+  return out;
+}
+
 const CARD_DESIGNS = {
   nrl: {
-    classic: (game, saved, homeConfig, awayConfig, homeLogo, awayLogo, homeTextClass, awayTextClass) => `
+    classic: (game, saved, homeConfig, awayConfig, homeLogo, awayLogo, homeTextClass, awayTextClass, homePos, awayPos) => `
       <tr>
         <td class="col-outer ${homeConfig.gradient}" style="position: relative;">
           <div class="${homeTextClass}">${game.home.toUpperCase()}</div>
           <div class="cell-logo logo-left"><img src="${homeLogo}" class="team-logo"></div>
+          ${posTag(homePos, 'pos-tag-under-home')}
         </td>
         <td class="col-inner" style="position: relative;">
           <div contenteditable="true" class="score-input" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, calc(-50% + 3.5px)); font-family: 'DIN Next LT Pro', sans-serif; font-weight: 700; font-size: 40px; color: #000000; cursor: text; min-width: 10px; text-align: center;">${saved.home}</div>
@@ -7450,24 +7896,25 @@ const CARD_DESIGNS = {
         <td class="col-outer ${awayConfig.gradientAway}" style="position: relative;">
           <div class="${awayTextClass}">${game.away.toUpperCase()}</div>
           <div class="cell-logo logo-right"><img src="${awayLogo}" class="team-logo"></div>
+          ${posTag(awayPos, 'pos-tag-under-away')}
         </td>
       </tr>
     `,
     // Home score must stay ahead of away score in DOM order — renderRound reads
     // the two .score-input nodes positionally as [home, away].
-    modern: (game, saved, homeConfig, awayConfig, homeLogo, awayLogo) => `
+    modern: (game, saved, homeConfig, awayConfig, homeLogo, awayLogo, homeTextClass, awayTextClass, homePos, awayPos) => `
       <tr>
         <td class="nrl-modern-cell">
           <div class="nrl-modern-row">
             <div class="nrl-modern-side ${homeConfig.gradient}">
-              <div class="nrl-modern-logo-wrap"><img src="${homeLogo}" class="nrl-modern-logo-img"></div>
+              <div class="nrl-modern-logo-wrap"><img src="${homeLogo}" class="nrl-modern-logo-img">${posTag(homePos, 'pos-tag-crest')}</div>
               <div class="nrl-modern-abbr">${homeConfig.abbr}</div>
               <div contenteditable="true" class="score-input nrl-modern-score">${saved.home}</div>
             </div>
             <div class="nrl-modern-side ${awayConfig.gradientAway}">
               <div contenteditable="true" class="score-input nrl-modern-score">${saved.away}</div>
               <div class="nrl-modern-abbr">${awayConfig.abbr}</div>
-              <div class="nrl-modern-logo-wrap"><img src="${awayLogo}" class="nrl-modern-logo-img"></div>
+              <div class="nrl-modern-logo-wrap"><img src="${awayLogo}" class="nrl-modern-logo-img">${posTag(awayPos, 'pos-tag-crest')}</div>
             </div>
           </div>
         </td>
@@ -7475,11 +7922,12 @@ const CARD_DESIGNS = {
     `,
   },
   afl: {
-    classic: (game, saved, homeConfig, awayConfig) => `
+    classic: (game, saved, homeConfig, awayConfig, homePos, awayPos) => `
       <tr>
         <td class="afl-cell-dark" style="width:auto;height:38px;position:relative;">
           <img src="${homeConfig.logo}" style="height:100%;width:auto;object-fit:contain;position:absolute;left:0;top:0;">
           <div style="position:absolute;left:calc(80px + 8px);top:50%;transform:translateY(calc(-50% + 2.5px));font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;white-space:nowrap;">${game.home.toUpperCase()}</div>
+          ${posTag(homePos, 'pos-tag-afl-under')}
         </td>
         <td class="afl-cell-red" style="width:70px;height:38px;position:relative;">
           <div contenteditable="true" class="score-input" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;cursor:text;min-width:10px;text-align:center;">${saved.home}</div>
@@ -7489,22 +7937,23 @@ const CARD_DESIGNS = {
         <td class="afl-cell-dark" style="width:auto;height:38px;position:relative;">
           <img src="${awayConfig.logo}" style="height:100%;width:auto;object-fit:contain;position:absolute;left:0;top:0;">
           <div style="position:absolute;left:calc(80px + 8px);top:50%;transform:translateY(calc(-50% + 2.5px));font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;white-space:nowrap;">${game.away.toUpperCase()}</div>
+          ${posTag(awayPos, 'pos-tag-afl-under')}
         </td>
         <td class="afl-cell-red" style="width:70px;height:38px;position:relative;">
           <div contenteditable="true" class="score-input" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;cursor:text;min-width:10px;text-align:center;">${saved.away}</div>
         </td>
       </tr>
     `,
-    modern: (game, saved, homeConfig, awayConfig) => {
-      const homeGB = generateGoalsBehinds(parseInt(saved.home) || 0);
-      const awayGB = generateGoalsBehinds(parseInt(saved.away) || 0);
+    modern: (game, saved, homeConfig, awayConfig, homePos, awayPos) => {
+      const homeGB = generateGoalsBehinds(parseInt(saved.home) || 0, game.home + '|H');
+      const awayGB = generateGoalsBehinds(parseInt(saved.away) || 0, game.away + '|A');
       const homeGrad = 'col-' + aflTeamSlug(game.home) + '-home';
       const awayGrad = 'col-' + aflTeamSlug(game.away) + '-home';
       return `
         <tr>
           <td class="afl-modern-cell" style="position:relative;">
             <div class="afl-modern-row">
-              <div class="afl-modern-logo-wrap"><img src="${homeConfig.logo}" class="afl-modern-logo-img" style="object-position:${aflModernLogoPos(game.home)};"></div>
+              <div class="afl-modern-logo-wrap"><img src="${homeConfig.logo}" class="afl-modern-logo-img" style="object-position:${aflModernLogoPos(game.home)};">${posTag(homePos, 'pos-tag-crest')}</div>
               <div class="afl-modern-scorebox ${homeGrad}">
                 <div class="afl-modern-g">${homeGB.goals}</div>
                 <div class="afl-modern-b">${homeGB.behinds}</div>
@@ -7516,7 +7965,7 @@ const CARD_DESIGNS = {
         <tr>
           <td class="afl-modern-cell" style="position:relative;">
             <div class="afl-modern-row">
-              <div class="afl-modern-logo-wrap"><img src="${awayConfig.logo}" class="afl-modern-logo-img" style="object-position:${aflModernLogoPos(game.away)};"></div>
+              <div class="afl-modern-logo-wrap"><img src="${awayConfig.logo}" class="afl-modern-logo-img" style="object-position:${aflModernLogoPos(game.away)};">${posTag(awayPos, 'pos-tag-crest')}</div>
               <div class="afl-modern-scorebox ${awayGrad}">
                 <div class="afl-modern-g">${awayGB.goals}</div>
                 <div class="afl-modern-b">${awayGB.behinds}</div>
@@ -7538,6 +7987,7 @@ function renderRound(roundIndex) {
   const games = seasons[currentSeason].rounds[roundIndex];
   const container = document.getElementById('games-container');
   container.innerHTML = '';
+  const ladderPos = currentLadderPositions('nrl');
 
   games.forEach((game, i) => {
     const scoreKey = `R${roundIndex + 1}G${i}`;
@@ -7553,7 +8003,7 @@ function renderRound(roundIndex) {
     const table = document.createElement('table');
     table.className = 'data-table' + (cardDesign.nrl === 'modern' ? ' nrl-modern-table' : '');
     table.style.top = top;
-    table.innerHTML = getCardHTML('nrl', cardDesign.nrl, game, saved, homeConfig, awayConfig, homeLogo, awayLogo, homeTextClass, awayTextClass);
+    table.innerHTML = getCardHTML('nrl', cardDesign.nrl, game, saved, homeConfig, awayConfig, homeLogo, awayLogo, homeTextClass, awayTextClass, ladderPos[game.home], ladderPos[game.away]);
 
     const inputs = table.querySelectorAll('.score-input');
     inputs.forEach(input => {
@@ -7576,6 +8026,8 @@ function renderRound(roundIndex) {
         seasons[currentSeason].scores[scoreKey] = { home: homeScore, away: awayScore };
         calculateLadder();
         populateFinals();
+        refreshLadderPositions('nrl');
+        renderHeadlines('nrl');
         lsSaveNRL();
       });
     });
@@ -7592,11 +8044,14 @@ function renderRound(roundIndex) {
 
     container.appendChild(table);
   });
+
+  renderHeadlines('nrl');
 }
 function renderAFLRound(roundIndex) {
   const games = aflSeasons[currentSeason].rounds[roundIndex];
   const container = document.getElementById('afl-games-container');
   container.innerHTML = '';
+  const ladderPos = currentLadderPositions('afl');
   const isModern = cardDesign.afl === 'modern';
   // Modern rows are taller (the 44px total needs the headroom) — see the
   // .afl-modern-* CSS block, which these must stay in sync with.
@@ -7612,7 +8067,7 @@ function renderAFLRound(roundIndex) {
     const table = document.createElement('table');
     table.className = 'afl-data-table' + (isModern ? ' afl-modern-table' : '');
     table.style.top = top;
-    table.innerHTML = getCardHTML('afl', cardDesign.afl, game, saved, homeConfig, awayConfig);
+    table.innerHTML = getCardHTML('afl', cardDesign.afl, game, saved, homeConfig, awayConfig, ladderPos[game.home], ladderPos[game.away]);
     const inputs = table.querySelectorAll('.score-input');
     const gEls = table.querySelectorAll('.afl-modern-g');
     const bEls = table.querySelectorAll('.afl-modern-b');
@@ -7634,13 +8089,18 @@ function renderAFLRound(roundIndex) {
         const awayScore = parseInt(inputs[1].textContent) || 0;
         aflSeasons[currentSeason].scores[scoreKey] = { home: homeScore, away: awayScore };
         calculateAFLLadder();
+        refreshLadderPositions('afl');
+        renderHeadlines('afl');
         lsSaveAFL();
       });
     });
     if (cardDesign.afl === 'modern') {
       inputs.forEach((input, idx) => {
         input.addEventListener('input', function() {
-          const gb = generateGoalsBehinds(parseInt(input.textContent) || 0);
+          // Same key the card renderer uses, so the split you see while typing
+          // is the one that survives the next redraw.
+          const gbKey = idx === 0 ? game.home + '|H' : game.away + '|A';
+          const gb = generateGoalsBehinds(parseInt(input.textContent) || 0, gbKey);
           if (gEls[idx]) gEls[idx].textContent = gb.goals;
           if (bEls[idx]) bEls[idx].textContent = gb.behinds;
         });
@@ -7659,6 +8119,8 @@ function renderAFLRound(roundIndex) {
 
     container.appendChild(table);
   });
+
+  renderHeadlines('afl');
 }
 function calculateAFLLadder() {
   const ladder = {};
@@ -8207,18 +8669,452 @@ document.querySelectorAll('.design-toggle-btn').forEach(btn => {
 document.getElementById('btn-reset').addEventListener('click', function() {
   if (confirm('Reset all scores for this season?')) {
     seasons[currentSeason].scores = {};
+    // Finals were left untouched, so a reset season kept its old bracket — and
+    // the result was never persisted, so everything came back on reload.
+    Object.keys(seasons[currentSeason].finalsData).forEach(id => {
+      seasons[currentSeason].finalsData[id].homeScore = 0;
+      seasons[currentSeason].finalsData[id].awayScore = 0;
+    });
     renderRound(currentRound);
     calculateLadder();
     populateFinals();
+    lsSaveNRL();
   }
 });
 
 document.getElementById('afl-btn-reset').addEventListener('click', function() {
   if (confirm('Reset all scores for this season?')) {
     aflSeasons[currentSeason].scores = {};
+    Object.keys(aflSeasons[currentSeason].finalsData).forEach(id => {
+      aflSeasons[currentSeason].finalsData[id].homeScore = 0;
+      aflSeasons[currentSeason].finalsData[id].awayScore = 0;
+    });
     renderAFLRound(currentRound);
     calculateAFLLadder();
+    populateAFLFinals();
+    lsSaveAFL();
   }
+});
+
+// ============================================================
+// AUTOMATE (sim.js bridge)
+// ============================================================
+// Simmed scores are written into `scores` in the same shape and through the
+// same persistence path as manual entry — no separate storage, no provenance
+// flag. Once written, a simmed score is just a score.
+//
+// Every sim bumps this, so a re-roll is the same inputs with fresh randomness.
+let simRunSeed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
+
+function simSportOf(seasonKey) { return seasonKey.startsWith('afl') ? 'afl' : 'nrl'; }
+
+// currentSeason is a single global shared by both sports, so a panel's buttons
+// must ignore clicks while the other sport's season is loaded.
+function simPanelActive(sport) { return simSportOf(currentSeason) === sport; }
+
+function simContext() {
+  const sport = simSportOf(currentSeason);
+  const season = (sport === 'afl' ? aflSeasons : seasons)[currentSeason];
+  const config = window.LadderSim.SIM_CONFIG;
+  const archive = simArchive(sport);
+  if (!season.scores) season.scores = {};
+  return {
+    sport, season, config, archive,
+    seeds: window.LadderSim.computeSeeds({ sport, seasonKey: currentSeason, archive, config }),
+    priorTempos: window.LadderSim.priorSeasonTempos({ sport, seasonKey: currentSeason, archive, config }),
+    volatility: window.LadderSim.computeVolatility({ sport, seasonKey: currentSeason, archive, config }),
+  };
+}
+
+// Redraw everything, exactly as the score-input listener does after a manual
+// edit. Split from the score writing so the animation can write game by game.
+function simRedraw(sport) {
+  if (sport === 'afl') {
+    renderAFLRound(currentRound);
+    calculateAFLLadder();
+    lsSaveAFL();
+  } else {
+    renderRound(currentRound);
+    calculateLadder();
+    populateFinals();
+    lsSaveNRL();
+  }
+}
+
+function simApplyScores(written) {
+  const sport = simSportOf(currentSeason);
+  const season = (sport === 'afl' ? aflSeasons : seasons)[currentSeason];
+  Object.keys(written).forEach(k => { season.scores[k] = written[k]; });
+  simRedraw(sport);
+}
+
+// ---------- play-by-play animation ----------
+// How fast the progression is drawn. Presentation only — the model itself lives
+// in SIM_CONFIG.
+//
+// stepMs is the dial: how long each scoring play holds on screen. It used to be
+// derived from a target time per game, which meant the more a team scored the
+// FASTER it counted — an AFL game with 45 scoring shots flew past. Now the step
+// is fixed, and a game is only compressed when it would otherwise outstay
+// maxGameMs. Turn stepMs up to slow the counting down.
+// Plays don't all deserve equal screen time. An AFL game is mostly behinds —
+// holding each one as long as a goal is what made it feel like rapid-fire
+// counting — so the dwell time is weighted by how much the play matters.
+const SIM_ANIM = {
+  enabled: true,
+  stepMs: 340,     // time a full-weight play holds — the NRL speed dial
+  minStepMs: 70,   // floor for the shortest play once a game gets compressed
+  maxGameMs: 9500, // cap on one game; the AFL dial, since AFL always hits it
+  gapMs: 350,      // pause between games
+  playWeight: {
+    goal: 1, behind: 0.42,
+    convertedTry: 1, try: 1, penaltyGoal: 0.75, fieldGoal: 0.8,
+  },
+};
+
+let simAnimRunning = false;
+function simSleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Play a round out one game at a time, top to bottom. Each game's score is
+// written and saved the moment it finishes, so abandoning the round midway
+// keeps every result that already played.
+async function simAnimateRound(sport, written, season, scoresRef) {
+  const container = document.getElementById(sport === 'afl' ? 'afl-games-container' : 'games-container');
+  const tableSel = sport === 'afl' ? '.afl-data-table' : '.data-table';
+  const round = season.rounds[currentRound] || [];
+  const tables = [...container.querySelectorAll(tableSel)];
+  const config = window.LadderSim.SIM_CONFIG;
+
+  tables.forEach(t => t.classList.add('game-dimmed'));
+
+  for (let i = 0; i < round.length; i++) {
+    const key = window.LadderSim.scoreKey(currentRound, i);
+    const result = written[key];
+    const table = tables[i];
+    if (!result || !table) continue;
+    // The round or season changed underneath us — stop and let the caller
+    // finish writing whatever is left.
+    if (!table.isConnected) return;
+
+    const inputs = table.querySelectorAll('.score-input');
+    if (inputs.length < 2) continue;
+    const gEls = table.querySelectorAll('.afl-modern-g');
+    const bEls = table.querySelectorAll('.afl-modern-b');
+
+    // Same keys the scorecard uses, so the goals/behinds the animation lands on
+    // are the ones still showing after the redraw.
+    const prog = window.LadderSim.buildProgression({
+      sport, home: result.home, away: result.away, config,
+      rng: window.LadderSim.makeRng(gbSeedFrom(currentSeason + key + result.home + ':' + result.away)),
+      homeSplit: sport === 'afl' ? generateGoalsBehinds(result.home, round[i].home + '|H') : null,
+      awaySplit: sport === 'afl' ? generateGoalsBehinds(result.away, round[i].away + '|A') : null,
+    });
+
+    const paint = (h, a, hg, hb, ag, ab) => {
+      inputs[0].textContent = h;
+      inputs[1].textContent = a;
+      if (gEls.length === 2) { gEls[0].textContent = hg; gEls[1].textContent = ag; }
+      if (bEls.length === 2) { bEls[0].textContent = hb; bEls[1].textContent = ab; }
+    };
+
+    table.classList.remove('game-dimmed');
+    table.classList.add('game-selected');
+    paint(0, 0, 0, 0, 0, 0);
+
+    // Budget the game in weighted units rather than plays, so a goal holds far
+    // longer than a behind and the game still fits inside maxGameMs.
+    const weights = prog.map(st => {
+      const w = SIM_ANIM.playWeight[st.play];
+      return w != null ? w : 1;
+    });
+    const weightSum = weights.reduce((a, b) => a + b, 0) || 1;
+    const unitMs = Math.min(SIM_ANIM.stepMs, SIM_ANIM.maxGameMs / weightSum);
+
+    for (let s = 0; s < prog.length; s++) {
+      await simSleep(Math.max(SIM_ANIM.minStepMs, unitMs * weights[s]));
+      if (!table.isConnected) return;
+      const st = prog[s];
+      paint(st.home, st.away, st.homeGoals || 0, st.homeBehinds || 0, st.awayGoals || 0, st.awayBehinds || 0);
+    }
+
+    // Full time: bank this game before moving on. Reset swaps in a brand new
+    // scores object, so a changed reference means the season was cleared while
+    // this round was playing — drop the result rather than resurrect it.
+    if (season.scores !== scoresRef) return;
+    season.scores[key] = result;
+    if (sport === 'afl') { calculateAFLLadder(); lsSaveAFL(); }
+    else { calculateLadder(); populateFinals(); lsSaveNRL(); }
+
+    table.classList.remove('game-selected');
+    table.classList.add('game-dimmed');
+    await simSleep(SIM_ANIM.gapMs);
+  }
+}
+
+// ---------- finals ----------
+// Bracket order. populateFinals() fills each week's matchups from the previous
+// week's winners, so the weeks have to be simulated in sequence.
+const SIM_FINALS_WEEKS = [['qf1', 'qf2', 'ef1', 'ef2'], ['sf1', 'sf2'], ['pf1', 'pf2'], ['gf']];
+
+function finalsPlayed(g) {
+  return !!g && ((parseInt(g.homeScore, 10) || 0) !== 0 || (parseInt(g.awayScore, 10) || 0) !== 0);
+}
+
+function simFinalsActive(sport) {
+  const c = document.getElementById(sport === 'afl' ? 'afl-finals-container' : 'finals-container');
+  return !!c && c.classList.contains('active');
+}
+
+// Resolve the whole bracket in one pass. Ratings come from the completed regular
+// season and are held fixed across the series — nine knockout games wouldn't
+// move an Elo rating meaningfully, and it keeps the finals reproducible from the
+// same seeds + scores everything else replays from.
+function simulateFinals(sport, overwrite) {
+  const isAfl = sport === 'afl';
+  const season = (isAfl ? aflSeasons : seasons)[currentSeason];
+  if (!season) return 0;
+  const fd = season.finalsData;
+  const config = window.LadderSim.SIM_CONFIG;
+  const archive = simArchive(sport);
+  const seeds = window.LadderSim.computeSeeds({ sport, seasonKey: currentSeason, archive, config });
+  const base = { teams: season.teams, rounds: season.rounds, scores: season.scores || {}, config, sport };
+  const ratings = window.LadderSim.computeRatings(Object.assign({ seeds }, base)).current;
+  const tempos = window.LadderSim.computeTempos(Object.assign({
+    priorTempos: window.LadderSim.priorSeasonTempos({ sport, seasonKey: currentSeason, archive, config }),
+  }, base));
+  const volatility = window.LadderSim.computeVolatility({ sport, seasonKey: currentSeason, archive, config });
+  const populate = isAfl ? populateAFLFinals : populateFinals;
+
+  let written = 0;
+  SIM_FINALS_WEEKS.forEach(week => {
+    populate(); // draw this week from last week's results
+    week.forEach(id => {
+      const g = fd[id];
+      if (!g || !g.home || !g.away) return;
+      if (!overwrite && finalsPlayed(g)) return;
+
+      // A final cannot be drawn — getWinner() returns null on a tie and the
+      // bracket would stall. Re-draw a few times, then separate them by a point.
+      let res = null;
+      for (let attempt = 0; attempt < 6; attempt++) {
+        res = window.LadderSim.simulateGame({
+          home: g.home, away: g.away, ratings, tempos, volatility, config, sport,
+          rng: window.LadderSim.makeRng(simRunSeed++),
+        });
+        if (res.home !== res.away) break;
+      }
+      if (res.home === res.away) {
+        const rh = ratings[g.home] != null ? ratings[g.home] : 0;
+        const ra = ratings[g.away] != null ? ratings[g.away] : 0;
+        if (rh >= ra) res.home += 1; else res.away += 1;
+      }
+      g.homeScore = res.home;
+      g.awayScore = res.away;
+      written++;
+    });
+  });
+  populate();
+  if (isAfl) lsSaveAFL(); else lsSaveNRL();
+  return written;
+}
+
+// ---------- premiers screen ----------
+// Derived entirely from finalsData + the ladder; nothing extra is stored. The
+// tab only exists once a Grand Final has produced a winner.
+function renderGrandFinal(sport) {
+  const isAfl = sport === 'afl';
+  const btn = document.getElementById(isAfl ? 'afl-btn-gf' : 'btn-gf');
+  const box = document.getElementById(isAfl ? 'afl-gf-container' : 'gf-container');
+  if (!btn || !box) return;
+
+  const season = (isAfl ? aflSeasons : seasons)[currentSeason];
+  const gf = season && season.finalsData && season.finalsData.gf;
+  const winner = gf ? getWinner(gf) : null;
+
+  if (!winner) {
+    btn.style.display = 'none';
+    box.classList.remove('active');
+    box.innerHTML = '';
+    // If the premiers tab was showing, fall back to the bracket.
+    if (btn.classList.contains('active')) {
+      document.getElementById(isAfl ? 'afl-btn-finals' : 'btn-finals').click();
+    }
+    return;
+  }
+
+  btn.style.display = '';
+  const loser = getLoser(gf);
+  const cfg = season.teamConfig[winner] || {};
+  const ladder = (isAfl ? getAFLSeasonLadder : getSeasonLadder)(currentSeason);
+  const idx = ladder.findIndex(r => r.team === winner);
+  const row = idx >= 0 ? ladder[idx] : null;
+  const year = currentSeason.replace(/^(nrl|afl)/, '');
+  const ws = Math.max(gf.homeScore, gf.awayScore);
+  const ls = Math.min(gf.homeScore, gf.awayScore);
+  // AFL teamConfig carries no gradient, so reuse the Modern card's colour class.
+  const grad = isAfl ? ('col-' + aflTeamSlug(winner) + '-home') : (cfg.gradient || '');
+
+  const stat = (label, value) =>
+    '<div class="gf-stat"><div class="gf-stat-label">' + label +
+    '</div><div class="gf-stat-value">' + value + '</div></div>';
+
+  let stats = '';
+  if (row) {
+    const record = row.w + '-' + row.l + (row.d ? '-' + row.d : '');
+    stats = stat('Finished', ordinalSuffix(idx + 1)) +
+            stat('Record', record) +
+            stat('For', row.f) +
+            stat('Against', row.a) +
+            stat(isAfl ? '%' : 'Diff', isAfl
+              ? (row.a === 0 ? '—' : ((row.f / row.a) * 100).toFixed(1))
+              : (row.f - row.a > 0 ? '+' : '') + (row.f - row.a));
+  }
+
+  box.innerHTML =
+    '<div class="gf-card ' + grad + '">' +
+      '<div class="gf-eyebrow">' + year + ' Premiers</div>' +
+      (cfg.logo ? '<img class="gf-logo" src="' + cfg.logo + '">' : '') +
+      '<div class="gf-team"></div>' +
+      '<div class="gf-score">Grand Final: ' + ws + '–' + ls + ' v ' + (loser || 'TBD') + '</div>' +
+      (idx === 0 ? '<div class="gf-minor">Minor premiers ' + String.fromCharCode(183) + ' won from top spot</div>' : '') +
+    '</div>' +
+    '<div class="gf-summary">' + stats + '</div>';
+  // Team names come from the season data, but set as text rather than markup.
+  box.querySelector('.gf-team').textContent = winner;
+}
+
+// Count games in a round that already hold a score (0-0 doesn't count — the
+// ladder reads that as unplayed).
+function simScoredInRound(season, roundIdx) {
+  const round = season.rounds[roundIdx] || [];
+  let n = 0;
+  round.forEach((g, i) => { if (window.LadderSim.hasScore(season.scores, roundIdx, i)) n++; });
+  return n;
+}
+
+async function simRunRound(overwrite) {
+  const ctx = simContext();
+  const written = window.LadderSim.simulateRound({
+    sport: ctx.sport, teams: ctx.season.teams, rounds: ctx.season.rounds,
+    scores: ctx.season.scores, seeds: ctx.seeds, config: ctx.config,
+    roundIdx: currentRound, rng: window.LadderSim.makeRng(simRunSeed++),
+    priorTempos: ctx.priorTempos, volatility: ctx.volatility,
+    shouldWrite: overwrite ? function () { return true; } : undefined,
+  });
+  const keys = Object.keys(written);
+  if (keys.length === 0) return 0;
+
+  if (!SIM_ANIM.enabled) {
+    simApplyScores(written);
+    return keys.length;
+  }
+
+  const scoresRef = ctx.season.scores;
+  simAnimRunning = true;
+  try {
+    await simAnimateRound(ctx.sport, written, ctx.season, scoresRef);
+  } finally {
+    // However the animation ended — finished, or cut short by a round change —
+    // every simmed score still lands and the panel redraws. Unless Reset
+    // cleared the season underneath it, in which case cleared means cleared.
+    if (ctx.season.scores === scoresRef) {
+      keys.forEach(k => { ctx.season.scores[k] = written[k]; });
+    }
+    simAnimRunning = false;
+    simRedraw(ctx.sport);
+  }
+  return keys.length;
+}
+
+// Automate round — fills the empty games, never touches one that has a score.
+async function simAutomateRound(sport) {
+  if (!simPanelActive(sport) || simAnimRunning) return;
+  if (simFinalsActive(sport)) {
+    if (simulateFinals(sport, false) === 0) {
+      alert('The finals bracket is already complete.\n\nUse Re-roll to play it again.');
+    }
+    renderGrandFinal(sport);
+    return;
+  }
+  if (await simRunRound(false) === 0) {
+    alert('Every game in round ' + (currentRound + 1) + ' already has a score.\n\nUse Re-roll to replace them.');
+  }
+}
+
+// Re-roll — redraws the whole round. Anything already scored is replaced, so it
+// asks first (there is no way to tell a simmed score from a typed one).
+async function simRerollRound(sport) {
+  if (!simPanelActive(sport) || simAnimRunning) return;
+  if (simFinalsActive(sport)) {
+    if (confirm('Re-roll the entire finals series?\n\nEvery result in the bracket will be replaced, including any you entered yourself. This cannot be undone.')) {
+      simulateFinals(sport, true);
+      renderGrandFinal(sport);
+    }
+    return;
+  }
+  const ctx = simContext();
+  const scored = simScoredInRound(ctx.season, currentRound);
+  const total = (ctx.season.rounds[currentRound] || []).length;
+  if (scored > 0 && !confirm(
+    'Re-roll round ' + (currentRound + 1) + '?\n\n' +
+    scored + ' of ' + total + ' games already have a score and will be replaced, ' +
+    'including any you entered yourself. This cannot be undone.'
+  )) return;
+  await simRunRound(true);
+}
+
+// Sim rest of season — loops from the current round to the end, replaying
+// ratings between rounds so later rounds respond to earlier results. Fills
+// empties only; existing scores are left alone. Deliberately not animated:
+// playing out twenty-odd rounds a game at a time would take minutes.
+function simRestOfSeason(sport) {
+  if (!simPanelActive(sport) || simAnimRunning) return;
+  if (simFinalsActive(sport)) { simAutomateRound(sport); return; }
+  const ctx = simContext();
+  const rounds = ctx.season.rounds;
+  let empty = 0, scored = 0;
+  for (let r = currentRound; r < rounds.length; r++) {
+    rounds[r].forEach((g, i) => {
+      if (window.LadderSim.hasScore(ctx.season.scores, r, i)) scored++; else empty++;
+    });
+  }
+  if (empty === 0) {
+    alert('Every game from round ' + (currentRound + 1) + ' onward already has a score.');
+    return;
+  }
+  if (!confirm(
+    'Simulate rounds ' + (currentRound + 1) + '–' + rounds.length + '?\n\n' +
+    empty + ' empty games will be filled.' +
+    (scored ? '\n' + scored + (scored === 1 ? ' game that already has' : ' games that already have') +
+      ' a score will be left alone.' : '')
+  )) return;
+  const written = window.LadderSim.simulateRest({
+    sport: ctx.sport, teams: ctx.season.teams, rounds, scores: ctx.season.scores,
+    seeds: ctx.seeds, config: ctx.config, fromRound: currentRound,
+    rng: window.LadderSim.makeRng(simRunSeed++), priorTempos: ctx.priorTempos,
+    volatility: ctx.volatility,
+  });
+  simApplyScores(written);
+}
+
+[['nrl', ''], ['afl', 'afl-']].forEach(([sport, pre]) => {
+  document.getElementById(pre + 'btn-gf').addEventListener('click', function () {
+    this.classList.add('active');
+    document.getElementById(pre + 'btn-season').classList.remove('active');
+    document.getElementById(pre + 'btn-finals').classList.remove('active');
+    document.getElementById(sport === 'afl' ? 'afl-games-container' : 'games-container').style.display = 'none';
+    document.getElementById(pre + 'finals-container').classList.remove('active');
+    document.getElementById(pre + 'gf-container').classList.add('active');
+    document.getElementById(sport + '-round-nav').style.display = 'none';
+    document.getElementById(sport + '-design-toggle').style.display = 'none';
+    renderGrandFinal(sport);
+  });
+});
+
+['nrl', 'afl'].forEach(sport => {
+  document.getElementById(sport + '-btn-automate').addEventListener('click', () => simAutomateRound(sport));
+  document.getElementById(sport + '-btn-reroll').addEventListener('click', () => simRerollRound(sport));
+  document.getElementById(sport + '-btn-simrest').addEventListener('click', () => simRestOfSeason(sport));
 });
 
 ['qf1', 'qf2', 'ef1', 'ef2', 'sf1', 'sf2', 'pf1', 'pf2', 'gf'].forEach(id => {
@@ -8262,6 +9158,9 @@ document.getElementById('btn-season').addEventListener('click', function() {
   document.getElementById('finals-container').classList.remove('active');
   document.getElementById('nrl-round-nav').style.display = '';
   document.getElementById('nrl-design-toggle').classList.remove('on-finals');
+  document.getElementById('nrl-design-toggle').style.display = '';
+  document.getElementById('gf-container').classList.remove('active');
+  document.getElementById('btn-gf').classList.remove('active');
 });
 
 document.getElementById('btn-finals').addEventListener('click', function() {
@@ -8271,6 +9170,9 @@ document.getElementById('btn-finals').addEventListener('click', function() {
   document.getElementById('finals-container').classList.add('active');
   document.getElementById('nrl-round-nav').style.display = 'none';
   document.getElementById('nrl-design-toggle').classList.add('on-finals');
+  document.getElementById('nrl-design-toggle').style.display = '';
+  document.getElementById('gf-container').classList.remove('active');
+  document.getElementById('btn-gf').classList.remove('active');
   populateFinals();
 });
 
@@ -8281,6 +9183,9 @@ document.getElementById('afl-btn-season').addEventListener('click', function() {
   document.getElementById('afl-finals-container').classList.remove('active');
   document.getElementById('afl-round-nav').style.display = '';
   document.getElementById('afl-design-toggle').classList.remove('on-finals');
+  document.getElementById('afl-design-toggle').style.display = '';
+  document.getElementById('afl-gf-container').classList.remove('active');
+  document.getElementById('afl-btn-gf').classList.remove('active');
 });
 
 document.getElementById('afl-btn-finals').addEventListener('click', function() {
@@ -8290,6 +9195,9 @@ document.getElementById('afl-btn-finals').addEventListener('click', function() {
   document.getElementById('afl-finals-container').classList.add('active');
   document.getElementById('afl-round-nav').style.display = 'none';
   document.getElementById('afl-design-toggle').classList.add('on-finals');
+  document.getElementById('afl-design-toggle').style.display = '';
+  document.getElementById('afl-gf-container').classList.remove('active');
+  document.getElementById('afl-btn-gf').classList.remove('active');
   populateAFLFinals();
 });
 
@@ -8416,6 +9324,146 @@ function ordinalSuffix(n) {
   const s = ['th','st','nd','rd'], v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
+
+// ============================================================
+// PRESEASON SEEDING (sim.js bridge)
+// ============================================================
+// seedInputs are the only new persisted state: one key per season, following
+// the same pattern as the preview drag order (lp_<sport>_preview_<seasonKey>).
+// Everything else the sim needs — seed ratings, in-season ratings, tempo — is
+// derived by replaying scores, exactly the way calculateLadder() works.
+const SIM_PHASES = [
+  { value: 'rebuild',   label: 'Rebuild'   },
+  { value: 'stable',    label: 'Stable'    },
+  { value: 'contender', label: 'Contender' },
+  { value: 'dynasty',   label: 'Dynasty'   },
+];
+
+// How predictable a team is, game to game. Widens or narrows the margin noise
+// for that team's games — it does NOT change the seed, so a volatile side is
+// just as strong on paper, you simply never know which one turns up.
+const SIM_CONSISTENCY = [
+  { value: 'volatile',  label: 'Volatile'  },
+  { value: 'streaky',   label: 'Streaky'   },
+  { value: 'balanced',  label: 'Balanced'  },
+  { value: 'steady',    label: 'Steady'    },
+  { value: 'ruthless',  label: 'Ruthless'  },
+];
+
+function seedStoreKey(sport, seasonKey) { return 'lp_' + sport + '_seeds_' + seasonKey; }
+
+function getSeedInputs(sport, seasonKey) {
+  try { return JSON.parse(cloudStorage.getItem(seedStoreKey(sport, seasonKey)) || '{}'); }
+  catch (e) { return {}; }
+}
+
+function setSeedInput(sport, seasonKey, team, patch) {
+  const all = getSeedInputs(sport, seasonKey);
+  all[team] = Object.assign({}, all[team], patch);
+  cloudStorage.setItem(seedStoreKey(sport, seasonKey), JSON.stringify(all));
+}
+
+// The archive sim.js reads through. Kept as an adapter so the engine stays pure
+// and never touches these globals directly.
+function simArchive(sport) {
+  const data = sport === 'afl' ? aflSeasons : seasons;
+  return {
+    season(key) {
+      const s = data[key];
+      if (!s) return null;
+      return { teams: s.teams, rounds: s.rounds, scores: s.scores || {} };
+    },
+    historicalLadder(key) { return HISTORICAL_LADDERS[key] || null; },
+    seedInputs(key) { return getSeedInputs(sport, key); },
+  };
+}
+
+function simSeedDetail(sport, seasonKey) {
+  return window.LadderSim.computeSeedDetail({
+    sport, seasonKey, archive: simArchive(sport), config: window.LadderSim.SIM_CONFIG,
+  });
+}
+
+// Repaint the read-only seed rating without rebuilding rows, so dragging the
+// recruitment slider updates live.
+function refreshSeedDisplays(sport) {
+  const listEl = document.getElementById(sport + '-preview-list');
+  if (!listEl) return;
+  const detail = simSeedDetail(sport, currentSeason);
+  listEl.querySelectorAll('.preview-row').forEach(row => {
+    const d = detail[row.dataset.team];
+    const rating = row.querySelector('.seed-rating');
+    if (d && rating) rating.textContent = Math.round(d.seed);
+  });
+}
+
+// ============================================================
+// ROUND HEADLINES
+// ============================================================
+// Rebuilt from scores every time, never stored. Renders nothing at all when the
+// round threw up nothing worth reporting.
+function renderHeadlines(sport) {
+  const isAfl = sport === 'afl';
+  const container = document.getElementById(isAfl ? 'afl-games-container' : 'games-container');
+  if (!container || !window.LadderSim) return;
+  const panel = container.closest('.panel');
+
+  const old = container.querySelector('.headlines');
+  if (old) old.remove();
+
+  // currentSeason is shared between sports, so bail if it belongs to the other.
+  if ((currentSeason.startsWith('afl')) !== isAfl) return;
+  const season = (isAfl ? aflSeasons : seasons)[currentSeason];
+  if (!season) return;
+
+  const config = window.LadderSim.SIM_CONFIG;
+  const archive = simArchive(sport);
+  const ladderAt = isAfl ? getAFLSeasonLadderAtRound : getSeasonLadderAtRound;
+
+  const items = window.LadderSim.buildHeadlines({
+    sport, seasonKey: currentSeason,
+    teams: season.teams, rounds: season.rounds, scores: season.scores || {},
+    seeds: window.LadderSim.computeSeeds({ sport, seasonKey: currentSeason, archive, config }),
+    config, roundIdx: currentRound,
+    // upToRound is inclusive on both helpers, so "before" is the round prior.
+    ladderBefore: currentRound > 0 ? ladderAt(currentSeason, currentRound - 1) : null,
+    ladderAfter: ladderAt(currentSeason, currentRound),
+  });
+
+  if (!items.length) {
+    if (!isAfl && panel) panel.style.minHeight = '';
+    return;
+  }
+
+  const el = document.createElement('div');
+  el.className = 'headlines';
+  const title = document.createElement('div');
+  title.className = 'headlines-title';
+  title.textContent = 'Round ' + (currentRound + 1);
+  el.appendChild(title);
+  items.forEach(h => {
+    const line = document.createElement('div');
+    line.className = 'headline';
+    line.textContent = h.text;
+    el.appendChild(line);
+  });
+
+  // Same absolute scheme the cards use, dropped below the last one.
+  const games = season.rounds[currentRound] || [];
+  const cardH = isAfl ? (cardDesign.afl === 'modern' ? AFL_MODERN_ROW_H * 2 : 76) : 51.4;
+  const gap = isAfl ? 8 : 10.6;
+  el.style.top = `calc(185px + (${cardH}px + ${gap}px) * ${games.length} + 8px)`;
+  container.appendChild(el);
+
+  // Grow the panel so the block isn't clipped. renderAFLRound already sets an
+  // inline min-height for the cards; the NRL panel gets its 775px from CSS.
+  if (panel) {
+    const needed = el.offsetTop + el.offsetHeight + 24;
+    const base = isAfl ? (parseFloat(panel.style.minHeight) || 0) : 775;
+    panel.style.minHeight = Math.max(needed, base) + 'px';
+  }
+}
+
 function renderPreview(sport) {
   const listEl = document.getElementById(sport + '-preview-list');
   const headerEl = document.getElementById(sport + '-preview-header');
@@ -8431,17 +9479,24 @@ function renderPreview(sport) {
   const teams = data[seasonKey].teams.slice();
   const cfg = data[seasonKey].teamConfig;
 
-  const cols = '32px 32px 60px 1fr 60px 60px 24px';
+  const cols = '28px 26px 52px 92px minmax(0, 1fr) 50px 96px 46px 46px 20px';
   headerEl.style.gridTemplateColumns = cols;
   headerEl.innerHTML = `
     <div style="text-align:center;">#</div>
     <div></div>
     <div>TEAM</div>
-    <div></div>
+    <div style="text-align:center;">PHASE</div>
+    <div style="text-align:center;">RECRUITMENT</div>
+    <div style="text-align:center;">SEED</div>
+    <div style="text-align:center;">CONSISTENCY</div>
     <div style="text-align:center;">${prev2Year}</div>
     <div style="text-align:center;">${prev1Year}</div>
     <div></div>
   `;
+
+  const seedDetail = simSeedDetail(sport, seasonKey);
+  const seedInputs = getSeedInputs(sport, seasonKey);
+  const simConfig = window.LadderSim.SIM_CONFIG;
 
   // Load saved order if exists
   const savedOrder = JSON.parse(cloudStorage.getItem('lp_' + sport + '_preview_' + seasonKey) || 'null');
@@ -8463,15 +9518,54 @@ function renderPreview(sport) {
     row.style.gridTemplateColumns = cols;
     row.draggable = true;
     row.dataset.team = team;
+
+    const inp = seedInputs[team] || {};
+    const phase = simConfig.common.phaseOffset[inp.phase] != null ? inp.phase : simConfig.common.DEFAULT_PHASE;
+    const recruit = Number.isFinite(Number(inp.recruitment)) ? Number(inp.recruitment) : 0;
+    const consistency = simConfig.common.consistency[inp.consistency] != null
+      ? inp.consistency : simConfig.common.DEFAULT_CONSISTENCY;
+    const d = seedDetail[team];
+
     row.innerHTML = `
       <div class="preview-pos">${idx + 1}</div>
       <img class="preview-logo" src="${c.logo}">
       <div class="preview-abbr">${c.abbr}</div>
-      <div></div>
+      <select class="seed-control seed-phase">
+        ${SIM_PHASES.map(p => `<option value="${p.value}"${p.value === phase ? ' selected' : ''}>${p.label}</option>`).join('')}
+      </select>
+      <div class="seed-recruit-wrap">
+        <input type="range" class="seed-control seed-recruit" min="-200" max="200" step="5" value="${recruit}">
+        <span class="seed-recruit-val">${recruit > 0 ? '+' : ''}${recruit}</span>
+      </div>
+      <div class="seed-rating">${d ? Math.round(d.seed) : '—'}</div>
+      <select class="seed-control seed-consistency">
+        ${SIM_CONSISTENCY.map(c => `<option value="${c.value}"${c.value === consistency ? ' selected' : ''}>${c.label}</option>`).join('')}
+      </select>
       <div class="preview-prev">${prev2Pos ? ordinalSuffix(prev2Pos) : '—'}</div>
       <div class="preview-prev">${prev1Pos ? ordinalSuffix(prev1Pos) : '—'}</div>
       <div class="preview-drag-handle">≡</div>
     `;
+
+    row.querySelector('.seed-phase').addEventListener('change', function () {
+      setSeedInput(sport, seasonKey, team, { phase: this.value });
+      refreshSeedDisplays(sport);
+    });
+
+    // Consistency doesn't move the seed, so nothing to refresh — it only widens
+    // or narrows the margin noise when the round is simulated.
+    row.querySelector('.seed-consistency').addEventListener('change', function () {
+      setSeedInput(sport, seasonKey, team, { consistency: this.value });
+    });
+
+    const slider = row.querySelector('.seed-recruit');
+    const sliderVal = row.querySelector('.seed-recruit-val');
+    slider.addEventListener('input', function () {
+      const v = parseInt(this.value, 10) || 0;
+      sliderVal.textContent = (v > 0 ? '+' : '') + v;
+      setSeedInput(sport, seasonKey, team, { recruitment: v });
+      refreshSeedDisplays(sport);
+    });
+
     listEl.appendChild(row);
   });
 
@@ -8480,8 +9574,23 @@ function renderPreview(sport) {
 function attachDragHandlers(sport) {
   const listEl = document.getElementById(sport + '-preview-list');
   let draggedEl = null;
+
+  // A row is draggable, but the phase select and recruitment slider live inside
+  // it — without this the browser starts a row drag the moment you grab the
+  // slider thumb. pointerdown lands before dragstart, so switching draggable off
+  // here is enough; grabbing anywhere else in the row switches it back on.
+  // Bound to the list, which outlives the rows, so it's wired only once.
+  if (!listEl.dataset.seedGuard) {
+    listEl.dataset.seedGuard = '1';
+    listEl.addEventListener('pointerdown', function(e) {
+      const row = e.target.closest('.preview-row');
+      if (row) row.draggable = !e.target.closest('.seed-control');
+    });
+  }
+
   listEl.querySelectorAll('.preview-row').forEach(row => {
     row.addEventListener('dragstart', function(e) {
+      if (e.target.closest('.seed-control')) { e.preventDefault(); return; }
       draggedEl = this;
       this.classList.add('dragging');
     });
