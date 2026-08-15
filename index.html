@@ -286,6 +286,15 @@
   font-size: 25px;
 }
 
+/* Shrink-wraps the abbreviation so the ladder tag can align to the TEXT edges
+   rather than to the wide flex cell around it. The tag is positioned out of
+   flow so the abbreviation keeps its original vertical centring — stacking the
+   two in a flex column centred them as a pair and lifted the text. */
+.nrl-modern-abbr-inner {
+  position: relative;
+  display: inline-block;
+}
+
 .nrl-modern-score {
   font-size: 31px;
   font-weight: bold;
@@ -773,9 +782,15 @@ input[type=number] {
   bottom: 3px;
   right: calc(69.6px + 8.8px);
 }
-.pos-tag-afl-under {
-  bottom: 2px;
-  left: calc(80px + 8px);
+/* AFL Classic trails the tag after the team name. It has to flow inline rather
+   than be absolutely placed, because names run from SYDNEY to BRISBANE LIONS
+   and the end of the text moves with them. */
+.pos-tag-afl-trail {
+  position: static;
+  margin-left: 8px;
+  /* Baseline-aligned it sat down on the feet of a 28px all-caps name; middle
+     centres it against the text instead. */
+  vertical-align: middle;
 }
 /* The Modern cards are crest-forward (AFL Modern has no name at all), so the
    tag sits in the bottom corner of the crest itself. */
@@ -786,6 +801,16 @@ input[type=number] {
   color: rgba(255, 255, 255, 0.9);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
 }
+/* NRL Modern: sits under the abbreviation, aligned to the same edge the team
+   reads from — left for the home side, right for the away side, matching how
+   NRL Classic already places it against the team name. */
+.pos-tag-stack {
+  top: 100%;
+  margin-top: 2px;
+}
+.pos-tag-stack-home { left: 0; }
+.pos-tag-stack-away { right: 0; }
+
 .nrl-modern-logo-wrap,
 .afl-modern-logo-wrap {
   position: relative;
@@ -1910,7 +1935,6 @@ transform-origin: left center;
      the team names they sit under. */
   .pos-tag-under-home { left: calc(44px + 4px); }
   .pos-tag-under-away { right: calc(44px + 4px); }
-  .pos-tag-afl-under { left: calc(72px + 6px); }
 
   /* NRL team names: readable but compact (was 28px desktop). The offset clears
      the 54px logo, and max-width pins the text inside its own cell so a long
@@ -7907,14 +7931,14 @@ const CARD_DESIGNS = {
         <td class="nrl-modern-cell">
           <div class="nrl-modern-row">
             <div class="nrl-modern-side ${homeConfig.gradient}">
-              <div class="nrl-modern-logo-wrap"><img src="${homeLogo}" class="nrl-modern-logo-img">${posTag(homePos, 'pos-tag-crest')}</div>
-              <div class="nrl-modern-abbr">${homeConfig.abbr}</div>
+              <div class="nrl-modern-logo-wrap"><img src="${homeLogo}" class="nrl-modern-logo-img"></div>
+              <div class="nrl-modern-abbr"><span class="nrl-modern-abbr-inner">${homeConfig.abbr}${posTag(homePos, 'pos-tag-stack pos-tag-stack-home')}</span></div>
               <div contenteditable="true" class="score-input nrl-modern-score">${saved.home}</div>
             </div>
             <div class="nrl-modern-side ${awayConfig.gradientAway}">
               <div contenteditable="true" class="score-input nrl-modern-score">${saved.away}</div>
-              <div class="nrl-modern-abbr">${awayConfig.abbr}</div>
-              <div class="nrl-modern-logo-wrap"><img src="${awayLogo}" class="nrl-modern-logo-img">${posTag(awayPos, 'pos-tag-crest')}</div>
+              <div class="nrl-modern-abbr"><span class="nrl-modern-abbr-inner">${awayConfig.abbr}${posTag(awayPos, 'pos-tag-stack pos-tag-stack-away')}</span></div>
+              <div class="nrl-modern-logo-wrap"><img src="${awayLogo}" class="nrl-modern-logo-img"></div>
             </div>
           </div>
         </td>
@@ -7926,8 +7950,7 @@ const CARD_DESIGNS = {
       <tr>
         <td class="afl-cell-dark" style="width:auto;height:38px;position:relative;">
           <img src="${homeConfig.logo}" style="height:100%;width:auto;object-fit:contain;position:absolute;left:0;top:0;">
-          <div style="position:absolute;left:calc(80px + 8px);top:50%;transform:translateY(calc(-50% + 2.5px));font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;white-space:nowrap;">${game.home.toUpperCase()}</div>
-          ${posTag(homePos, 'pos-tag-afl-under')}
+          <div style="position:absolute;left:calc(80px + 8px);top:50%;transform:translateY(calc(-50% + 2.5px));font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;white-space:nowrap;">${game.home.toUpperCase()}${posTag(homePos, 'pos-tag-afl-trail')}</div>
         </td>
         <td class="afl-cell-red" style="width:70px;height:38px;position:relative;">
           <div contenteditable="true" class="score-input" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;cursor:text;min-width:10px;text-align:center;">${saved.home}</div>
@@ -7936,8 +7959,7 @@ const CARD_DESIGNS = {
       <tr>
         <td class="afl-cell-dark" style="width:auto;height:38px;position:relative;">
           <img src="${awayConfig.logo}" style="height:100%;width:auto;object-fit:contain;position:absolute;left:0;top:0;">
-          <div style="position:absolute;left:calc(80px + 8px);top:50%;transform:translateY(calc(-50% + 2.5px));font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;white-space:nowrap;">${game.away.toUpperCase()}</div>
-          ${posTag(awayPos, 'pos-tag-afl-under')}
+          <div style="position:absolute;left:calc(80px + 8px);top:50%;transform:translateY(calc(-50% + 2.5px));font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;white-space:nowrap;">${game.away.toUpperCase()}${posTag(awayPos, 'pos-tag-afl-trail')}</div>
         </td>
         <td class="afl-cell-red" style="width:70px;height:38px;position:relative;">
           <div contenteditable="true" class="score-input" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'HelveticaNeueMediumCond',sans-serif;font-size:28px;color:#ffffff;cursor:text;min-width:10px;text-align:center;">${saved.away}</div>
@@ -8773,7 +8795,33 @@ const SIM_ANIM = {
 };
 
 let simAnimRunning = false;
+let simAnimPaused = false;
 function simSleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Wait out one step, then hold here for as long as the run is paused. Pausing
+// takes effect between scoring plays rather than mid-play, which is enough —
+// and it means a paused run costs nothing but a slow poll.
+//
+// `alive` must break the hold when the round being animated has gone. Without
+// it, pausing and then switching rounds spins on the pause flag forever: the
+// abort check below is never reached, simAnimRunning stays true, and every
+// later Automate/Re-roll is locked out.
+async function simStepWait(ms, alive) {
+  await simSleep(ms);
+  while (simAnimPaused && (!alive || alive())) await simSleep(90);
+}
+
+// While a round is playing out, the Automate button becomes the pause control.
+function simSetAutomateLabel(sport) {
+  const btn = document.getElementById(sport + '-btn-automate');
+  if (!btn) return;
+  btn.textContent = !simAnimRunning ? 'Automate' : (simAnimPaused ? 'Resume' : 'Pause');
+}
+
+function simTogglePause(sport) {
+  simAnimPaused = !simAnimPaused;
+  simSetAutomateLabel(sport);
+}
 
 // Play a round out one game at a time, top to bottom. Each game's score is
 // written and saved the moment it finishes, so abandoning the round midway
@@ -8831,7 +8879,7 @@ async function simAnimateRound(sport, written, season, scoresRef) {
     const unitMs = Math.min(SIM_ANIM.stepMs, SIM_ANIM.maxGameMs / weightSum);
 
     for (let s = 0; s < prog.length; s++) {
-      await simSleep(Math.max(SIM_ANIM.minStepMs, unitMs * weights[s]));
+      await simStepWait(Math.max(SIM_ANIM.minStepMs, unitMs * weights[s]), () => table.isConnected);
       if (!table.isConnected) return;
       const st = prog[s];
       paint(st.home, st.away, st.homeGoals || 0, st.homeBehinds || 0, st.awayGoals || 0, st.awayBehinds || 0);
@@ -8847,7 +8895,7 @@ async function simAnimateRound(sport, written, season, scoresRef) {
 
     table.classList.remove('game-selected');
     table.classList.add('game-dimmed');
-    await simSleep(SIM_ANIM.gapMs);
+    await simStepWait(SIM_ANIM.gapMs, () => table.isConnected);
   }
 }
 
@@ -9011,6 +9059,8 @@ async function simRunRound(overwrite) {
 
   const scoresRef = ctx.season.scores;
   simAnimRunning = true;
+  simAnimPaused = false;
+  simSetAutomateLabel(ctx.sport);
   try {
     await simAnimateRound(ctx.sport, written, ctx.season, scoresRef);
   } finally {
@@ -9021,6 +9071,8 @@ async function simRunRound(overwrite) {
       keys.forEach(k => { ctx.season.scores[k] = written[k]; });
     }
     simAnimRunning = false;
+    simAnimPaused = false;
+    simSetAutomateLabel(ctx.sport);
     simRedraw(ctx.sport);
   }
   return keys.length;
@@ -9028,7 +9080,8 @@ async function simRunRound(overwrite) {
 
 // Automate round — fills the empty games, never touches one that has a score.
 async function simAutomateRound(sport) {
-  if (!simPanelActive(sport) || simAnimRunning) return;
+  if (!simPanelActive(sport)) return;
+  if (simAnimRunning) { simTogglePause(sport); return; }
   if (simFinalsActive(sport)) {
     if (simulateFinals(sport, false) === 0) {
       alert('The finals bracket is already complete.\n\nUse Re-roll to play it again.');
