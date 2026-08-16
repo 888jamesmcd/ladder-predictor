@@ -628,14 +628,37 @@
      scroll inside the preview instead. */
   overflow-x: auto;
 }
+.preview-topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
 .preview-instructions {
   color: #8888aa;
   font-family: 'DIN Next LT Pro', sans-serif;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 8px;
   text-align: center;
+  flex: 1;
+}
+.preview-reset-btn {
+  background: #2a2a3d;
+  color: #ccccdd;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.preview-reset-btn:hover {
+  background: #3a3a52;
+  color: #ffffff;
 }
 .preview-header {
   display: grid;
@@ -2468,7 +2491,10 @@ transform-origin: left center;
           <span class="preview-toggle-arrow">▼</span>
         </button>
         <div class="preview-body" id="nrl-preview-body" style="display:none;">
-          <div class="preview-instructions">Drag teams to predict your ranking</div>
+          <div class="preview-topbar">
+            <span class="preview-instructions">Drag teams to predict your ranking</span>
+            <button class="preview-reset-btn" id="nrl-preview-reset">Reset to default</button>
+          </div>
           <div class="preview-header" id="nrl-preview-header"></div>
           <div class="preview-list" id="nrl-preview-list"></div>
         </div>
@@ -2676,7 +2702,10 @@ transform-origin: left center;
           <span class="preview-toggle-arrow">▼</span>
         </button>
         <div class="preview-body" id="afl-preview-body" style="display:none;">
-          <div class="preview-instructions">Drag teams to predict your ranking</div>
+          <div class="preview-topbar">
+            <span class="preview-instructions">Drag teams to predict your ranking</span>
+            <button class="preview-reset-btn" id="afl-preview-reset">Reset to default</button>
+          </div>
           <div class="preview-header" id="afl-preview-header"></div>
           <div class="preview-list" id="afl-preview-list"></div>
         </div>
@@ -9783,6 +9812,25 @@ function setSeedInput(sport, seasonKey, team, patch) {
   cloudStorage.setItem(seedStoreKey(sport, seasonKey), JSON.stringify(all));
 }
 
+// Clears everything the Season Preview panel owns for the current season: the
+// per-team phase / recruitment / consistency inputs, and the drag order. Scores
+// are NOT touched — this resets what you set up before the season, not what
+// happened in it. Emptying the stored objects is enough because both readers
+// fall back to defaults when a team is missing, so seeds return to whatever the
+// prior season and ladder history imply.
+function resetPreviewToDefault(sport) {
+  if ((currentSeason.startsWith('afl')) !== (sport === 'afl')) return;
+  const seasonKey = currentSeason;
+  const year = seasonKey.replace(/^(nrl|afl)/, '');
+  if (!confirm('Reset the ' + sport.toUpperCase() + ' ' + year + ' season preview?\n\n'
+    + 'Phase, recruitment and consistency go back to default for every team, and your drag order is cleared.\n\n'
+    + 'Scores are not affected.')) return;
+
+  cloudStorage.setItem(seedStoreKey(sport, seasonKey), JSON.stringify({}));
+  cloudStorage.setItem('lp_' + sport + '_preview_' + seasonKey, JSON.stringify(null));
+  renderPreview(sport);
+}
+
 // The archive sim.js reads through. Kept as an adapter so the engine stays pure
 // and never touches these globals directly.
 function simArchive(sport) {
@@ -10065,6 +10113,8 @@ function renderAFLPreview() { renderPreview('afl'); }
       btn.classList.toggle('open', !isOpen);
     });
   }
+  const resetBtn = document.getElementById(sport + '-preview-reset');
+  if (resetBtn) resetBtn.addEventListener('click', () => resetPreviewToDefault(sport));
 });
 
 renderRoundNav('nrl-round-nav', seasons[currentSeason].rounds.length);
