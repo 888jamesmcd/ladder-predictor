@@ -105,17 +105,28 @@ const SIM_CONFIG = {
     // the top of the "incredibly rare" band.
     SCORE_FLOOR: 20, SCORE_CEIL: 220,
     MOV_SCALE: 36,             // only read when common.MOV_ENABLED
+    // Expansion sides enter far weaker than an ordinary wooden spooner, and a
+    // debut ladder position understates that: positionToRating() bottoms out at
+    // MEAN - POSITION_SPREAD (1350), which is what an established last-placed
+    // club is worth, not a first-year one. These take priority over the
+    // position mapping so Gold Coast's real 17th in 2011 still shows on the
+    // preview without dragging its rating up to 1350.
+    //
+    // Only consulted when there is no prior simulated season to inherit from,
+    // so it is a one-time entry rating — once you've played 2012, 2013 seeds
+    // come from replaying it like any other club.
+    expansionBase: { 'Gold Coast Suns': 1200, 'GWS Giants': 1200 },
   },
   nrl: {
     MARGIN_SCALE: 0.055,
     MARGIN_SIGMA: 13,
     POSITION_SPREAD: 120,      // tighter comp than the AFL
     HGA: 40,
-    TEMPO_PRIOR: 42,
+    TEMPO_PRIOR: 38,
     TEMPO_PRIOR_WEIGHT: 6,
-    TOTAL_SIGMA: 13,
+    TOTAL_SIGMA: 12,
     TOTAL_FLOOR: 6, TOTAL_CEIL: 110,
-    BLOWOUT_MARGIN: 16, BLOWOUT_LIFT: 0.78,  // margin past which the total starts inflating
+    BLOWOUT_MARGIN: 16, BLOWOUT_LIFT: 0.60,  // margin past which the total starts inflating
     // Nil is a real NRL scoreline, so no floor here; the ceiling is the top of
     // the "almost impossible" band.
     SCORE_FLOOR: 0, SCORE_CEIL: 84,
@@ -131,10 +142,10 @@ const SIM_CONFIG = {
     fieldGoal: {
       goldenPoint: 0.85,    // chance a level game is settled by a golden-point FG
       closeMargin: 12,      // "close" = a converted try or two; anything more is a blowout
-      winnerClose: 0.145,   // the winning side kicks one to break a tight game open
-      winnerBlowout: 0.040, // the cheeky one with the game already won: 31-10
-      loserClose: 0.016,    // kicked to level or lead, then beaten by a late try: 19-24
-      loserBlowout: 0.004,  // rarest of all
+      winnerClose: 0.095,   // the winning side kicks one to break a tight game open
+      winnerBlowout: 0.026, // the cheeky one with the game already won: 31-10
+      loserClose: 0.010,    // kicked to level or lead, then beaten by a late try: 19-24
+      loserBlowout: 0.0025, // rarest of all
     },
     MOV_SCALE: 12,
   },
@@ -414,6 +425,9 @@ function computeSeedDetailInner(sport, seasonKey, archive, config, depth, memo) 
       base = regressToMean(prevRating, common); baseSource = 'prev';
     } else if (inp.baseOverride != null && inp.baseOverride !== '') {
       base = num(inp.baseOverride, common.MEAN); baseSource = 'override';
+    } else if (cfg.expansionBase && cfg.expansionBase[team] != null) {
+      // Ahead of the position mapping on purpose — see cfg.expansionBase.
+      base = cfg.expansionBase[team]; baseSource = 'expansion';
     } else if (hist1 && hist1[team]) {
       base = positionToRating(hist1[team], hist1Count, common, cfg.POSITION_SPREAD); baseSource = 'historical';
     } else {
