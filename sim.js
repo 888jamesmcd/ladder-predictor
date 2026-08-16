@@ -4,14 +4,24 @@
 // Pure logic, no DOM. Loaded as `window.LadderSim` in the browser and
 // `require('./sim.js')` in node (so the harness exercises the shipping code).
 //
-// THE MODEL, in one paragraph. Every simulated game is decided by two
-// independent axes plus one variance dial. STRENGTH (one Elo-style rating per
-// team) gives the MARGIN: the rating gap between the sides, scaled into points.
-// TEMPO (a team's average game total, points-for plus points-against) gives the
-// TOTAL, independent of who wins — so a shootout and an arm-wrestle can have the
-// same winner. VARIANCE is gaussian noise added to the expected margin; an upset
-// is simply noise flipping the sign, never a special case. From those:
-//   winner = (total + |margin|) / 2, loser = (total - |margin|) / 2.
+// THE MODEL, in one paragraph. This engine is TEAM-FIRST: each side generates
+// its own score and the margin is whatever falls out. Nothing computes a margin
+// directly. Every team carries two ratings on a 0-100 scale where 50 is league
+// average — ATTACK (how much it scores) and DEFENCE (how much it stops the other
+// side scoring) — and one score is:
+//   AVG + (own attack - 50)*W - (opp defence - 50)*W + home bonus + noise
+// The noise is three rolls, which is what keeps scores tight while still
+// producing upsets: TEMPO moves both sides together (a shootout or an
+// arm-wrestle), SWING moves them in opposite directions (this is what decides
+// close games and creates upsets), and IND is each team's own wobble, scaled by
+// its consistency setting.
+//
+// Why team-first: the old engine scaled a rating GAP into a margin, so a big
+// margin could be manufactured by an ordinary game rolling a lucky number, and
+// capping that flattened genuine mismatches into the same result as mid-table
+// ones. Here a 100-point margin requires a genuinely 100-point-worse team. That
+// removes the need for a margin cap, knee, ceiling, blowout lift or score floor
+// — every one of those was a patch over the old model's shape.
 //
 // Ratings are NEVER stored. They are recomputed from scratch by replaying the
 // season in order, exactly the way calculateLadder() replays `scores` — so the
@@ -34,129 +44,96 @@
 // ============================================================
 const SIM_CONFIG = {
   common: {
-    MEAN: 1500,
+    MEAN: 50,                  // league average, on the 0-100 scale both ratings live on
+    RATING_FLOOR: 2, RATING_CEIL: 98,
     REGRESSION: 0.72,          // between-season mean reversion
-    K: 24,                     // rating update speed
-    // Ordered worst to best: a full teardown, a side sliding off its peak,
-    // steady, in the window, and a sustained peak.
-    phaseOffset: { rebuild: -70, dropping: -35, stable: 0, contender: 45, dynasty: 90 },
-    // Applied on top of the flat offset, scaled by how far ABOVE average the
-    // team already sits. A flat offset let strong sides shrug off a full
-    // rebuild — a 2nd-placed team dropped only to mid-table while the same
-    // input gutted a mid-table one. A rebuild should cost a contender more,
-    // because it has further to fall. Zero for a team already at or below the
-    // mean, so weak teams are untouched.
-    // Dropping gets half a rebuild's slope: a fading contender still has further
-    // to fall than a mid-table side, just not as far as one being gutted.
-    phaseSlope: { rebuild: -0.35, dropping: -0.18, stable: 0, contender: 0, dynasty: 0 },
-    DEFAULT_PHASE: 'stable',   // team with no seedInputs set
+    K: 0.05,                   // rating update speed: share of each game's surprise
 
-    // Per-team game-to-game volatility, multiplied into MARGIN_SIGMA for the
-    // games that team plays. Symmetric on purpose: a volatile side drops games
-    // it should win AND steals ones it had no business winning. A one-directional
-    // version would just be a strength penalty, which recruitment already does.
-    // Note this never touches the seed — a volatile team isn't weaker, only
-    // less predictable.
-    consistency: {
-      volatile: 1.45,
-      streaky: 1.20,
-      balanced: 1.00,
-      steady: 0.85,
-      ruthless: 0.72,
-    },
+    // PHASE IS A LABEL ONLY. It is stored, shown on the preview, and used for
+    // nothing else — it does not move a seed and it never touches a score.
+    // Kept as a list so the UI has something to render.
+    phases: ['rebuild', 'dropping', 'stable', 'contender', 'dynasty'],
+    DEFAULT_PHASE: 'stable',
+
+    // Per-team wobble, applied to that team's own IND noise roll. Symmetric on
+    // purpose: a volatile side drops games it should win AND steals ones it had
+    // no business winning. It never touches the rating — a volatile team isn't
+    // weaker, only less predictable.
+    //
+    // This shapes SCORELINES, not ladder positions. A 22-game season carries a
+    // ~2-win spread from chance alone, which swamps any variance setting, so a
+    // volatile side still finishes about where its ratings say. That is the
+    // intended behaviour, not a limitation to tune around.
+    consistency: { volatile: 1.45, streaky: 1.20, balanced: 1.00, steady: 0.85, ruthless: 0.72 },
     DEFAULT_CONSISTENCY: 'balanced',
 
-    // Trajectory nudge: teams trending up/down over 2-3 prior seasons get a
-    // small, capped bump. Set trajectoryCap to 0 to switch it off entirely.
-    trajectoryCap: 25,
-    TRAJECTORY_GAIN: 0.35,     // fraction of the year-on-year rating trend applied
-    TRAJECTORY_RECENT_WEIGHT: 0.6, // last year's step vs the year before, when 3 seasons exist
+    // The recruitment slider is -200..200 in the UI; this scales it into rating
+    // points and it lands on attack and defence alike. At full tilt it is worth
+    // 10 rating points — about a third of the way from mid-table to the top.
+    RECRUIT_SCALE: 0.05,
 
-    // Pre-2012 seasons have finish positions (HISTORICAL_LADDERS) but no scores,
-    // so a ladder position is converted straight into a starting rating:
-    // 1st = MEAN + POSITION_SPREAD, last = MEAN - POSITION_SPREAD. Overridden
-    // per sport below — the NRL is a tighter competition than the AFL.
-    POSITION_SPREAD: 150,
+    // Trajectory nudge: teams trending up or down across 2-3 prior seasons get
+    // a small, capped bump. Set trajectoryCap to 0 to switch it off entirely.
+    trajectoryCap: 4,
+    TRAJECTORY_GAIN: 0.35,
+    TRAJECTORY_RECENT_WEIGHT: 0.6,
+
+    // Pre-2012 seasons have finish positions but no scores, so a ladder position
+    // converts straight into a rating: 1st = MEAN + POSITION_SPREAD, last =
+    // MEAN - POSITION_SPREAD. Attack and defence both get that value, since a
+    // finish position says nothing about how a side split the two.
+    POSITION_SPREAD: 25,
 
     SEED_LOOKBACK: 20,         // max seasons to chain back through (guard, not a design limit)
 
-    // Margin-of-victory multiplier on the Elo update — off by default; the
-    // simple version ships. Flip MOV_ENABLED to true to blow it up.
-    MOV_ENABLED: false,
-
-    // A game is level when the simulated margin lands inside this band. Without
-    // it, integer rounding (and NRL's round-to-even) collapses a lot of
-    // one-point games into draws — 5% of the round rather than the ~1% real
-    // footy gives you. Overridden per sport below: the NRL sends level games to
-    // golden point, the AFL just draws them. Raise it if you want more draws.
+    // A game is level when the two scores land within this of each other.
     DRAW_BAND: 0.25,
 
+    // Noise past this many standard deviations is re-rolled. Freak scorelines
+    // come from the extreme tail of the bell curve; lopping it off roughly
+    // halves the 100+ margins and leaves the upset rate alone.
+    NOISE_CLIP: 2,
+
     // describeTrajectory() label thresholds, relative to MEAN
-    labels: { dynasty: 120, contender: 55, rebuild: -80, trend: 25 },
+    labels: { dynasty: 20, contender: 9, rebuild: -13, trend: 4 },
   },
   afl: {
-    MARGIN_SCALE: 0.20,        // rating points -> margin points
-    MARGIN_SIGMA: 32,          // upset dial (bigger = more upsets)
-    // Ceiling on the EXPECTED margin. MARGIN_SCALE is linear, so once seeds are
-    // pushed apart by hand (phase + a 200-point recruitment slider can open a
-    // 700-point gap, against a natural ladder spread of only 300) it predicted
-    // absurd results — a 618-point gap asked for a 124-point win before a
-    // single dice roll. Real footy doesn't scale that way: past a point the
-    // better side just wins comfortably rather than proportionally. tanh keeps
-    // ordinary gaps almost exactly as they were and bends only the extremes.
-    MARGIN_CAP: 50,
-    // Compresses the FINAL margin, after noise. MARGIN_CAP only bounds the
-    // expectation — a 60-point expectation plus 1.3 sigma still cleared 100, so
-    // blowouts stayed far too common. Margins below MARGIN_KNEE are untouched;
-    // above it the excess is squeezed so results saturate toward MARGIN_MAX.
-    // Real AFL has ~4-6 hundred-point wins a season and almost never exceeds
-    // 150, which is what these two numbers encode.
-    MARGIN_KNEE: 50, MARGIN_MAX: 115,
-    POSITION_SPREAD: 150,      // overrides common.POSITION_SPREAD
+    AVG: 85,                   // what an average side scores against an average defence
+    W: 0.55,                   // rating points -> score points, for attack and defence alike
+    HOME: 8,
+    // The three noise rolls. TEMPO moves both sides together, so it decides
+    // whether this is a shootout or an arm-wrestle without touching who wins.
+    // SWING moves them in opposite directions, so it alone decides close games
+    // and upsets. IND is each side's own wobble, scaled by its consistency.
+    // Splitting them this way is what allows tight, believable scorelines and a
+    // healthy upset rate at the same time — one combined roll cannot do both.
+    TEMPO: 7, SWING: 13.5, IND: 8,
     DRAW_BAND: 0.35,           // no golden point in the AFL — a level game just draws
-    HGA: 30,                   // home rating bump
-    TEMPO_PRIOR: 170,          // league-mean game total (both teams combined)
-    TEMPO_PRIOR_WEIGHT: 6,     // games of "prior" a team is credited with before its own results outweigh it
-    TOTAL_SIGMA: 17,
-    TOTAL_FLOOR: 55, TOTAL_CEIL: 330,
-    BLOWOUT_MARGIN: 70, BLOWOUT_LIFT: 0.35,  // margin past which the total starts inflating
-    // Per-team range. The floor caps how lopsided a game can get; the ceiling is
-    // the top of the "incredibly rare" band.
+    // Plain bounds on a team's own score, which is NOT the old SCORE_FLOOR —
+    // that one clamped a margin so subtraction couldn't drag the loser to nil.
+    // Nothing is subtracted here; this is just the realistic range of an AFL
+    // score, and it matches the ends of the rarity bands.
     SCORE_FLOOR: 20, SCORE_CEIL: 220,
-    MOV_SCALE: 36,             // only read when common.MOV_ENABLED
-    // Expansion sides enter far weaker than an ordinary wooden spooner, and a
-    // debut ladder position understates that: positionToRating() bottoms out at
-    // MEAN - POSITION_SPREAD (1350), which is what an established last-placed
-    // club is worth, not a first-year one. These take priority over the
-    // position mapping so Gold Coast's real 17th in 2011 still shows on the
-    // preview without dragging its rating up to 1350.
-    //
-    // Only consulted when there is no prior simulated season to inherit from,
-    // so it is a one-time entry rating — once you've played 2012, 2013 seeds
-    // come from replaying it like any other club.
-    expansionBase: { 'Gold Coast Suns': 1200, 'GWS Giants': 1200 },
+    POSITION_SPREAD: 25,
+    // Expansion sides enter far weaker than an established wooden spooner, and
+    // a debut ladder position understates that. Only consulted when there is no
+    // prior simulated season to inherit from, so it is a one-time entry rating.
+    expansionBase: {
+      'Gold Coast Suns': { att: 18, def: 18 },
+      'GWS Giants':      { att: 18, def: 18 },
+    },
   },
   nrl: {
-    MARGIN_SCALE: 0.055,
-    MARGIN_SIGMA: 13,
-    MARGIN_CAP: 24,            // see afl.MARGIN_CAP
-    MARGIN_KNEE: 26, MARGIN_MAX: 56,   // see afl.MARGIN_KNEE
-
-    POSITION_SPREAD: 120,      // tighter comp than the AFL
-    HGA: 40,
-    TEMPO_PRIOR: 38,
-    TEMPO_PRIOR_WEIGHT: 6,
-    TOTAL_SIGMA: 12,
-    TOTAL_FLOOR: 6, TOTAL_CEIL: 110,
-    BLOWOUT_MARGIN: 16, BLOWOUT_LIFT: 0.60,  // margin past which the total starts inflating
-    // Nil is a real NRL scoreline, so no floor here; the ceiling is the top of
-    // the "almost impossible" band.
-    SCORE_FLOOR: 0, SCORE_CEIL: 84,
+    AVG: 21, W: 0.30, HOME: 2,
+    TEMPO: 3, SWING: 6.5, IND: 3,   // see afl.TEMPO
     // Level at full time goes to golden point, and golden point is nearly always
     // settled by a field goal — which is why the NRL has far more 1-point
-    // margins than draws. A wider band than the AFL's, because most of what
-    // lands in it comes back out as a 1-point result rather than a draw.
+    // margins than draws. Wider than the AFL's, because most of what lands in it
+    // comes back out as a 1-point result rather than a draw.
     DRAW_BAND: 0.8,
+    // Nil is a real NRL scoreline, so the floor stays at zero.
+    SCORE_FLOOR: 0, SCORE_CEIL: 84,
+    POSITION_SPREAD: 20,       // tighter comp than the AFL
 
     // Tries (4), conversions (2) and penalty goals (2) are all even, so a field
     // goal is the ONLY thing that makes an NRL score odd — and they get kicked
@@ -164,12 +141,11 @@ const SIM_CONFIG = {
     fieldGoal: {
       goldenPoint: 0.85,    // chance a level game is settled by a golden-point FG
       closeMargin: 12,      // "close" = a converted try or two; anything more is a blowout
-      winnerClose: 0.095,   // the winning side kicks one to break a tight game open
-      winnerBlowout: 0.026, // the cheeky one with the game already won: 31-10
-      loserClose: 0.010,    // kicked to level or lead, then beaten by a late try: 19-24
-      loserBlowout: 0.0025, // rarest of all
+      winnerClose: 0.130,   // the winning side kicks one to break a tight game open
+      winnerBlowout: 0.035, // the cheeky one with the game already won: 31-10
+      loserClose: 0.014,    // kicked to level or lead, then beaten by a late try: 19-24
+      loserBlowout: 0.0035, // rarest of all
     },
-    MOV_SCALE: 12,
   },
   // Round headlines — see buildHeadlines(). A game only gets a headline if it
   // clears one of these bars, so an unremarkable round prints nothing at all.
@@ -181,7 +157,7 @@ const SIM_CONFIG = {
     // headlines in a row and buried everything else.
     streakMilestone: 5,
     nrl: {
-      upsetGap: 130,     // pre-game rating gap the underdog had to overcome
+      upsetGap: 22,      // pre-game rating gap the underdog had to overcome
       comeback: 14,      // points a side trailed by and still won
       thrashing: 34,     // winning margin
       thriller: 2,       // a win this tight is news on its own, upset or not
@@ -192,7 +168,7 @@ const SIM_CONFIG = {
       bigScore: 46,
     },
     afl: {
-      upsetGap: 150,
+      upsetGap: 25,
       comeback: 36,      // six goals
       thrashing: 85,
       thriller: 6,       // under a goal
@@ -285,6 +261,31 @@ function hasScore(scores, roundIdx, gameIdx) {
 //   -> { current: {team: rating}, history: [{roundIdx, ratings}] }
 // upToRound is exclusive: pass the round being simulated so it sees only the
 // rounds before it. Omit it to replay the whole season.
+// A rating is { att, def } on the 0-100 scale. Anything else coming in — a bare
+// number from an older save, or nothing at all — is widened into the pair, so a
+// stale seed still loads instead of poisoning a whole season with NaN.
+function normRating(v, common) {
+  if (v == null) return { att: common.MEAN, def: common.MEAN };
+  if (typeof v === 'number') return { att: v, def: v };
+  return { att: num(v.att, common.MEAN), def: num(v.def, common.MEAN) };
+}
+function clampRating(v, common) { return clamp(v, common.RATING_FLOOR, common.RATING_CEIL); }
+function cloneRatings(r) {
+  const out = {};
+  Object.keys(r).forEach(t => { out[t] = { att: r[t].att, def: r[t].def }; });
+  return out;
+}
+// What this side is expected to put on, given both sets of ratings. The single
+// source of truth for the model — the replay and the simulation both call it,
+// so a rating can never mean one thing going in and another coming out.
+function expectedScore(cfg, common, own, opp, atHome) {
+  return cfg.AVG
+    + (own.att - common.MEAN) * cfg.W
+    - (opp.def - common.MEAN) * cfg.W
+    + (atHome ? cfg.HOME : 0);
+}
+
+// Replay the season in order, moving both ratings on every result. Never stored.
 function computeRatings(opts) {
   const { teams, rounds, scores, seeds, config, sport } = opts;
   const cfg = sportCfg(config, sport);
@@ -292,7 +293,7 @@ function computeRatings(opts) {
   const limit = opts.upToRound == null ? rounds.length : Math.min(opts.upToRound, rounds.length);
 
   const ratings = {};
-  teams.forEach(t => { ratings[t] = seeds && seeds[t] != null ? seeds[t] : common.MEAN; });
+  teams.forEach(t => { ratings[t] = normRating(seeds && seeds[t], common); });
 
   const history = [];
   for (let r = 0; r < limit; r++) {
@@ -301,73 +302,27 @@ function computeRatings(opts) {
       const game = round[g];
       const s = readScore(scores, r, g);
       if (!s) continue;
-      if (ratings[game.home] == null || ratings[game.away] == null) continue;
-      applyElo(ratings, game.home, game.away, s.home, s.away, cfg, common);
+      if (!ratings[game.home] || !ratings[game.away]) continue;
+      applyResult(ratings, game.home, game.away, s.home, s.away, cfg, common);
     }
-    history.push({ roundIdx: r, ratings: Object.assign({}, ratings) });
+    history.push({ roundIdx: r, ratings: cloneRatings(ratings) });
   }
   return { current: ratings, history };
 }
 
-function applyElo(ratings, home, away, hs, as, cfg, common) {
-  const expHome = 1 / (1 + Math.pow(10, -((ratings[home] + cfg.HGA) - ratings[away]) / 400));
-  const resultHome = hs > as ? 1 : hs === as ? 0.5 : 0;
-  let k = common.K;
-  if (common.MOV_ENABLED) {
-    // Hook: blowouts move ratings more than a one-point win. ~1x at MOV_SCALE.
-    k = common.K * (Math.log(1 + Math.abs(hs - as) / cfg.MOV_SCALE) / Math.LN2);
-    k = clamp(k, common.K * 0.5, common.K * 2);
-  }
-  const delta = k * (resultHome - expHome);
-  ratings[home] += delta;
-  ratings[away] -= delta;
-}
-
-// ============================================================
-// TEMPO — a team's average game total, blended toward a prior
-// ============================================================
-// tempo(team) = mean of (PF + PA) across that team's played games, shrunk
-// toward `priorTempos[team]` (or the league prior) by TEMPO_PRIOR_WEIGHT
-// pseudo-games. Before round 1 everyone sits on the prior.
-function computeTempos(opts) {
-  const { teams, rounds, scores, config, sport, priorTempos } = opts;
-  const cfg = sportCfg(config, sport);
-  const limit = opts.upToRound == null ? rounds.length : Math.min(opts.upToRound, rounds.length);
-
-  const sum = {}, played = {};
-  teams.forEach(t => { sum[t] = 0; played[t] = 0; });
-
-  for (let r = 0; r < limit; r++) {
-    const round = rounds[r] || [];
-    for (let g = 0; g < round.length; g++) {
-      const game = round[g];
-      const s = readScore(scores, r, g);
-      if (!s) continue;
-      const total = s.home + s.away;
-      if (sum[game.home] != null) { sum[game.home] += total; played[game.home]++; }
-      if (sum[game.away] != null) { sum[game.away] += total; played[game.away]++; }
-    }
-  }
-
-  const w = cfg.TEMPO_PRIOR_WEIGHT;
-  const out = {};
-  teams.forEach(t => {
-    const prior = priorTempos && priorTempos[t] != null ? priorTempos[t] : cfg.TEMPO_PRIOR;
-    out[t] = (sum[t] + prior * w) / (played[t] + w);
-  });
-  return out;
-}
-
-// Last season's tempos, pulled back toward the league mean the same way ratings
-// are. Feed the result in as `priorTempos` so round 1 of a fresh season isn't
-// flat across the whole competition.
-function regressTempos(prevTempos, config, sport) {
-  const cfg = sportCfg(config, sport);
-  const out = {};
-  Object.keys(prevTempos || {}).forEach(t => {
-    out[t] = cfg.TEMPO_PRIOR + config.common.REGRESSION * (prevTempos[t] - cfg.TEMPO_PRIOR);
-  });
-  return out;
+// One game's worth of learning. A side scoring above expectation lifts its own
+// ATTACK and drops the other side's DEFENCE by the same amount — from a
+// scoreline alone there is no way to tell which of the two caused it, so both
+// move. Dividing by W converts a surprise measured in score points back into
+// rating points, so K stays meaningful when the sports are scaled differently.
+function applyResult(ratings, home, away, hs, as, cfg, common) {
+  const H = ratings[home], A = ratings[away];
+  const dHome = common.K * (hs - expectedScore(cfg, common, H, A, true)) / cfg.W;
+  const dAway = common.K * (as - expectedScore(cfg, common, A, H, false)) / cfg.W;
+  H.att = clampRating(H.att + dHome, common);
+  A.def = clampRating(A.def - dHome, common);
+  A.att = clampRating(A.att + dAway, common);
+  H.def = clampRating(H.def - dAway, common);
 }
 
 // ============================================================
@@ -381,13 +336,22 @@ function regressTempos(prevTempos, config, sport) {
 function seasonYear(sport, seasonKey) { return parseInt(seasonKey.slice(sport.length), 10); }
 function shiftSeason(sport, seasonKey, back) { return sport + (seasonYear(sport, seasonKey) - back); }
 
-function regressToMean(r, common) { return common.MEAN + common.REGRESSION * (r - common.MEAN); }
+function regressToMean(r, common) {
+  const v = normRating(r, common);
+  return {
+    att: common.MEAN + common.REGRESSION * (v.att - common.MEAN),
+    def: common.MEAN + common.REGRESSION * (v.def - common.MEAN),
+  };
+}
 
+// A finish position says nothing about how a side split attack and defence, so
+// both come back on the same value.
 function positionToRating(pos, teamCount, common, spreadOverride) {
-  if (!(teamCount > 1)) return common.MEAN;
+  if (!(teamCount > 1)) return { att: common.MEAN, def: common.MEAN };
   const spread = spreadOverride != null ? spreadOverride : common.POSITION_SPREAD;
   // 1st -> +spread, last -> -spread, linear in between.
-  return common.MEAN + spread * (1 - 2 * (pos - 1) / (teamCount - 1));
+  const v = common.MEAN + spread * (1 - 2 * (pos - 1) / (teamCount - 1));
+  return { att: v, def: v };
 }
 
 function newMemo() { return { seeds: {}, end: {} }; }
@@ -433,50 +397,58 @@ function computeSeedDetailInner(sport, seasonKey, archive, config, depth, memo) 
 
   season.teams.forEach(team => {
     const inp = inputs[team] || {};
-    const phase = common.phaseOffset[inp.phase] != null ? inp.phase : common.DEFAULT_PHASE;
+    const phase = common.phases.indexOf(inp.phase) >= 0 ? inp.phase : common.DEFAULT_PHASE;
     const recruitment = num(inp.recruitment, 0);
 
     // Base, in priority order:
     //   1. a real prior season, replayed and regressed toward the mean
     //   2. an explicit baseOverride (the user typed it, so it wins over a proxy)
-    //   3. a pre-2012 finish position converted to a rating
-    //   4. MEAN — expansion sides and anything else with no history
+    //   3. an expansion side's entry rating
+    //   4. a pre-2012 finish position converted to a rating
+    //   5. MEAN — anything else with no history
     let base, baseSource;
-    const prevRating = end1 && end1[team] != null ? end1[team] : null;
+    const prevRating = end1 && end1[team] != null ? normRating(end1[team], common) : null;
     if (prevRating != null) {
       base = regressToMean(prevRating, common); baseSource = 'prev';
     } else if (inp.baseOverride != null && inp.baseOverride !== '') {
-      base = num(inp.baseOverride, common.MEAN); baseSource = 'override';
+      base = normRating(num(inp.baseOverride, common.MEAN), common); baseSource = 'override';
     } else if (cfg.expansionBase && cfg.expansionBase[team] != null) {
       // Ahead of the position mapping on purpose — see cfg.expansionBase.
-      base = cfg.expansionBase[team]; baseSource = 'expansion';
+      base = normRating(cfg.expansionBase[team], common); baseSource = 'expansion';
     } else if (hist1 && hist1[team]) {
       base = positionToRating(hist1[team], hist1Count, common, cfg.POSITION_SPREAD); baseSource = 'historical';
     } else {
-      base = common.MEAN; baseSource = 'mean';
+      base = { att: common.MEAN, def: common.MEAN }; baseSource = 'mean';
     }
 
-    // Trajectory: needs two prior end-ratings. Weighted toward the recent step
-    // when a third season is available, then capped hard.
-    let trend = 0, trajectory = 0;
-    const r1 = end1 && end1[team] != null ? end1[team] : null;
-    const r2 = end2 && end2[team] != null ? end2[team] : null;
-    const r3 = end3 && end3[team] != null ? end3[team] : null;
-    if (r1 != null && r2 != null) {
-      trend = r3 != null
-        ? (r1 - r2) * common.TRAJECTORY_RECENT_WEIGHT + (r2 - r3) * (1 - common.TRAJECTORY_RECENT_WEIGHT)
-        : (r1 - r2);
-      trajectory = clamp(trend * common.TRAJECTORY_GAIN, -common.trajectoryCap, common.trajectoryCap);
+    // Trajectory, run separately for attack and defence. That is the whole
+    // reason for carrying two numbers: a side can be trending up going forward
+    // and down at the back, and "last 2 years" should be able to say so.
+    const trend = { att: 0, def: 0 }, trajectory = { att: 0, def: 0 };
+    const r1 = prevRating;
+    const r2 = end2 && end2[team] != null ? normRating(end2[team], common) : null;
+    const r3 = end3 && end3[team] != null ? normRating(end3[team], common) : null;
+    if (r1 && r2) {
+      ['att', 'def'].forEach(k => {
+        trend[k] = r3
+          ? (r1[k] - r2[k]) * common.TRAJECTORY_RECENT_WEIGHT + (r2[k] - r3[k]) * (1 - common.TRAJECTORY_RECENT_WEIGHT)
+          : (r1[k] - r2[k]);
+        trajectory[k] = clamp(trend[k] * common.TRAJECTORY_GAIN, -common.trajectoryCap, common.trajectoryCap);
+      });
     }
 
-    // Phase = flat offset + a slope against how far above average the team
-    // already sits, so a rebuild bites a contender harder than a cellar-dweller.
-    const slope = (common.phaseSlope && common.phaseSlope[phase]) || 0;
-    const phaseAdj = common.phaseOffset[phase] + slope * Math.max(0, base - common.MEAN);
-
-    const seed = base + recruitment + phaseAdj + trajectory;
+    // PHASE CONTRIBUTES NOTHING. It is carried through to the detail so the
+    // preview can show it, and that is all it does — see common.phases.
+    const recruit = recruitment * common.RECRUIT_SCALE;
+    const seed = {
+      att: clampRating(base.att + recruit + trajectory.att, common),
+      def: clampRating(base.def + recruit + trajectory.def, common),
+    };
     result.seeds[team] = seed;
-    result.detail[team] = { seed, base, baseSource, phase, phaseAdj, recruitment, trajectory, trend, prevRating };
+    result.detail[team] = {
+      seed, att: seed.att, def: seed.def, overall: (seed.att + seed.def) / 2,
+      base, baseSource, phase, recruitment, trajectory, trend, prevRating,
+    };
   });
 
   return result;
@@ -518,26 +490,14 @@ function describeTrajectory(opts) {
   const d = detail[opts.team];
   if (!d) return '';
   const L = config.common.labels;
-  const rel = d.seed - config.common.MEAN;
+  const rel = d.overall - config.common.MEAN;
+  const trend = (d.trend.att + d.trend.def) / 2;
   if (rel >= L.dynasty) return 'Dynasty';
   if (rel >= L.contender) return 'Contender';
   if (rel <= L.rebuild) return 'Rebuild';
-  if (d.trend >= L.trend) return 'On the rise';
-  if (d.trend <= -L.trend) return 'Sliding';
+  if (trend >= L.trend) return 'On the rise';
+  if (trend <= -L.trend) return 'Sliding';
   return 'Stable';
-}
-
-// Last season's tempos ready to feed in as `priorTempos`, or null if there is
-// no prior season with results.
-function priorSeasonTempos(opts) {
-  const { sport, seasonKey, archive } = opts;
-  const config = opts.config || SIM_CONFIG;
-  const prev = archive.season(shiftSeason(sport, seasonKey, 1));
-  if (!prev) return null;
-  const tempos = computeTempos({
-    teams: prev.teams, rounds: prev.rounds, scores: prev.scores || {}, config, sport,
-  });
-  return regressTempos(tempos, config, sport);
 }
 
 // ============================================================
@@ -883,8 +843,13 @@ function buildHeadlines(opts) {
       }
 
       // Upset — the underdog by pre-game rating won.
-      const rw = ratings[winner] != null ? ratings[winner] : config.common.MEAN;
-      const rl = ratings[loser] != null ? ratings[loser] : config.common.MEAN;
+      // Overall strength is attack and defence averaged — a side is only a real
+      // underdog if it is behind on both counts, not just one.
+      const ovr = t => {
+        const r = normRating(ratings[t], config.common);
+        return (r.att + r.def) / 2;
+      };
+      const rw = ovr(winner), rl = ovr(loser);
       const gap = rl - rw + (loser === game.home ? cfg.HGA : -cfg.HGA);
       if (gap >= th.upsetGap) {
         // A 2-point upset and a 36-point upset are not the same story, so the
@@ -1022,86 +987,64 @@ function buildHeadlines(opts) {
 // ============================================================
 // THE GAME
 // ============================================================
-// simulateGame({home, away, ratings, tempos, config, sport, rng})
-//   -> { home, away, expMargin, actualMargin, total }
-// The returned home/away are what gets written straight into `scores`.
+// simulateGame({home, away, ratings, volatility, config, sport, rng})
+//   -> { home, away, expHome, expAway, actualMargin, total, goldenPoint }
+// Each side generates its OWN score and the margin is whatever falls out —
+// nothing here computes a margin. The returned home/away go straight into
+// `scores`.
+
+// Gaussian with the extreme tail re-rolled. Freak scorelines live past 2sd, and
+// cutting them out roughly halves the 100-point margins while leaving the upset
+// rate alone — upsets come from the middle of the distribution, not the tail.
+function clippedGaussian(rng, sd, common) {
+  if (!(sd > 0)) return 0;
+  const lim = common.NOISE_CLIP;
+  let z;
+  do { z = gaussian(rng, 0, 1); } while (lim && Math.abs(z) > lim);
+  return z * sd;
+}
+
 function simulateGame(opts) {
-  const { home, away, ratings, tempos, volatility, sport, rng } = opts;
+  const { home, away, ratings, volatility, sport, rng } = opts;
   const config = opts.config || SIM_CONFIG;
   const cfg = sportCfg(config, sport);
   const common = config.common;
 
-  // MARGIN, from strength. The noise is what produces upsets, and its width is
-  // set by how consistent the two sides are — a volatile team makes its games
-  // less predictable in both directions.
-  const Rh = ratings && ratings[home] != null ? ratings[home] : common.MEAN;
-  const Ra = ratings && ratings[away] != null ? ratings[away] : common.MEAN;
+  const Rh = normRating(ratings && ratings[home], common);
+  const Ra = normRating(ratings && ratings[away], common);
   const vH = volatility && volatility[home] != null ? volatility[home] : 1;
   const vA = volatility && volatility[away] != null ? volatility[away] : 1;
-  const ratingGap = (Rh + cfg.HGA) - Ra;
-  // Linear for ordinary gaps, saturating toward MARGIN_CAP for extreme ones —
-  // tanh(x) ~= x when x is small, so existing calibration is preserved.
-  const linearMargin = ratingGap * cfg.MARGIN_SCALE;
-  const expMargin = cfg.MARGIN_CAP
-    ? cfg.MARGIN_CAP * Math.tanh(linearMargin / cfg.MARGIN_CAP)
-    : linearMargin;
-  let actualMargin = expMargin + gaussian(rng, 0, cfg.MARGIN_SIGMA * (vH + vA) / 2);
 
-  // TOTAL, from tempo — independent of who wins.
-  const Th = tempos && tempos[home] != null ? tempos[home] : cfg.TEMPO_PRIOR;
-  const Ta = tempos && tempos[away] != null ? tempos[away] : cfg.TEMPO_PRIOR;
-  let total = clamp((Th + Ta) / 2 + gaussian(rng, 0, cfg.TOTAL_SIGMA), cfg.TOTAL_FLOOR, cfg.TOTAL_CEIL);
+  const expHome = expectedScore(cfg, common, Rh, Ra, true);
+  const expAway = expectedScore(cfg, common, Ra, Rh, false);
 
-  // A one-sided contest inflates the game total: the winning side keeps scoring
-  // while the beaten one doesn't. Tempo and margin are otherwise independent by
-  // design, and without this a huge margin only ever drives the loser toward
-  // nil — it never pushes the winner up into the big scores, so 58+ never
-  // happened in the NRL at all.
-  const blowout = Math.max(0, Math.abs(actualMargin) - cfg.BLOWOUT_MARGIN);
-  if (blowout > 0) total = Math.min(total + blowout * cfg.BLOWOUT_LIFT, cfg.TOTAL_CEIL);
+  // The three rolls — see cfg.TEMPO for why they are split.
+  //   TEMPO lands on both sides identically, so it sets the game total (shootout
+  //     or arm-wrestle) without touching who wins.
+  //   SWING lands with opposite signs, so it alone decides the margin, and it is
+  //     the only thing that produces an upset.
+  //   IND is each side's own wobble, widened or narrowed by its consistency.
+  const tempo = clippedGaussian(rng, cfg.TEMPO, common);
+  const swing = clippedGaussian(rng, cfg.SWING * (vH + vA) / 2, common);
+  const lo = cfg.SCORE_FLOOR || 0;
+  let hs = clamp(expHome + tempo + swing + clippedGaussian(rng, cfg.IND * vH, common), lo, cfg.SCORE_CEIL);
+  let as = clamp(expAway + tempo - swing + clippedGaussian(rng, cfg.IND * vA, common), lo, cfg.SCORE_CEIL);
 
-  // Squeeze the tail before anything downstream sees it, so the blowout lift
-  // and the score split both work from a realistic margin.
-  let squeezed = Math.abs(actualMargin);
-  if (cfg.MARGIN_KNEE && squeezed > cfg.MARGIN_KNEE) {
-    const room = cfg.MARGIN_MAX - cfg.MARGIN_KNEE;
-    squeezed = cfg.MARGIN_KNEE + room * Math.tanh((squeezed - cfg.MARGIN_KNEE) / room);
-  }
-  actualMargin = actualMargin < 0 ? -squeezed : squeezed;
+  const actualMargin = hs - as;
+  const rawTotal = hs + as;
+  // Level is decided up front, on the raw margin, rather than by letting integer
+  // rounding (and NRL's round-to-even) collapse a lot of one-point games into
+  // draws. In the NRL most of these come back out of golden point as a 1-point
+  // result; in the AFL they stand, which the ladder handles.
+  const isDraw = Math.abs(actualMargin) < (cfg.DRAW_BAND != null ? cfg.DRAW_BAND : common.DRAW_BAND);
 
-  const rawMargin = Math.abs(actualMargin);
-  // A level game is decided up front, by the margin landing inside DRAW_BAND —
-  // not by rounding artifacts. In the NRL most of these come back out of golden
-  // point as a 1-point result; in the AFL they stand as draws, which the ladder
-  // handles (NRL 1 pt each, AFL 2 each).
-  const isDraw = rawMargin < (cfg.DRAW_BAND != null ? cfg.DRAW_BAND : common.DRAW_BAND);
-
-  // Keep the beaten side inside the plausible range. Margin and total are drawn
-  // independently, so a big margin on a modest total used to drag the loser to
-  // nothing — the 12-154 AFL scoreline. Capping the margin preserves the game
-  // total and just makes the thrashing a little less absurd.
-  const m = Math.min(rawMargin, Math.max(0, total - 2 * cfg.SCORE_FLOOR));
-
-  let winner = Math.round((total + m) / 2);
-  let loser = Math.max(0, Math.round((total - m) / 2));
-
-  if (sport === 'nrl') {
-    winner = nrlEvenScore(winner, cfg);
-    loser = nrlEvenScore(loser, cfg);
-    if (loser > winner) { const t = winner; winner = loser; loser = t; }
-  } else {
-    winner = clamp(winner, 0, cfg.SCORE_CEIL);
-    loser = clamp(loser, 0, cfg.SCORE_CEIL);
-  }
-
-  let hs, as, goldenPoint = false;
+  let goldenPoint = false;
   if (isDraw) {
-    let level = sport === 'nrl'
-      ? Math.min(nrlEvenScore(total / 2, cfg), cfg.SCORE_CEIL - 1)
-      : clamp(Math.round(total / 2), 0, cfg.SCORE_CEIL);
+    const level = sport === 'nrl'
+      ? Math.min(nrlEvenScore(rawTotal / 2, cfg), cfg.SCORE_CEIL - 1)
+      : clamp(Math.round(rawTotal / 2), 0, cfg.SCORE_CEIL);
     // Golden point: a game level at full time is usually settled by a field goal
-    // in extra time. That's why 1-point margins are common in the NRL and true
-    // draws are not — what isn't settled stays drawn.
+    // in extra time. That's why the NRL has far more 1-point margins than draws.
     if (sport === 'nrl' && rng() < cfg.fieldGoal.goldenPoint) {
       goldenPoint = true;
       if (actualMargin >= 0) { hs = level + 1; as = level; }
@@ -1110,11 +1053,17 @@ function simulateGame(opts) {
       hs = level; as = level;
     }
   } else {
-    // A decided game must stay decided; separating by 2 keeps both totals even.
-    if (winner <= loser) winner = loser + 2;
+    let winner = Math.max(hs, as), loser = Math.min(hs, as);
     if (sport === 'nrl') {
+      winner = nrlEvenScore(winner, cfg);
+      loser = nrlEvenScore(loser, cfg);
+      // A decided game must stay decided; separating by 2 keeps both even.
+      if (winner <= loser) winner = loser + 2;
       const fg = nrlFieldGoals(winner, loser, rng, cfg);
       winner = fg.winner; loser = fg.loser;
+    } else {
+      winner = Math.round(winner); loser = Math.round(loser);
+      if (winner <= loser) winner = loser + 1;
     }
     if (actualMargin >= 0) { hs = winner; as = loser; }
     else { hs = loser; as = winner; }
@@ -1123,16 +1072,16 @@ function simulateGame(opts) {
   // Last guard: 0-0 would read as "not played" everywhere downstream.
   if (hs === 0 && as === 0) { hs = sport === 'nrl' ? 6 : 30; as = hs; }
 
-  return { home: hs, away: as, expMargin, actualMargin, total, goldenPoint };
+  return { home: hs, away: as, expHome, expAway, actualMargin, total: hs + as, goldenPoint };
 }
 
 // ============================================================
 // THE ROUND
 // ============================================================
 // simulateRound({sport, teams, rounds, scores, seeds, config, roundIdx, rng,
-//                priorTempos, shouldWrite}) -> { "R3G0": {home, away}, ... }
+//                volatility, shouldWrite}) -> { "R3G0": {home, away}, ... }
 //
-// Ratings and tempos are replayed from `scores` up to (not including) roundIdx,
+// Ratings are replayed from `scores` up to (not including) roundIdx,
 // so every game in the round is decided off the same pre-round state — they're
 // simultaneous, as they should be.
 //
@@ -1141,24 +1090,20 @@ function simulateGame(opts) {
 // predicate; the engine deliberately holds no opinion about provenance, because
 // once a simmed score is written it is indistinguishable from a typed one.
 function simulateRound(opts) {
-  const { sport, teams, rounds, scores, seeds, roundIdx, rng, priorTempos, volatility } = opts;
+  const { sport, teams, rounds, scores, seeds, roundIdx, rng, volatility } = opts;
   const config = opts.config || SIM_CONFIG;
   const shouldWrite = opts.shouldWrite || function (key, already) { return !already; };
 
   const ratings = computeRatings({
     teams, rounds, scores, seeds, config, sport, upToRound: roundIdx,
   }).current;
-  const tempos = computeTempos({
-    teams, rounds, scores, config, sport, upToRound: roundIdx, priorTempos,
-  });
-
   const out = {};
   const round = rounds[roundIdx] || [];
   for (let g = 0; g < round.length; g++) {
     const key = scoreKey(roundIdx, g);
     if (!shouldWrite(key, hasScore(scores, roundIdx, g))) continue;
     const res = simulateGame({
-      home: round[g].home, away: round[g].away, ratings, tempos, volatility, config, sport, rng,
+      home: round[g].home, away: round[g].away, ratings, volatility, config, sport, rng,
     });
     out[key] = { home: res.home, away: res.away };
   }
@@ -1169,14 +1114,14 @@ function simulateRound(opts) {
 // results to a working copy before the next one so later rounds see them.
 // Returns every key written; the caller merges it into the real `scores`.
 function simulateRest(opts) {
-  const { sport, teams, rounds, seeds, rng, priorTempos, volatility } = opts;
+  const { sport, teams, rounds, seeds, rng, volatility } = opts;
   const config = opts.config || SIM_CONFIG;
   const working = Object.assign({}, opts.scores);
   const all = {};
   for (let r = opts.fromRound || 0; r < rounds.length; r++) {
     const written = simulateRound({
       sport, teams, rounds, scores: working, seeds, config,
-      roundIdx: r, rng, priorTempos, volatility, shouldWrite: opts.shouldWrite,
+      roundIdx: r, rng, volatility, shouldWrite: opts.shouldWrite,
     });
     Object.keys(written).forEach(k => { working[k] = written[k]; all[k] = written[k]; });
   }
@@ -1187,7 +1132,7 @@ return {
   SIM_CONFIG,
   makeRng, gaussian,
   scoreKey, readScore, hasScore,
-  computeRatings, computeTempos, regressTempos, priorSeasonTempos,
+  computeRatings, expectedScore, normRating,
   computeSeeds, computeSeedDetail, computeVolatility, describeTrajectory,
   positionToRating, regressToMean,
   simulateGame, simulateRound, simulateRest,

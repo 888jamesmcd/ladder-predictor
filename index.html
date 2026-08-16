@@ -9118,7 +9118,6 @@ function simContext() {
   return {
     sport, season, config, archive,
     seeds: window.LadderSim.computeSeeds({ sport, seasonKey: currentSeason, archive, config }),
-    priorTempos: window.LadderSim.priorSeasonTempos({ sport, seasonKey: currentSeason, archive, config }),
     volatility: window.LadderSim.computeVolatility({ sport, seasonKey: currentSeason, archive, config }),
   };
 }
@@ -9302,9 +9301,6 @@ function simulateFinals(sport, overwrite) {
   const seeds = window.LadderSim.computeSeeds({ sport, seasonKey: currentSeason, archive, config });
   const base = { teams: season.teams, rounds: season.rounds, scores: season.scores || {}, config, sport };
   const ratings = window.LadderSim.computeRatings(Object.assign({ seeds }, base)).current;
-  const tempos = window.LadderSim.computeTempos(Object.assign({
-    priorTempos: window.LadderSim.priorSeasonTempos({ sport, seasonKey: currentSeason, archive, config }),
-  }, base));
   const volatility = window.LadderSim.computeVolatility({ sport, seasonKey: currentSeason, archive, config });
   const populate = isAfl ? populateAFLFinals : populateFinals;
 
@@ -9321,15 +9317,17 @@ function simulateFinals(sport, overwrite) {
       let res = null;
       for (let attempt = 0; attempt < 6; attempt++) {
         res = window.LadderSim.simulateGame({
-          home: g.home, away: g.away, ratings, tempos, volatility, config, sport,
+          home: g.home, away: g.away, ratings, volatility, config, sport,
           rng: window.LadderSim.makeRng(simRunSeed++),
         });
         if (res.home !== res.away) break;
       }
       if (res.home === res.away) {
-        const rh = ratings[g.home] != null ? ratings[g.home] : 0;
-        const ra = ratings[g.away] != null ? ratings[g.away] : 0;
-        if (rh >= ra) res.home += 1; else res.away += 1;
+        const ovr = t => {
+          const r = window.LadderSim.normRating(ratings[t], config.common);
+          return (r.att + r.def) / 2;
+        };
+        if (ovr(g.home) >= ovr(g.away)) res.home += 1; else res.away += 1;
       }
       g.homeScore = res.home;
       g.awayScore = res.away;
@@ -9421,7 +9419,7 @@ async function simRunRound(overwrite, skipAnim) {
     sport: ctx.sport, teams: ctx.season.teams, rounds: ctx.season.rounds,
     scores: ctx.season.scores, seeds: ctx.seeds, config: ctx.config,
     roundIdx: currentRound, rng: window.LadderSim.makeRng(simRunSeed++),
-    priorTempos: ctx.priorTempos, volatility: ctx.volatility,
+    volatility: ctx.volatility,
     shouldWrite: overwrite ? function () { return true; } : undefined,
   });
   const keys = Object.keys(written);
@@ -9536,7 +9534,7 @@ function simRestOfSeason(sport) {
   const written = window.LadderSim.simulateRest({
     sport: ctx.sport, teams: ctx.season.teams, rounds, scores: ctx.season.scores,
     seeds: ctx.seeds, config: ctx.config, fromRound: currentRound,
-    rng: window.LadderSim.makeRng(simRunSeed++), priorTempos: ctx.priorTempos,
+    rng: window.LadderSim.makeRng(simRunSeed++),
     volatility: ctx.volatility,
   });
   simApplyScores(written);
@@ -9861,8 +9859,10 @@ function refreshSeedDisplays(sport) {
   const detail = simSeedDetail(sport, currentSeason);
   listEl.querySelectorAll('.preview-row').forEach(row => {
     const d = detail[row.dataset.team];
-    const rating = row.querySelector('.seed-rating');
-    if (d && rating) rating.textContent = Math.round(d.seed);
+    const att = row.querySelector('.seed-att');
+    const def = row.querySelector('.seed-def');
+    if (d && att) att.textContent = Math.round(d.att);
+    if (d && def) def.textContent = Math.round(d.def);
   });
 }
 
@@ -9948,7 +9948,7 @@ function renderPreview(sport) {
   const teams = data[seasonKey].teams.slice();
   const cfg = data[seasonKey].teamConfig;
 
-  const cols = '28px 26px 52px 92px minmax(0, 1fr) 50px 96px 46px 46px 20px';
+  const cols = '28px 26px 52px 92px minmax(0, 1fr) 34px 34px 96px 46px 46px 20px';
   headerEl.style.gridTemplateColumns = cols;
   headerEl.innerHTML = `
     <div style="text-align:center;">#</div>
@@ -9956,7 +9956,8 @@ function renderPreview(sport) {
     <div>TEAM</div>
     <div style="text-align:center;">PHASE</div>
     <div style="text-align:center;">RECRUITMENT</div>
-    <div style="text-align:center;">SEED</div>
+    <div style="text-align:center;">ATT</div>
+    <div style="text-align:center;">DEF</div>
     <div style="text-align:center;">CONSISTENCY</div>
     <div style="text-align:center;">${prev2Year}</div>
     <div style="text-align:center;">${prev1Year}</div>
@@ -9989,7 +9990,7 @@ function renderPreview(sport) {
     row.dataset.team = team;
 
     const inp = seedInputs[team] || {};
-    const phase = simConfig.common.phaseOffset[inp.phase] != null ? inp.phase : simConfig.common.DEFAULT_PHASE;
+    const phase = simConfig.common.phases.indexOf(inp.phase) >= 0 ? inp.phase : simConfig.common.DEFAULT_PHASE;
     const recruit = Number.isFinite(Number(inp.recruitment)) ? Number(inp.recruitment) : 0;
     const consistency = simConfig.common.consistency[inp.consistency] != null
       ? inp.consistency : simConfig.common.DEFAULT_CONSISTENCY;
@@ -10006,7 +10007,8 @@ function renderPreview(sport) {
         <input type="range" class="seed-control seed-recruit" min="-200" max="200" step="5" value="${recruit}">
         <span class="seed-recruit-val">${recruit > 0 ? '+' : ''}${recruit}</span>
       </div>
-      <div class="seed-rating">${d ? Math.round(d.seed) : '—'}</div>
+      <div class="seed-rating seed-att">${d ? Math.round(d.att) : '—'}</div>
+      <div class="seed-rating seed-def">${d ? Math.round(d.def) : '—'}</div>
       <select class="seed-control seed-consistency">
         ${SIM_CONSISTENCY.map(c => `<option value="${c.value}"${c.value === consistency ? ' selected' : ''}>${c.label}</option>`).join('')}
       </select>
@@ -10015,13 +10017,14 @@ function renderPreview(sport) {
       <div class="preview-drag-handle">≡</div>
     `;
 
+    // Phase is a label only — it never moves a rating, so there is nothing to
+    // repaint here. Same as consistency below.
     row.querySelector('.seed-phase').addEventListener('change', function () {
       setSeedInput(sport, seasonKey, team, { phase: this.value });
-      refreshSeedDisplays(sport);
     });
 
-    // Consistency doesn't move the seed, so nothing to refresh — it only widens
-    // or narrows the margin noise when the round is simulated.
+    // Consistency doesn't move a rating either — it only widens or narrows that
+    // team's own share of the noise when the round is simulated.
     row.querySelector('.seed-consistency').addEventListener('change', function () {
       setSeedInput(sport, seasonKey, team, { consistency: this.value });
     });
