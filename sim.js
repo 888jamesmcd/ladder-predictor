@@ -37,14 +37,18 @@ const SIM_CONFIG = {
     MEAN: 1500,
     REGRESSION: 0.72,          // between-season mean reversion
     K: 24,                     // rating update speed
-    phaseOffset: { rebuild: -70, stable: 0, contender: 45, dynasty: 90 },
+    // Ordered worst to best: a full teardown, a side sliding off its peak,
+    // steady, in the window, and a sustained peak.
+    phaseOffset: { rebuild: -70, dropping: -35, stable: 0, contender: 45, dynasty: 90 },
     // Applied on top of the flat offset, scaled by how far ABOVE average the
     // team already sits. A flat offset let strong sides shrug off a full
     // rebuild — a 2nd-placed team dropped only to mid-table while the same
     // input gutted a mid-table one. A rebuild should cost a contender more,
     // because it has further to fall. Zero for a team already at or below the
     // mean, so weak teams are untouched.
-    phaseSlope: { rebuild: -0.35, stable: 0, contender: 0, dynasty: 0 },
+    // Dropping gets half a rebuild's slope: a fading contender still has further
+    // to fall than a mid-table side, just not as far as one being gutted.
+    phaseSlope: { rebuild: -0.35, dropping: -0.18, stable: 0, contender: 0, dynasty: 0 },
     DEFAULT_PHASE: 'stable',   // team with no seedInputs set
 
     // Per-team game-to-game volatility, multiplied into MARGIN_SIGMA for the
