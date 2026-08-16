@@ -67,11 +67,6 @@ const SIM_CONFIG = {
     consistency: { volatile: 1.45, streaky: 1.20, balanced: 1.00, steady: 0.85, ruthless: 0.72 },
     DEFAULT_CONSISTENCY: 'balanced',
 
-    // The recruitment slider is -200..200 in the UI; this scales it into rating
-    // points and it lands on attack and defence alike. At full tilt it is worth
-    // 10 rating points — about a third of the way from mid-table to the top.
-    RECRUIT_SCALE: 0.05,
-
     // Trajectory nudge: teams trending up or down across 2-3 prior seasons get
     // a small, capped bump. Set trajectoryCap to 0 to switch it off entirely.
     trajectoryCap: 4,
@@ -332,7 +327,7 @@ function applyResult(ratings, home, away, hs, as, cfg, common) {
 // synthetic seasons. Shape:
 //   archive.season(seasonKey)          -> { teams, rounds, scores } | null
 //   archive.historicalLadder(seasonKey)-> { team: finishPosition } | null
-//   archive.seedInputs(seasonKey)      -> { team: {phase, recruitment, baseOverride} } | null
+//   archive.seedInputs(seasonKey)      -> { team: {phase, consistency, attOverride, defOverride} } | null
 function seasonYear(sport, seasonKey) { return parseInt(seasonKey.slice(sport.length), 10); }
 function shiftSeason(sport, seasonKey, back) { return sport + (seasonYear(sport, seasonKey) - back); }
 
@@ -398,20 +393,18 @@ function computeSeedDetailInner(sport, seasonKey, archive, config, depth, memo) 
   season.teams.forEach(team => {
     const inp = inputs[team] || {};
     const phase = common.phases.indexOf(inp.phase) >= 0 ? inp.phase : common.DEFAULT_PHASE;
-    const recruitment = num(inp.recruitment, 0);
 
     // Base, in priority order:
     //   1. a real prior season, replayed and regressed toward the mean
-    //   2. an explicit baseOverride (the user typed it, so it wins over a proxy)
-    //   3. an expansion side's entry rating
-    //   4. a pre-2012 finish position converted to a rating
-    //   5. MEAN — anything else with no history
+    //   2. an expansion side's entry rating
+    //   3. a pre-2012 finish position converted to a rating
+    //   4. MEAN — anything else with no history
+    // A typed attOverride/defOverride is applied AFTER all of this, because it
+    // replaces the answer outright rather than feeding into it.
     let base, baseSource;
     const prevRating = end1 && end1[team] != null ? normRating(end1[team], common) : null;
     if (prevRating != null) {
       base = regressToMean(prevRating, common); baseSource = 'prev';
-    } else if (inp.baseOverride != null && inp.baseOverride !== '') {
-      base = normRating(num(inp.baseOverride, common.MEAN), common); baseSource = 'override';
     } else if (cfg.expansionBase && cfg.expansionBase[team] != null) {
       // Ahead of the position mapping on purpose — see cfg.expansionBase.
       base = normRating(cfg.expansionBase[team], common); baseSource = 'expansion';
@@ -437,17 +430,29 @@ function computeSeedDetailInner(sport, seasonKey, archive, config, depth, memo) 
       });
     }
 
-    // PHASE CONTRIBUTES NOTHING. It is carried through to the detail so the
-    // preview can show it, and that is all it does — see common.phases.
-    const recruit = recruitment * common.RECRUIT_SCALE;
+    // What history implies, before the user has a say.
+    const derived = {
+      att: clampRating(base.att + trajectory.att, common),
+      def: clampRating(base.def + trajectory.def, common),
+    };
+
+    // A typed rating REPLACES the derived one rather than nudging it — if you
+    // say a side's attack is 80, it is 80, whatever last season did. Attack and
+    // defence are set independently, so either can be overridden alone.
+    //
+    // PHASE CONTRIBUTES NOTHING to any of this. It is carried through to the
+    // detail so the preview can show it, and that is all — see common.phases.
+    const attSet = inp.attOverride != null && inp.attOverride !== '';
+    const defSet = inp.defOverride != null && inp.defOverride !== '';
     const seed = {
-      att: clampRating(base.att + recruit + trajectory.att, common),
-      def: clampRating(base.def + recruit + trajectory.def, common),
+      att: attSet ? clampRating(num(inp.attOverride, derived.att), common) : derived.att,
+      def: defSet ? clampRating(num(inp.defOverride, derived.def), common) : derived.def,
     };
     result.seeds[team] = seed;
     result.detail[team] = {
       seed, att: seed.att, def: seed.def, overall: (seed.att + seed.def) / 2,
-      base, baseSource, phase, recruitment, trajectory, trend, prevRating,
+      derived, attSet, defSet,
+      base, baseSource, phase, trajectory, trend, prevRating,
     };
   });
 
@@ -460,7 +465,8 @@ function computeSeeds(opts) {
   return computeSeedDetailInner(opts.sport, opts.seasonKey, opts.archive, config, 0, opts.memo || newMemo()).seeds;
 }
 
-// computeSeedDetail(...) -> { team: {seed, base, baseSource, phase, recruitment, trajectory, trend} }
+// computeSeedDetail(...) -> { team: {seed, att, def, overall, derived, attSet, defSet,
+//                              base, baseSource, phase, trajectory, trend} }
 function computeSeedDetail(opts) {
   const config = opts.config || SIM_CONFIG;
   return computeSeedDetailInner(opts.sport, opts.seasonKey, opts.archive, config, 0, opts.memo || newMemo()).detail;

@@ -664,12 +664,11 @@
   display: grid;
   gap: 8px;
   /* The header and each row are separate grid containers, so their tracks only
-     agree if both resolve identically. The recruitment track is 1fr — i.e.
-     minmax(auto, 1fr) — and its min-content differs between the two: the header
-     holds the unbreakable word "RECRUITMENT" (~85px) while the row holds a
-     shrinkable slider (~40px). Once the panel narrowed they clamped to
-     different widths and every column to the right drifted apart. A shared
-     min-width keeps both at full size and lets .preview-body scroll instead. */
+     agree if both resolve identically. One track is flexible (1fr — i.e.
+     minmax(auto, 1fr)) and its min-content can differ between header and row,
+     which once let the two clamp to different widths and drifted every column
+     to the right of it out of line. A shared min-width keeps both at full size
+     and lets .preview-body scroll instead. */
   min-width: 700px;
   padding: 6px 10px;
   color: #8888aa;
@@ -756,45 +755,30 @@
 .seed-consistency:hover {
   border-color: #3a4a80;
 }
-.seed-recruit-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.seed-recruit {
-  flex: 1;
-  min-width: 0;
-  height: 4px;
-  -webkit-appearance: none;
-  appearance: none;
-  background: #2a2a4a;
-  border-radius: 2px;
-  cursor: pointer;
-}
-.seed-recruit::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #f0c040;
-  cursor: pointer;
-}
-.seed-recruit::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  border: none;
-  border-radius: 50%;
-  background: #f0c040;
-  cursor: pointer;
-}
-.seed-recruit-val {
-  color: #ccccdd;
+/* ATT and DEF are typed in directly, so they are inputs rather than read-only
+   text. A value you have set shows in full accent; one still derived from last
+   season's results is dimmed — so at a glance the table tells you what you
+   changed and what the engine worked out for itself. */
+.seed-num {
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 2px 0;
+  color: #7a7a9c;
   font-family: 'DIN Next LT Pro', sans-serif;
-  font-size: 11px;
-  width: 34px;
-  text-align: right;
-  flex-shrink: 0;
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
+  cursor: text;
+}
+.seed-num.is-set { color: #f0c040; }
+.seed-num:hover { border-color: #3a4a80; }
+.seed-num:focus {
+  outline: none;
+  border-color: #f0c040;
+  background: #16213E;
+  color: #f0c040;
 }
 .seed-rating {
   color: #f0c040;
@@ -9779,6 +9763,11 @@ function ordinalSuffix(n) {
 // the same pattern as the preview drag order (lp_<sport>_preview_<seasonKey>).
 // Everything else the sim needs — seed ratings, in-season ratings, tempo — is
 // derived by replaying scores, exactly the way calculateLadder() works.
+// Bounds for the ATT/DEF boxes, read from the engine so the UI can't drift out
+// of step with what the sim will actually accept.
+const RATING_MIN = Math.round(window.LadderSim.SIM_CONFIG.common.RATING_FLOOR);
+const RATING_MAX = Math.round(window.LadderSim.SIM_CONFIG.common.RATING_CEIL);
+
 const SIM_PHASES = [
   { value: 'rebuild',   label: 'Rebuild'   },
   { value: 'dropping',  label: 'Dropping'  },
@@ -9812,7 +9801,7 @@ function setSeedInput(sport, seasonKey, team, patch) {
 }
 
 // Clears everything the Season Preview panel owns for the current season: the
-// per-team phase / recruitment / consistency inputs, and the drag order. Scores
+// per-team phase / attack / defence / consistency inputs, and the drag order. Scores
 // are NOT touched — this resets what you set up before the season, not what
 // happened in it. Emptying the stored objects is enough because both readers
 // fall back to defaults when a team is missing, so seeds return to whatever the
@@ -9822,7 +9811,7 @@ function resetPreviewToDefault(sport) {
   const seasonKey = currentSeason;
   const year = seasonKey.replace(/^(nrl|afl)/, '');
   if (!confirm('Reset the ' + sport.toUpperCase() + ' ' + year + ' season preview?\n\n'
-    + 'Phase, recruitment and consistency go back to default for every team, and your drag order is cleared.\n\n'
+    + 'Phase, attack, defence and consistency go back to default for every team, and your drag order is cleared.\n\n'
     + 'Scores are not affected.')) return;
 
   cloudStorage.setItem(seedStoreKey(sport, seasonKey), JSON.stringify({}));
@@ -9852,17 +9841,21 @@ function simSeedDetail(sport, seasonKey) {
 }
 
 // Repaint the read-only seed rating without rebuilding rows, so dragging the
-// recruitment slider updates live.
+// ATT/DEF boxes update live.
 function refreshSeedDisplays(sport) {
   const listEl = document.getElementById(sport + '-preview-list');
   if (!listEl) return;
   const detail = simSeedDetail(sport, currentSeason);
   listEl.querySelectorAll('.preview-row').forEach(row => {
     const d = detail[row.dataset.team];
-    const att = row.querySelector('.seed-att');
-    const def = row.querySelector('.seed-def');
-    if (d && att) att.textContent = Math.round(d.att);
-    if (d && def) def.textContent = Math.round(d.def);
+    if (!d) return;
+    [['att', '.seed-att', 'attSet'], ['def', '.seed-def', 'defSet']].forEach(([k, sel, flag]) => {
+      const el = row.querySelector(sel);
+      if (!el) return;
+      // Don't fight the user mid-edit.
+      if (document.activeElement !== el) el.value = Math.round(d[k]);
+      el.classList.toggle('is-set', !!d[flag]);
+    });
   });
 }
 
@@ -9948,14 +9941,13 @@ function renderPreview(sport) {
   const teams = data[seasonKey].teams.slice();
   const cfg = data[seasonKey].teamConfig;
 
-  const cols = '28px 26px 52px 92px minmax(0, 1fr) 34px 34px 96px 46px 46px 20px';
+  const cols = '28px 26px minmax(0, 1fr) 92px 52px 52px 96px 46px 46px 20px';
   headerEl.style.gridTemplateColumns = cols;
   headerEl.innerHTML = `
     <div style="text-align:center;">#</div>
     <div></div>
     <div>TEAM</div>
     <div style="text-align:center;">PHASE</div>
-    <div style="text-align:center;">RECRUITMENT</div>
     <div style="text-align:center;">ATT</div>
     <div style="text-align:center;">DEF</div>
     <div style="text-align:center;">CONSISTENCY</div>
@@ -9991,7 +9983,6 @@ function renderPreview(sport) {
 
     const inp = seedInputs[team] || {};
     const phase = simConfig.common.phases.indexOf(inp.phase) >= 0 ? inp.phase : simConfig.common.DEFAULT_PHASE;
-    const recruit = Number.isFinite(Number(inp.recruitment)) ? Number(inp.recruitment) : 0;
     const consistency = simConfig.common.consistency[inp.consistency] != null
       ? inp.consistency : simConfig.common.DEFAULT_CONSISTENCY;
     const d = seedDetail[team];
@@ -10003,12 +9994,10 @@ function renderPreview(sport) {
       <select class="seed-control seed-phase">
         ${SIM_PHASES.map(p => `<option value="${p.value}"${p.value === phase ? ' selected' : ''}>${p.label}</option>`).join('')}
       </select>
-      <div class="seed-recruit-wrap">
-        <input type="range" class="seed-control seed-recruit" min="-200" max="200" step="5" value="${recruit}">
-        <span class="seed-recruit-val">${recruit > 0 ? '+' : ''}${recruit}</span>
-      </div>
-      <div class="seed-rating seed-att">${d ? Math.round(d.att) : '—'}</div>
-      <div class="seed-rating seed-def">${d ? Math.round(d.def) : '—'}</div>
+      <input type="number" class="seed-control seed-num seed-att${d && d.attSet ? ' is-set' : ''}"
+             min="${RATING_MIN}" max="${RATING_MAX}" step="1" value="${d ? Math.round(d.att) : ''}">
+      <input type="number" class="seed-control seed-num seed-def${d && d.defSet ? ' is-set' : ''}"
+             min="${RATING_MIN}" max="${RATING_MAX}" step="1" value="${d ? Math.round(d.def) : ''}">
       <select class="seed-control seed-consistency">
         ${SIM_CONSISTENCY.map(c => `<option value="${c.value}"${c.value === consistency ? ' selected' : ''}>${c.label}</option>`).join('')}
       </select>
@@ -10029,13 +10018,19 @@ function renderPreview(sport) {
       setSeedInput(sport, seasonKey, team, { consistency: this.value });
     });
 
-    const slider = row.querySelector('.seed-recruit');
-    const sliderVal = row.querySelector('.seed-recruit-val');
-    slider.addEventListener('input', function () {
-      const v = parseInt(this.value, 10) || 0;
-      sliderVal.textContent = (v > 0 ? '+' : '') + v;
-      setSeedInput(sport, seasonKey, team, { recruitment: v });
-      refreshSeedDisplays(sport);
+    // Typing a rating stores it as an override, which replaces what history
+    // implied. Clearing the box hands the team back to the engine.
+    [['att', '.seed-att'], ['def', '.seed-def']].forEach(([which, sel]) => {
+      row.querySelector(sel).addEventListener('change', function () {
+        const raw = this.value.trim();
+        if (raw === '') {
+          setSeedInput(sport, seasonKey, team, { [which + 'Override']: null });
+        } else {
+          const v = Math.max(RATING_MIN, Math.min(RATING_MAX, parseInt(raw, 10) || 0));
+          setSeedInput(sport, seasonKey, team, { [which + 'Override']: v });
+        }
+        refreshSeedDisplays(sport);
+      });
     });
 
     listEl.appendChild(row);
@@ -10047,7 +10042,7 @@ function attachDragHandlers(sport) {
   const listEl = document.getElementById(sport + '-preview-list');
   let draggedEl = null;
 
-  // A row is draggable, but the phase select and recruitment slider live inside
+  // A row is draggable, but the phase select and the ATT/DEF boxes live inside
   // it — without this the browser starts a row drag the moment you grab the
   // slider thumb. pointerdown lands before dragstart, so switching draggable off
   // here is enough; grabbing anywhere else in the row switches it back on.
