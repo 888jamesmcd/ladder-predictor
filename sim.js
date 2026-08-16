@@ -96,7 +96,22 @@ const SIM_CONFIG = {
   },
   afl: {
     MARGIN_SCALE: 0.20,        // rating points -> margin points
-    MARGIN_SIGMA: 38,          // upset dial (bigger = more upsets)
+    MARGIN_SIGMA: 32,          // upset dial (bigger = more upsets)
+    // Ceiling on the EXPECTED margin. MARGIN_SCALE is linear, so once seeds are
+    // pushed apart by hand (phase + a 200-point recruitment slider can open a
+    // 700-point gap, against a natural ladder spread of only 300) it predicted
+    // absurd results — a 618-point gap asked for a 124-point win before a
+    // single dice roll. Real footy doesn't scale that way: past a point the
+    // better side just wins comfortably rather than proportionally. tanh keeps
+    // ordinary gaps almost exactly as they were and bends only the extremes.
+    MARGIN_CAP: 50,
+    // Compresses the FINAL margin, after noise. MARGIN_CAP only bounds the
+    // expectation — a 60-point expectation plus 1.3 sigma still cleared 100, so
+    // blowouts stayed far too common. Margins below MARGIN_KNEE are untouched;
+    // above it the excess is squeezed so results saturate toward MARGIN_MAX.
+    // Real AFL has ~4-6 hundred-point wins a season and almost never exceeds
+    // 150, which is what these two numbers encode.
+    MARGIN_KNEE: 50, MARGIN_MAX: 115,
     POSITION_SPREAD: 150,      // overrides common.POSITION_SPREAD
     DRAW_BAND: 0.35,           // no golden point in the AFL — a level game just draws
     HGA: 30,                   // home rating bump
@@ -124,6 +139,9 @@ const SIM_CONFIG = {
   nrl: {
     MARGIN_SCALE: 0.055,
     MARGIN_SIGMA: 13,
+    MARGIN_CAP: 24,            // see afl.MARGIN_CAP
+    MARGIN_KNEE: 26, MARGIN_MAX: 56,   // see afl.MARGIN_KNEE
+
     POSITION_SPREAD: 120,      // tighter comp than the AFL
     HGA: 40,
     TEMPO_PRIOR: 38,
@@ -1021,8 +1039,13 @@ function simulateGame(opts) {
   const vH = volatility && volatility[home] != null ? volatility[home] : 1;
   const vA = volatility && volatility[away] != null ? volatility[away] : 1;
   const ratingGap = (Rh + cfg.HGA) - Ra;
-  const expMargin = ratingGap * cfg.MARGIN_SCALE;
-  const actualMargin = expMargin + gaussian(rng, 0, cfg.MARGIN_SIGMA * (vH + vA) / 2);
+  // Linear for ordinary gaps, saturating toward MARGIN_CAP for extreme ones —
+  // tanh(x) ~= x when x is small, so existing calibration is preserved.
+  const linearMargin = ratingGap * cfg.MARGIN_SCALE;
+  const expMargin = cfg.MARGIN_CAP
+    ? cfg.MARGIN_CAP * Math.tanh(linearMargin / cfg.MARGIN_CAP)
+    : linearMargin;
+  let actualMargin = expMargin + gaussian(rng, 0, cfg.MARGIN_SIGMA * (vH + vA) / 2);
 
   // TOTAL, from tempo — independent of who wins.
   const Th = tempos && tempos[home] != null ? tempos[home] : cfg.TEMPO_PRIOR;
@@ -1036,6 +1059,15 @@ function simulateGame(opts) {
   // happened in the NRL at all.
   const blowout = Math.max(0, Math.abs(actualMargin) - cfg.BLOWOUT_MARGIN);
   if (blowout > 0) total = Math.min(total + blowout * cfg.BLOWOUT_LIFT, cfg.TOTAL_CEIL);
+
+  // Squeeze the tail before anything downstream sees it, so the blowout lift
+  // and the score split both work from a realistic margin.
+  let squeezed = Math.abs(actualMargin);
+  if (cfg.MARGIN_KNEE && squeezed > cfg.MARGIN_KNEE) {
+    const room = cfg.MARGIN_MAX - cfg.MARGIN_KNEE;
+    squeezed = cfg.MARGIN_KNEE + room * Math.tanh((squeezed - cfg.MARGIN_KNEE) / room);
+  }
+  actualMargin = actualMargin < 0 ? -squeezed : squeezed;
 
   const rawMargin = Math.abs(actualMargin);
   // A level game is decided up front, by the margin landing inside DRAW_BAND —
