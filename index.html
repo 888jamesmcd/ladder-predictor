@@ -8189,6 +8189,14 @@ function renderRoundNav(containerId, totalRounds) {
 // recomputing the ladder — now shows the same G.B for the same score instead of
 // re-rolling a new one every render. Omit it and the split is stable on the
 // total alone.
+// sim.js is loaded as a separate file (see the cache-busting tag in <head>). If
+// it 404s or fails to parse, EVERY simulation feature is unavailable — but the
+// app still has to display the scores, ladders and finals you already saved.
+// Nothing may dereference window.LadderSim without checking this first.
+function simEngineReady() {
+  return !!(window.LadderSim && window.LadderSim.SIM_CONFIG);
+}
+
 function gbSeedFrom(str) {
   let h = 2166136261;
   for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
@@ -8196,6 +8204,13 @@ function gbSeedFrom(str) {
 }
 function generateGoalsBehinds(total, key) {
   const points = parseInt(total, 10) || 0;
+  // Without the engine this is on the AFL scorecard's render path, so it must
+  // return something rather than throw. Roughly one behind per goal, and
+  // 6*goals + behinds === points still holds exactly.
+  if (!simEngineReady()) {
+    const goals = Math.floor(points / 7);
+    return { goals, behinds: points - 6 * goals };
+  }
   const rng = window.LadderSim.makeRng(gbSeedFrom((key == null ? '' : String(key)) + ':' + points));
   return window.LadderSim.generateGoalsBehinds(points, rng, window.LadderSim.SIM_CONFIG);
 }
@@ -9094,6 +9109,14 @@ function simSportOf(seasonKey) { return seasonKey.startsWith('afl') ? 'afl' : 'n
 function simPanelActive(sport) { return simSportOf(currentSeason) === sport; }
 
 function simContext() {
+  // Every Automate / Quick Sim / Re-roll / Sim Rest path comes through here, so
+  // one guard covers them all. Says why rather than failing silently.
+  if (!simEngineReady()) {
+    alert('The simulation engine (sim.js) did not load, so simulating is unavailable.\n\n'
+        + 'Your saved scores and ladders are unaffected. Make sure sim.js is uploaded '
+        + 'alongside index.html, then reload.');
+    return null;
+  }
   const sport = simSportOf(currentSeason);
   const season = (sport === 'afl' ? aflSeasons : seasons)[currentSeason];
   const config = window.LadderSim.SIM_CONFIG;
@@ -9279,6 +9302,7 @@ function simulateFinals(sport, overwrite) {
   const isAfl = sport === 'afl';
   const season = (isAfl ? aflSeasons : seasons)[currentSeason];
   if (!season) return 0;
+  if (!simEngineReady()) return 0;
   const fd = season.finalsData;
   const config = window.LadderSim.SIM_CONFIG;
   const archive = simArchive(sport);
@@ -9399,6 +9423,7 @@ function simScoredInRound(season, roundIdx) {
 
 async function simRunRound(overwrite, skipAnim) {
   const ctx = simContext();
+  if (!ctx) return 0;   // engine missing — simContext() has already said so
   const written = window.LadderSim.simulateRound({
     sport: ctx.sport, teams: ctx.season.teams, rounds: ctx.season.rounds,
     scores: ctx.season.scores, seeds: ctx.seeds, config: ctx.config,
@@ -9480,6 +9505,7 @@ async function simRerollRound(sport) {
     return;
   }
   const ctx = simContext();
+  if (!ctx) return;
   const scored = simScoredInRound(ctx.season, currentRound);
   const total = (ctx.season.rounds[currentRound] || []).length;
   if (scored > 0 && !confirm(
@@ -9498,6 +9524,7 @@ function simRestOfSeason(sport) {
   if (!simPanelActive(sport) || simAnimRunning) return;
   if (simFinalsActive(sport)) { simAutomateRound(sport); return; }
   const ctx = simContext();
+  if (!ctx) return;
   const rounds = ctx.season.rounds;
   let empty = 0, scored = 0;
   for (let r = currentRound; r < rounds.length; r++) {
@@ -9765,8 +9792,16 @@ function ordinalSuffix(n) {
 // derived by replaying scores, exactly the way calculateLadder() works.
 // Bounds for the ATT/DEF boxes, read from the engine so the UI can't drift out
 // of step with what the sim will actually accept.
-const RATING_MIN = Math.round(window.LadderSim.SIM_CONFIG.common.RATING_FLOOR);
-const RATING_MAX = Math.round(window.LadderSim.SIM_CONFIG.common.RATING_CEIL);
+//
+// Read DEFENSIVELY. sim.js is a separate file, and this runs at the top level of
+// the app's async wrapper — a hard dereference here throws before a single
+// render call fires, so a missing engine file emptied the entire app even though
+// the Supabase fetch above had already succeeded and the data was sitting in
+// cloudCache. Your scores must render whether or not the simulator loaded.
+const RATING_FALLBACK = { RATING_FLOOR: 2, RATING_CEIL: 98 };
+const ratingCfg = simEngineReady() ? window.LadderSim.SIM_CONFIG.common : RATING_FALLBACK;
+const RATING_MIN = Math.round(ratingCfg.RATING_FLOOR);
+const RATING_MAX = Math.round(ratingCfg.RATING_CEIL);
 
 const SIM_PHASES = [
   { value: 'rebuild',   label: 'Rebuild'   },
@@ -9877,6 +9912,9 @@ function renderHeadlines(sport) {
   if ((currentSeason.startsWith('afl')) !== isAfl) return;
   const season = (isAfl ? aflSeasons : seasons)[currentSeason];
   if (!season) return;
+  // Headlines are generated by the engine. No engine, no headlines — but the
+  // scorecards this sits under must still draw.
+  if (!simEngineReady()) return;
 
   const config = window.LadderSim.SIM_CONFIG;
   const archive = simArchive(sport);
@@ -9956,6 +9994,9 @@ function renderPreview(sport) {
     <div></div>
   `;
 
+  // Called during boot, after the scores and ladder have painted. Bailing here
+  // leaves the preview panel empty instead of taking the rest of the page down.
+  if (!simEngineReady()) { listEl.innerHTML = ''; return; }
   const seedDetail = simSeedDetail(sport, seasonKey);
   const seedInputs = getSeedInputs(sport, seasonKey);
   const simConfig = window.LadderSim.SIM_CONFIG;
