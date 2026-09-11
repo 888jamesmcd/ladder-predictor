@@ -11097,6 +11097,7 @@ function renderAFLHeadToHead() {
     const cfgA = getLatestConfig(teamA);
     const cfgB = getLatestConfig(teamB);
     const finalIds = ['qf1','qf2','ef1','ef2','sf1','sf2','pf1','pf2','gf'];
+    const FINALS_SEQ = 1000; // any finals game sorts after every home-and-away round
     const finalLabels = { qf1:'1st QF', qf2:'2nd QF', ef1:'1st EF', ef2:'2nd EF', sf1:'1st SF', sf2:'2nd SF', pf1:'1st PF', pf2:'2nd PF', gf:'GF' };
     const meetings = [];
     let aWins = 0, bWins = 0, aTotal = 0, bTotal = 0;
@@ -11120,10 +11121,10 @@ function renderAFLHeadToHead() {
           aTotal += aScore; bTotal += bScore;
           if (aScore > bScore) aWins++;
           else if (bScore > aScore) bWins++;
-          meetings.push({ year, round: `R${roundIndex + 1}`, aScore, bScore, seasonKey, isFinals: false });
+          meetings.push({ year, seq: roundIndex, round: `R${roundIndex + 1}`, aScore, bScore, seasonKey, isFinals: false });
         });
       });
-      finalIds.forEach(id => {
+      finalIds.forEach((id, fi) => {
         const game = season.finalsData[id];
         if (!game.home || !game.away) return;
         if (!((game.home === teamA && game.away === teamB) || (game.home === teamB && game.away === teamA))) return;
@@ -11136,11 +11137,17 @@ function renderAFLHeadToHead() {
         aTotal += aScore; bTotal += bScore;
         if (aScore > bScore) aWins++;
         else if (bScore > aScore) bWins++;
-        meetings.push({ year, round: finalLabels[id], aScore, bScore, seasonKey, isFinals: true });
+        meetings.push({ year, seq: FINALS_SEQ + fi, round: finalLabels[id], aScore, bScore, seasonKey, isFinals: true });
       });
     });
 
-    meetings.sort((a, b) => b.year - a.year);
+    // Newest first, all the way down: year, then position within the year.
+    // Sorting on year alone left the rows in insertion order inside each
+    // season, which is oldest-to-newest — so 2014 R9 sat above 2014 R20 and
+    // the Grand Final came last. seq is the round index for the home-and-away
+    // season and FINALS_SEQ + bracket position for finals, so finals always
+    // land after round 26 and the GF is the latest game of its year.
+    meetings.sort((a, b) => (b.year - a.year) || (b.seq - a.seq));
     if (!cfgA || !cfgB) { document.getElementById('h2h-results').innerHTML = '<p style="color:#aaa;">Select two teams.</p>'; return; }
 
     const summaryHTML = `
@@ -11537,6 +11544,7 @@ function renderHeadToHead() {
     const cfgA = getLatestConfig(teamA);
     const cfgB = getLatestConfig(teamB);
     const finalIds = ['qf1','qf2','ef1','ef2','sf1','sf2','pf1','pf2','gf'];
+    const FINALS_SEQ = 1000; // any finals game sorts after every home-and-away round
     const finalLabels = { qf1:'1st QF', qf2:'2nd QF', ef1:'1st EF', ef2:'2nd EF', sf1:'1st SF', sf2:'2nd SF', pf1:'1st PF', pf2:'2nd PF', gf:'GF' };
 
     const meetings = [];
@@ -11565,12 +11573,12 @@ function renderHeadToHead() {
           if (aScore > bScore) aWins++;
           else if (bScore > aScore) bWins++;
 
-          meetings.push({ year, round: `R${roundIndex + 1}`, aScore, bScore, seasonKey, isFinals: false, home: game.home, away: game.away, homeScore: hs, awayScore: as });
+          meetings.push({ year, seq: roundIndex, round: `R${roundIndex + 1}`, aScore, bScore, seasonKey, isFinals: false, home: game.home, away: game.away, homeScore: hs, awayScore: as });
         });
       });
 
       // finals
-      finalIds.forEach(id => {
+      finalIds.forEach((id, fi) => {
         const game = season.finalsData[id];
         if (!game.home || !game.away) return;
         if (!((game.home === teamA && game.away === teamB) || (game.home === teamB && game.away === teamA))) return;
@@ -11585,15 +11593,17 @@ function renderHeadToHead() {
         if (aScore > bScore) aWins++;
         else if (bScore > aScore) bWins++;
 
-        meetings.push({ year, round: finalLabels[id], aScore, bScore, seasonKey, isFinals: true, home: game.home, away: game.away, homeScore: hs, awayScore: as });
+        meetings.push({ year, seq: FINALS_SEQ + fi, round: finalLabels[id], aScore, bScore, seasonKey, isFinals: true, home: game.home, away: game.away, homeScore: hs, awayScore: as });
       });
     });
 
-    // sort meetings newest first
-    meetings.sort((a, b) => {
-      if (b.year !== a.year) return b.year - a.year;
-      return 0;
-    });
+    // Newest first, all the way down: year, then position within the year.
+    // Sorting on year alone left the rows in insertion order inside each
+    // season, which is oldest-to-newest — so 2014 R9 sat above 2014 R20 and
+    // the Grand Final came last. seq is the round index for the home-and-away
+    // season and FINALS_SEQ + bracket position for finals, so finals always
+    // land after round 26 and the GF is the latest game of its year.
+    meetings.sort((a, b) => (b.year - a.year) || (b.seq - a.seq));
 
     if (!cfgA || !cfgB) {
       document.getElementById('h2h-results').innerHTML = '<p style="color:#aaa;">Select two teams.</p>';
