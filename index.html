@@ -561,7 +561,7 @@
 .afl-data-table.afl-strip-table {
   left: 50%;
   right: auto;
-  width: 468px;
+  width: 452px;
   max-width: 92%;
   transform: translateX(-50%);
 }
@@ -608,7 +608,7 @@
   justify-content: center;
   overflow: hidden;
   font-family: 'DIN Next LT Pro', sans-serif;   /* the NRL classic card font */
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 700;
   letter-spacing: 0.5px;
   color: #ffffff;
@@ -628,7 +628,7 @@
    a neutral score box gives the eye somewhere to rest and the number is the
    thing you actually read. */
 .afl-strip-score {
-  flex: 0 0 78px;
+  flex: 0 0 70px;
   height: 52px;
   display: flex;
   align-items: center;
@@ -646,7 +646,7 @@
 /* Same face as the NRL classic card. Sized to fill the box. */
 .afl-strip-score .score-input {
   font-family: 'DIN Next LT Pro', sans-serif;
-  font-size: 36px;
+  font-size: 30px;   /* same as the team name — equal weight in the hierarchy */
   font-weight: 700;
   line-height: 1;
   color: #141414;
@@ -2266,8 +2266,8 @@ transform-origin: left center;
   }
   .afl-strip-logo  { flex-basis: 48px; }
   .afl-strip-score { flex-basis: 54px; }
-  .afl-strip-abbr { font-size: 22px; }
-  .afl-strip-score .score-input { font-size: 28px; }
+  .afl-strip-abbr,
+  .afl-strip-score .score-input { font-size: 22px; }
   .afl-strip-abbr > span,
   .afl-strip-score .score-input { transform: translateY(2px); }
   .afl-cell-red {
