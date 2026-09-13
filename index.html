@@ -48,8 +48,8 @@
   font-style: normal;
 }
 @font-face {
-  font-family: 'Eurostile Extended Black';
-  src: url('fonts/Eurostile-Extended-Black.otf') format('opentype');
+  font-family: 'Eurostile Black';
+  src: url('fonts/Eurostile-Black.otf') format('opentype');
   font-weight: normal;
   font-style: normal;
 }
@@ -567,7 +567,7 @@
 .afl-data-table.afl-strip-table {
   left: 50%;
   right: auto;
-  width: 420px;
+  width: 428px;
   max-width: 92%;
   transform: translateX(-50%);
 }
@@ -613,10 +613,10 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  font-family: 'AFL Modern', 'HelveticaNeueMediumCond', sans-serif;
-  font-size: 24px;
-  font-weight: bold;
-  letter-spacing: 1px;
+  font-family: 'Eurostile Black', 'AFL Modern', sans-serif;
+  font-size: 22px;
+  font-weight: normal;   /* already a black weight — see the score note */
+  letter-spacing: 0;
   color: #ffffff;
   white-space: nowrap;
 }
@@ -626,7 +626,7 @@
    a neutral score box gives the eye somewhere to rest and the number is the
    thing you actually read. */
 .afl-strip-score {
-  flex: 0 0 66px;
+  flex: 0 0 70px;
   height: 48px;
   display: flex;
   align-items: center;
@@ -641,14 +641,12 @@
   box-sizing: border-box;
 }
 
-/* The EXTENDED cut, deliberately. Plain Eurostile Black is a normal-width
-   face and read as thin and squished next to the team names; the wide,
-   squared-off look people mean by "Eurostile" is the Extended one. It's
-   already a black weight, so font-weight stays normal — bold on top would
-   make the browser synthesise a fake-bold and smear the letterforms. */
+/* Eurostile Black is already a black weight, so font-weight stays normal —
+   bold on top would make the browser synthesise a fake-bold and smear it.
+   Sized to fill the box: next to the team names it looked weedy at 24px. */
 .afl-strip-score .score-input {
-  font-family: 'Eurostile Extended Black', 'AFL Modern', 'HelveticaNeueMediumCond', sans-serif;
-  font-size: 20px;
+  font-family: 'Eurostile Black', 'AFL Modern', sans-serif;
+  font-size: 30px;
   font-weight: normal;
   line-height: 1;
   color: #141414;
@@ -2267,9 +2265,9 @@ transform-origin: left center;
     transform: none !important;   /* see the Modern note above — same trap */
   }
   .afl-strip-logo  { flex-basis: 48px; }
-  .afl-strip-score { flex-basis: 58px; }
-  .afl-strip-abbr { font-size: 22px; }
-  .afl-strip-score .score-input { font-size: 17px; }
+  .afl-strip-score { flex-basis: 54px; }
+  .afl-strip-abbr { font-size: 19px; }
+  .afl-strip-score .score-input { font-size: 25px; }
   .afl-cell-red {
     width: 54px !important;
   }
