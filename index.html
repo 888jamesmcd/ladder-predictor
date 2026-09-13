@@ -561,7 +561,7 @@
 .afl-data-table.afl-strip-table {
   left: 50%;
   right: auto;
-  width: 428px;
+  width: 468px;
   max-width: 92%;
   transform: translateX(-50%);
 }
@@ -569,13 +569,13 @@
 .afl-data-table td.afl-strip-cell {
   border: none;
   padding: 0;
-  height: 48px;
+  height: 52px;
 }
 
 .afl-strip-row {
   display: flex;
   width: 100%;
-  height: 48px;
+  height: 52px;
   overflow: hidden;
 }
 
@@ -584,7 +584,7 @@
 .afl-strip-logo {
   position: relative;
   flex: 0 0 68px;
-  height: 48px;
+  height: 52px;
   overflow: hidden;
 }
 
@@ -602,17 +602,25 @@
 .afl-strip-abbr {
   flex: 1 1 0;
   min-width: 0;
-  height: 48px;
+  height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   font-family: 'DIN Next LT Pro', sans-serif;   /* the NRL classic card font */
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 700;
   letter-spacing: 0.5px;
   color: #ffffff;
   white-space: nowrap;
+}
+
+/* DIN's glyphs sit high inside their line box, so align-items:center leaves
+   the visible letters ~3px above the true middle of the cell. Measured, not
+   guessed. The classic card carries the same kind of nudge. */
+.afl-strip-abbr > span,
+.afl-strip-score .score-input {
+  transform: translateY(3px);
 }
 
 /* Off-white with black type. The first cut darkened the team colour here,
@@ -620,8 +628,8 @@
    a neutral score box gives the eye somewhere to rest and the number is the
    thing you actually read. */
 .afl-strip-score {
-  flex: 0 0 70px;
-  height: 48px;
+  flex: 0 0 78px;
+  height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -638,7 +646,7 @@
 /* Same face as the NRL classic card. Sized to fill the box. */
 .afl-strip-score .score-input {
   font-family: 'DIN Next LT Pro', sans-serif;
-  font-size: 32px;
+  font-size: 36px;
   font-weight: 700;
   line-height: 1;
   color: #141414;
@@ -2258,8 +2266,10 @@ transform-origin: left center;
   }
   .afl-strip-logo  { flex-basis: 48px; }
   .afl-strip-score { flex-basis: 54px; }
-  .afl-strip-abbr { font-size: 20px; }
-  .afl-strip-score .score-input { font-size: 26px; }
+  .afl-strip-abbr { font-size: 22px; }
+  .afl-strip-score .score-input { font-size: 28px; }
+  .afl-strip-abbr > span,
+  .afl-strip-score .score-input { transform: translateY(2px); }
   .afl-cell-red {
     width: 54px !important;
   }
@@ -8333,7 +8343,7 @@ function generateGoalsBehinds(total, key) {
 // Height of one team row on the Modern AFL card. Must match the heights in the
 // .afl-modern-* CSS block.
 const AFL_MODERN_ROW_H = 48;
-const AFL_STRIP_ROW_H = 48;   // single row — keep in sync with .afl-strip-* CSS
+const AFL_STRIP_ROW_H = 52;   // single row — keep in sync with .afl-strip-* CSS
 
 // The one place that knows how tall each AFL design's card is. renderAFLRound
 // sizes the panel from it and renderHeadlines sits below the last card using
@@ -8508,10 +8518,10 @@ const CARD_DESIGNS = {
           <td class="afl-strip-cell" style="position:relative;">
             <div class="afl-strip-row">
               <div class="afl-strip-logo"><img src="${homeConfig.logo}" style="object-position:${aflModernLogoPos(game.home)};">${posTag(homePos, 'pos-tag-crest')}</div>
-              <div class="afl-strip-abbr ${homeCol}">${homeConfig.abbr}</div>
+              <div class="afl-strip-abbr ${homeCol}"><span>${homeConfig.abbr}</span></div>
               <div class="afl-strip-score"><div contenteditable="true" class="score-input">${saved.home}</div></div>
               <div class="afl-strip-score"><div contenteditable="true" class="score-input">${saved.away}</div></div>
-              <div class="afl-strip-abbr ${awayCol}">${awayConfig.abbr}</div>
+              <div class="afl-strip-abbr ${awayCol}"><span>${awayConfig.abbr}</span></div>
               <div class="afl-strip-logo"><img src="${awayConfig.logo}" style="object-position:${aflModernLogoPos(game.away)};">${posTag(awayPos, 'pos-tag-crest')}</div>
             </div>
           </td>
