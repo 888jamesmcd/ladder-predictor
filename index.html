@@ -546,6 +546,90 @@
   --afl-ladder-font: 'AFL Modern', 'HelveticaNeueMediumCond', sans-serif;
 }
 
+/* ===================== AFL "STRIP" SCORECARD ===================== */
+/* Broadcast-style scoreboard: one row, six cells, reading left to right as
+   logo · abbreviation · score | score · abbreviation · logo. The abbreviation
+   sits on the team's own gradient and the score on the same gradient pulled
+   toward black, so each side reads as one colour in two shades. Wider than the
+   other two designs because six cells need the room. The row height lives in
+   AFL_STRIP_ROW_H in the JS — keep these in sync. */
+.afl-data-table.afl-strip-table {
+  left: 8%;
+  right: 8%;
+  width: 84%;
+}
+
+.afl-data-table td.afl-strip-cell {
+  border: none;
+  padding: 0;
+  height: 52px;
+}
+
+.afl-strip-row {
+  display: flex;
+  width: 100%;
+  height: 52px;
+  overflow: hidden;
+}
+
+/* position:relative so the ladder tag (pos-tag-crest) can anchor to the
+   logo's corner, exactly as it does on the Modern card. */
+.afl-strip-logo {
+  position: relative;
+  flex: 0 0 60px;
+  height: 52px;
+  overflow: hidden;
+}
+
+.afl-strip-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Flexible so it absorbs whatever the panel width leaves after the fixed
+   logo and score cells. overflow:hidden is the safety net: a four-letter
+   abbreviation must never spill into the logo beside it. */
+.afl-strip-abbr {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-family: 'AFL Modern', 'HelveticaNeueMediumCond', sans-serif;
+  font-size: 26px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+/* Same team gradient class as the abbreviation cell, darkened by an inset
+   shadow. One rule covers every team rather than a hand-picked dark shade for
+   each of the eighteen. */
+.afl-strip-score {
+  flex: 0 0 58px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.55);
+}
+
+.afl-strip-score .score-input {
+  font-family: 'AFL Modern', 'HelveticaNeueMediumCond', sans-serif;
+  font-size: 30px;
+  font-weight: bold;
+  line-height: 1;
+  color: #ffffff;
+  cursor: text;
+  min-width: 10px;
+  text-align: center;
+}
+
 /* Design toggle pill (Classic / Modern) */
 .design-toggle {
   position: absolute;
@@ -2142,10 +2226,21 @@ transform-origin: left center;
     transform: none !important;
   }
   /* Inline width/height on the cells needs !important to shift. Classic only —
-     the Modern cell is 48px and its row/logo are fixed to match. */
-  .afl-data-table:not(.afl-modern-table) td {
+     Modern and Strip size their own rows and must be left alone. */
+  .afl-data-table:not(.afl-modern-table):not(.afl-strip-table) td {
     height: 34px !important;
   }
+  /* Strip has six cells across, so on a phone the fixed logo/score widths and
+     the 30px type have to come in or the abbreviation gets squeezed to nothing. */
+  .afl-data-table.afl-strip-table {
+    left: 0 !important;
+    right: auto !important;
+    width: 100% !important;
+  }
+  .afl-strip-logo  { flex-basis: 48px; }
+  .afl-strip-score { flex-basis: 50px; }
+  .afl-strip-abbr,
+  .afl-strip-score .score-input { font-size: 22px; }
   .afl-cell-red {
     width: 54px !important;
   }
@@ -2511,6 +2606,7 @@ transform-origin: left center;
       <div class="design-toggle" id="afl-design-toggle" data-sport="afl">
         <button class="design-toggle-btn active" data-design="classic">Classic</button>
         <button class="design-toggle-btn" data-design="modern">Modern</button>
+        <button class="design-toggle-btn" data-design="strip">Strip</button>
       </div>
       <div id="afl-games-container"></div>
       <div class="finals-container" id="afl-finals-container">
@@ -8218,6 +8314,16 @@ function generateGoalsBehinds(total, key) {
 // Height of one team row on the Modern AFL card. Must match the heights in the
 // .afl-modern-* CSS block.
 const AFL_MODERN_ROW_H = 48;
+const AFL_STRIP_ROW_H = 52;   // single row — keep in sync with .afl-strip-* CSS
+
+// The one place that knows how tall each AFL design's card is. renderAFLRound
+// sizes the panel from it and renderHeadlines sits below the last card using
+// it, so they can't drift apart when a design is added or resized.
+function aflCardHeight() {
+  if (cardDesign.afl === 'modern') return AFL_MODERN_ROW_H * 2;
+  if (cardDesign.afl === 'strip') return AFL_STRIP_ROW_H;
+  return 76;
+}
 
 function aflTeamSlug(team) {
   return team.toLowerCase().replace(/\s+/g, '-');
@@ -8372,6 +8478,27 @@ const CARD_DESIGNS = {
         </tr>
       `;
     },
+    strip: (game, saved, homeConfig, awayConfig, homePos, awayPos) => {
+      const homeCol = 'col-' + aflTeamSlug(game.home) + '-home';
+      const awayCol = 'col-' + aflTeamSlug(game.away) + '-home';
+      // Home reads left-to-right, away right-to-left, meeting at the two
+      // scores in the middle. The two .score-input divs stay in home-then-away
+      // DOM order, which is what the score animation relies on.
+      return `
+        <tr>
+          <td class="afl-strip-cell" style="position:relative;">
+            <div class="afl-strip-row">
+              <div class="afl-strip-logo"><img src="${homeConfig.logo}" style="object-position:${aflModernLogoPos(game.home)};">${posTag(homePos, 'pos-tag-crest')}</div>
+              <div class="afl-strip-abbr ${homeCol}">${homeConfig.abbr}</div>
+              <div class="afl-strip-score ${homeCol}"><div contenteditable="true" class="score-input">${saved.home}</div></div>
+              <div class="afl-strip-score ${awayCol}"><div contenteditable="true" class="score-input">${saved.away}</div></div>
+              <div class="afl-strip-abbr ${awayCol}">${awayConfig.abbr}</div>
+              <div class="afl-strip-logo"><img src="${awayConfig.logo}" style="object-position:${aflModernLogoPos(game.away)};">${posTag(awayPos, 'pos-tag-crest')}</div>
+            </div>
+          </td>
+        </tr>
+      `;
+    },
   },
 };
 function getCardHTML(sport, design, ...args) {
@@ -8449,9 +8576,8 @@ function renderAFLRound(roundIndex) {
   container.innerHTML = '';
   const ladderPos = currentLadderPositions('afl');
   const isModern = cardDesign.afl === 'modern';
-  // Modern rows are taller (the 44px total needs the headroom) — see the
-  // .afl-modern-* CSS block, which these must stay in sync with.
-  const cardH = isModern ? AFL_MODERN_ROW_H * 2 : 76;
+  const isStrip = cardDesign.afl === 'strip';
+  const cardH = aflCardHeight();
   const gap = 8;
   container.closest('.panel').style.minHeight = `${185 + (cardH + gap) * games.length}px`;
   games.forEach((game, i) => {
@@ -8461,7 +8587,7 @@ function renderAFLRound(roundIndex) {
     const awayConfig = aflSeasons[currentSeason].teamConfig[game.away];
     const top = `calc(185px + (${cardH}px + ${gap}px) * ${i})`;
     const table = document.createElement('table');
-    table.className = 'afl-data-table' + (isModern ? ' afl-modern-table' : '');
+    table.className = 'afl-data-table' + (isModern ? ' afl-modern-table' : isStrip ? ' afl-strip-table' : '');
     table.style.top = top;
     table.innerHTML = getCardHTML('afl', cardDesign.afl, game, saved, homeConfig, awayConfig, ladderPos[game.home], ladderPos[game.away]);
     const inputs = table.querySelectorAll('.score-input');
@@ -9950,7 +10076,7 @@ function renderHeadlines(sport) {
 
   // Same absolute scheme the cards use, dropped below the last one.
   const games = season.rounds[currentRound] || [];
-  const cardH = isAfl ? (cardDesign.afl === 'modern' ? AFL_MODERN_ROW_H * 2 : 76) : 51.4;
+  const cardH = isAfl ? aflCardHeight() : 51.4;
   const gap = isAfl ? 8 : 10.6;
   el.style.top = `calc(185px + (${cardH}px + ${gap}px) * ${games.length} + 8px)`;
   container.appendChild(el);
