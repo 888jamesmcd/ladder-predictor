@@ -550,25 +550,32 @@
 /* Broadcast-style scoreboard: one row, six cells, reading left to right as
    logo · abbreviation · score | score · abbreviation · logo. The abbreviation
    sits on the team's own gradient and the score on the same gradient pulled
-   toward black, so each side reads as one colour in two shades. Wider than the
-   other two designs because six cells need the room. The row height lives in
+   toward black, so each side reads as one colour in two shades.
+
+   FIXED width and centred, like Modern, not a % of the panel. A first cut let
+   the abbreviation cells flex to fill 84% of the panel, and on a wide screen
+   they ballooned to three times the logo — nothing like the compact strip in
+   the owner's reference. Cell widths follow that reference's proportions
+   (logo : abbr : score ~ 1.35 : 1.5 : 1). The row height lives in
    AFL_STRIP_ROW_H in the JS — keep these in sync. */
 .afl-data-table.afl-strip-table {
-  left: 8%;
-  right: 8%;
-  width: 84%;
+  left: 50%;
+  right: auto;
+  width: 368px;
+  max-width: 92%;
+  transform: translateX(-50%);
 }
 
 .afl-data-table td.afl-strip-cell {
   border: none;
   padding: 0;
-  height: 52px;
+  height: 44px;
 }
 
 .afl-strip-row {
   display: flex;
   width: 100%;
-  height: 52px;
+  height: 44px;
   overflow: hidden;
 }
 
@@ -576,8 +583,8 @@
    logo's corner, exactly as it does on the Modern card. */
 .afl-strip-logo {
   position: relative;
-  flex: 0 0 60px;
-  height: 52px;
+  flex: 0 0 64px;
+  height: 44px;
   overflow: hidden;
 }
 
@@ -588,19 +595,20 @@
   display: block;
 }
 
-/* Flexible so it absorbs whatever the panel width leaves after the fixed
-   logo and score cells. overflow:hidden is the safety net: a four-letter
-   abbreviation must never spill into the logo beside it. */
+/* flex:1 inside a FIXED-width table resolves to a fixed 72px each — it only
+   becomes elastic on mobile, where the table goes full width. overflow:hidden
+   is the safety net: a four-letter abbreviation must never spill into the
+   logo beside it. */
 .afl-strip-abbr {
   flex: 1 1 0;
   min-width: 0;
-  height: 52px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   font-family: 'AFL Modern', 'HelveticaNeueMediumCond', sans-serif;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: bold;
   letter-spacing: 1px;
   color: #ffffff;
@@ -611,8 +619,8 @@
    shadow. One rule covers every team rather than a hand-picked dark shade for
    each of the eighteen. */
 .afl-strip-score {
-  flex: 0 0 58px;
-  height: 52px;
+  flex: 0 0 48px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -621,7 +629,7 @@
 
 .afl-strip-score .score-input {
   font-family: 'AFL Modern', 'HelveticaNeueMediumCond', sans-serif;
-  font-size: 30px;
+  font-size: 26px;
   font-weight: bold;
   line-height: 1;
   color: #ffffff;
@@ -2236,9 +2244,11 @@ transform-origin: left center;
     left: 0 !important;
     right: auto !important;
     width: 100% !important;
+    max-width: none !important;
+    transform: none !important;   /* see the Modern note above — same trap */
   }
   .afl-strip-logo  { flex-basis: 48px; }
-  .afl-strip-score { flex-basis: 50px; }
+  .afl-strip-score { flex-basis: 46px; }
   .afl-strip-abbr,
   .afl-strip-score .score-input { font-size: 22px; }
   .afl-cell-red {
@@ -8314,7 +8324,7 @@ function generateGoalsBehinds(total, key) {
 // Height of one team row on the Modern AFL card. Must match the heights in the
 // .afl-modern-* CSS block.
 const AFL_MODERN_ROW_H = 48;
-const AFL_STRIP_ROW_H = 52;   // single row — keep in sync with .afl-strip-* CSS
+const AFL_STRIP_ROW_H = 44;   // single row — keep in sync with .afl-strip-* CSS
 
 // The one place that knows how tall each AFL design's card is. renderAFLRound
 // sizes the panel from it and renderHeadlines sits below the last card using
