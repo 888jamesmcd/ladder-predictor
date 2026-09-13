@@ -47,6 +47,12 @@
   font-weight: normal;
   font-style: normal;
 }
+@font-face {
+  font-family: 'Eurostile Black';
+  src: url('fonts/Eurostile-Black.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
 .app-wrapper {
     width: 100%;
     overflow-x: auto;
@@ -628,10 +634,19 @@
   background: #f3f1ec;
 }
 
+/* One black line between the two scores. It's a border on the away box only
+   so there's exactly one, and box-sizing keeps the 56px width honest. */
+.afl-strip-score + .afl-strip-score {
+  border-left: 2px solid #000000;
+  box-sizing: border-box;
+}
+
+/* Eurostile Black is already a black weight, so font-weight stays normal —
+   asking for bold on top would make the browser synthesise a fake-bold. */
 .afl-strip-score .score-input {
-  font-family: 'AFL Modern', 'HelveticaNeueMediumCond', sans-serif;
-  font-size: 27px;
-  font-weight: bold;
+  font-family: 'Eurostile Black', 'AFL Modern', 'HelveticaNeueMediumCond', sans-serif;
+  font-size: 24px;
+  font-weight: normal;
   line-height: 1;
   color: #141414;
   cursor: text;
