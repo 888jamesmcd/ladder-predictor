@@ -47,12 +47,6 @@
   font-weight: normal;
   font-style: normal;
 }
-@font-face {
-  font-family: 'Eurostile Black';
-  src: url('fonts/Eurostile-Black.otf') format('opentype');
-  font-weight: normal;
-  font-style: normal;
-}
 .app-wrapper {
     width: 100%;
     overflow-x: auto;
@@ -613,10 +607,10 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  font-family: 'Eurostile Black', 'AFL Modern', sans-serif;
-  font-size: 22px;
-  font-weight: normal;   /* already a black weight — see the score note */
-  letter-spacing: 0;
+  font-family: 'DIN Next LT Pro', sans-serif;   /* the NRL classic card font */
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
   color: #ffffff;
   white-space: nowrap;
 }
@@ -641,13 +635,11 @@
   box-sizing: border-box;
 }
 
-/* Eurostile Black is already a black weight, so font-weight stays normal —
-   bold on top would make the browser synthesise a fake-bold and smear it.
-   Sized to fill the box: next to the team names it looked weedy at 24px. */
+/* Same face as the NRL classic card. Sized to fill the box. */
 .afl-strip-score .score-input {
-  font-family: 'Eurostile Black', 'AFL Modern', sans-serif;
-  font-size: 30px;
-  font-weight: normal;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-size: 32px;
+  font-weight: 700;
   line-height: 1;
   color: #141414;
   cursor: text;
@@ -2266,8 +2258,8 @@ transform-origin: left center;
   }
   .afl-strip-logo  { flex-basis: 48px; }
   .afl-strip-score { flex-basis: 54px; }
-  .afl-strip-abbr { font-size: 19px; }
-  .afl-strip-score .score-input { font-size: 25px; }
+  .afl-strip-abbr { font-size: 20px; }
+  .afl-strip-score .score-input { font-size: 26px; }
   .afl-cell-red {
     width: 54px !important;
   }
