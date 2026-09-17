@@ -436,16 +436,16 @@
 }
 
 /* ===================== AFL "MODERN" SCORECARD ===================== */
-/* The finals-bracket card, promoted to the home-and-away fixture: home row
-   over away row, each one crest · abbreviation · score on the team's own
-   gradient, the score on a darkened panel. It REUSES the finals classes
-   (.finals-team-row / -logo / -abbr / -score + .afl-finals-modern) so the two
-   can never drift apart — this block only adds the larger scale the fixture
-   has room for. Row height must match AFL_MODERN_ROW_H in the JS. */
+/* The finals-bracket card, used as-is for the home-and-away fixture: home row
+   over away row, crest · abbreviation · score on the team's own gradient. It
+   REUSES the finals classes (.finals-team-row / -logo / -abbr / -score +
+   .afl-finals-modern) at their finals sizes, so the two are identical and can
+   never drift apart. Only the card's placement lives here. Row height is the
+   finals' 38px and must match AFL_MODERN_ROW_H in the JS. */
 .afl-data-table.afl-modern-table {
   left: 50%;
   right: auto;
-  width: 280px;
+  width: 180px;
   max-width: 92%;
   transform: translateX(-50%);
   border-radius: 6px;
@@ -455,35 +455,17 @@
 .afl-data-table td.afl-modern-cell {
   border: none;
   padding: 0;
-  height: 48px;
-}
-
-.afl-modern-table .finals-team-row {
-  height: 48px;
+  height: 38px;
 }
 
 /* position:relative so the ladder tag (pos-tag-crest) can anchor to the
    crest's corner. */
 .afl-modern-table .finals-team-logo {
   position: relative;
-  width: 48px;
-  height: 48px;
 }
 
 .afl-modern-table .finals-team-logo img {
   object-fit: cover;
-}
-
-.afl-modern-table .finals-team-abbr {
-  font-size: 24px;
-  padding-left: 12px;
-}
-
-.afl-modern-table .finals-team-score {
-  width: 64px;
-  height: 48px;
-  font-size: 28px;
-  background: rgba(0, 0, 0, 0.28);
 }
 
 /* NRL Modern finals rows. The team gradient is already applied by
@@ -8205,7 +8187,7 @@ function generateGoalsBehinds(total, key) {
 
 // Height of one team row on the Modern AFL card. Must match the heights in the
 // .afl-modern-* CSS block.
-const AFL_MODERN_ROW_H = 48;   // keep in sync with the .afl-modern-table CSS
+const AFL_MODERN_ROW_H = 38;   // the finals row height — see .afl-modern-table
 
 const NRL_ROW_H = 51.4, NRL_GAP = 10.6;
 // NRL counterpart of aflCardHeight() below. Classic and Modern are one row;
