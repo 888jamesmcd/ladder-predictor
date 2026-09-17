@@ -445,7 +445,7 @@
 .afl-data-table.afl-modern-table {
   left: 50%;
   right: auto;
-  width: 180px;
+  width: 150px;   /* the bracket column's width, so the abbreviation cell matches too */
   max-width: 92%;
   transform: translateX(-50%);
   border-radius: 6px;
@@ -491,6 +491,10 @@
 }
 
 .afl-finals-modern .finals-team-score {
+  /* The darkened team panel. renderAFLFinalsCard also sets this inline; it
+     lives here too so the fixture Modern card, which shares this class but
+     goes through no JS styling, gets the identical box. */
+  background: rgba(0, 0, 0, 0.28);
   color: #ffffff;
   font-family: 'AFL Modern', 'HelveticaNeueMediumCond', sans-serif;
 }
