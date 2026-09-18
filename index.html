@@ -441,7 +441,8 @@
    -team-logo, -team-abbr, -team-score, -winner + .afl-finals-modern) at the
    same 150px width, so the two are one build and cannot drift. The only rules
    here undo the bracket's absolute positioning, which the fixture table does
-   for itself. Card height must match AFL_MODERN_CARD_H in the JS. */
+   for itself. The fixture leaves off the label bar and "W:" line, so the card
+   is the two rows in the frame; height must match AFL_MODERN_CARD_H. */
 .afl-data-table.afl-modern-table {
   left: 50%;
   right: auto;
@@ -468,14 +469,6 @@
 
 .afl-modern-table .finals-team-logo img {
   object-fit: cover;
-}
-
-/* Fixture cards are stacked by absolute top, so every card must be the same
-   height whether or not it has a "W:" line yet. The bracket doesn't need this
-   because its cards sit at fixed positions. */
-.afl-modern-table .finals-winner {
-  min-height: 20px;
-  box-sizing: border-box;
 }
 
 /* NRL Modern finals rows. The team gradient is already applied by
@@ -2126,7 +2119,7 @@ transform-origin: left center;
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 8px 12px;
+    gap: 8px 24px;
   }
   #afl-games-container:has(.afl-modern-table) .headlines {
     flex-basis: 100%;
@@ -8213,18 +8206,8 @@ function generateGoalsBehinds(total, key) {
   return window.LadderSim.generateGoalsBehinds(points, rng, window.LadderSim.SIM_CONFIG);
 }
 
-// The finals card's full height: 20px label bar + two 38px rows + 20px winner
-// line (pinned to 20 on the fixture — see .afl-modern-table .finals-winner).
-const AFL_MODERN_CARD_H = 116;
-
-// The "W: SYD" line under a finals card, for a fixture game. Same rule as
-// getWinner(): a tie shows nothing.
-function aflWinnerLabel(game, saved) {
-  const h = parseInt(saved.home, 10) || 0, a = parseInt(saved.away, 10) || 0;
-  if (h === 0 && a === 0) return '';
-  const w = h > a ? game.home : a > h ? game.away : null;
-  return w ? 'W: ' + aflSeasons[currentSeason].teamConfig[w].abbr : '';
-}
+// Two 38px finals rows — the fixture card carries no label bar or winner line.
+const AFL_MODERN_CARD_H = 76;
 
 const NRL_ROW_H = 51.4, NRL_GAP = 10.6;
 // NRL counterpart of aflCardHeight() below. Classic and Modern are one row;
@@ -8237,7 +8220,7 @@ function nrlCardHeight() {
 // file. Both the panel height and the headlines block key off the number of
 // ROWS, so they go through here rather than counting games.
 const AFL_MODERN_COLS = 2;
-const AFL_MODERN_COL_GAP = 12;   // horizontal space between the two cards
+const AFL_MODERN_COL_GAP = 24;   // horizontal space between the two cards
 function aflCardCols() { return cardDesign.afl === 'modern' ? AFL_MODERN_COLS : 1; }
 function aflCardRows(gameCount) { return Math.ceil(gameCount / aflCardCols()); }
 
@@ -8390,9 +8373,11 @@ const CARD_DESIGNS = {
         </td>
       </tr>
     `,
-    // The finals card, verbatim — see the .afl-modern-table CSS. Home row
-    // first: renderAFLRound reads the two .score-input nodes as [home, away].
-    modern: (game, saved, homeConfig, awayConfig, homePos, awayPos, label) => {
+    // The finals card's two team rows, in its frame — the label bar and the
+    // "W:" line are left off for the fixture. See the .afl-modern-table CSS.
+    // Home row first: renderAFLRound reads the two .score-input nodes as
+    // [home, away].
+    modern: (game, saved, homeConfig, awayConfig, homePos, awayPos) => {
       const row = (team, cfg, score, pos) => `
               <div class="finals-team-row afl-finals-modern col-${aflTeamSlug(team)}-home">
                 <div class="finals-team-logo"><img src="${cfg.logo}">${posTag(pos, 'pos-tag-crest')}</div>
@@ -8403,10 +8388,8 @@ const CARD_DESIGNS = {
         <tr>
           <td class="afl-modern-cell">
             <div class="finals-card">
-              <div class="finals-card-label">${label || ''}</div>
               ${row(game.home, homeConfig, saved.home, homePos)}
               ${row(game.away, awayConfig, saved.away, awayPos)}
-              <div class="finals-winner">${aflWinnerLabel(game, saved)}</div>
             </div>
           </td>
         </tr>`;
@@ -8517,8 +8500,7 @@ function renderAFLRound(roundIndex) {
       table.style.transform = 'none';
       table.style.left = `calc(50% - ${pairW / 2}px + ${col * (150 + AFL_MODERN_COL_GAP)}px)`;
     }
-    table.innerHTML = getCardHTML('afl', cardDesign.afl, game, saved, homeConfig, awayConfig, ladderPos[game.home], ladderPos[game.away],
-      `R${roundIndex + 1} · G${i + 1}`);
+    table.innerHTML = getCardHTML('afl', cardDesign.afl, game, saved, homeConfig, awayConfig, ladderPos[game.home], ladderPos[game.away]);
     const inputs = table.querySelectorAll('.score-input');
     inputs.forEach(input => {
       input.addEventListener('keypress', function(e) {
@@ -8537,9 +8519,6 @@ function renderAFLRound(roundIndex) {
         const homeScore = parseInt(inputs[0].textContent) || 0;
         const awayScore = parseInt(inputs[1].textContent) || 0;
         aflSeasons[currentSeason].scores[scoreKey] = { home: homeScore, away: awayScore };
-        // The Modern card carries the bracket's "W: SYD" line; keep it live.
-        const wEl = table.querySelector('.finals-winner');
-        if (wEl) wEl.textContent = aflWinnerLabel(game, { home: homeScore, away: awayScore });
         calculateAFLLadder();
         refreshLadderPositions('afl');
         renderHeadlines('afl');
@@ -9282,11 +9261,9 @@ async function simAnimateRound(sport, written, season, scoresRef) {
       awaySplit: sport === 'afl' ? generateGoalsBehinds(result.away, round[i].away + '|A') : null,
     });
 
-    const wEl = sport === 'afl' ? table.querySelector('.finals-winner') : null;
     const paint = (h, a, hg, hb, ag, ab) => {
       inputs[0].textContent = h;
       inputs[1].textContent = a;
-      if (wEl) wEl.textContent = aflWinnerLabel(round[i], { home: h, away: a });
       if (gEls.length === 2) { gEls[0].textContent = hg; gEls[1].textContent = ag; }
       if (bEls.length === 2) { bEls[0].textContent = hb; bEls[1].textContent = ab; }
     };
