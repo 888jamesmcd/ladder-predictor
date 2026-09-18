@@ -2119,7 +2119,7 @@ transform-origin: left center;
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 8px 24px;
+    gap: 20px 40px;
   }
   #afl-games-container:has(.afl-modern-table) .headlines {
     flex-basis: 100%;
@@ -8220,8 +8220,11 @@ function nrlCardHeight() {
 // file. Both the panel height and the headlines block key off the number of
 // ROWS, so they go through here rather than counting games.
 const AFL_MODERN_COLS = 2;
-const AFL_MODERN_COL_GAP = 24;   // horizontal space between the two cards
+const AFL_MODERN_COL_GAP = 40;   // horizontal space between the two cards
+const AFL_MODERN_ROW_GAP = 20;   // vertical space between rows of cards
 function aflCardCols() { return cardDesign.afl === 'modern' ? AFL_MODERN_COLS : 1; }
+// Vertical gap between cards. Modern gets more air than the Classic strip.
+function aflCardGap() { return cardDesign.afl === 'modern' ? AFL_MODERN_ROW_GAP : 8; }
 function aflCardRows(gameCount) { return Math.ceil(gameCount / aflCardCols()); }
 
 // The one place that knows how tall each AFL design's card is. renderAFLRound
@@ -8479,7 +8482,7 @@ function renderAFLRound(roundIndex) {
   const ladderPos = currentLadderPositions('afl');
   const isModern = cardDesign.afl === 'modern';
   const cardH = aflCardHeight();
-  const gap = 8;
+  const gap = aflCardGap();
   container.closest('.panel').style.minHeight = `${185 + (cardH + gap) * aflCardRows(games.length)}px`;
   games.forEach((game, i) => {
     const scoreKey = `R${roundIndex + 1}G${i}`;
@@ -9974,7 +9977,7 @@ function renderHeadlines(sport) {
   // Same absolute scheme the cards use, dropped below the last one.
   const games = season.rounds[currentRound] || [];
   const cardH = isAfl ? aflCardHeight() : nrlCardHeight();
-  const gap = isAfl ? 8 : 10.6;
+  const gap = isAfl ? aflCardGap() : 10.6;
   const rows = isAfl ? aflCardRows(games.length) : games.length;
   el.style.top = `calc(185px + (${cardH}px + ${gap}px) * ${rows} + 8px)`;
   container.appendChild(el);
