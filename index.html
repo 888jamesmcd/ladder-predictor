@@ -419,20 +419,14 @@
 }
 
 /* ===================== NRL "STACKED" SCORECARD ===================== */
-/* The Classic card turned on its side: home over away, each row the same
-   logo · name · score strip, both rows reading left to right. Same gradients,
-   font, logo handling and grey score box as Classic — only the geometry
-   changes. Two rows, so the card is twice Classic's height; nrlCardHeight()
-   in the JS carries that and must stay in sync. */
+/* The Classic card's LEFT HALF, stacked: home over away, each row exactly a
+   Classic name cell (244.3px) and score cell (71.2px) — the same cells, at the
+   same widths, so the row is identical to the Classic one. The card is that
+   half's width, centred, and two rows tall; nrlCardHeight() in the JS carries
+   the height and must stay in sync. */
 .data-table.nrl-stacked-table {
+  width: 315.5px;   /* 244.3 + 71.2 — Classic's outer + inner cell */
   height: auto;
-}
-/* Name cell takes most of the row now there's one score per row, not two. */
-.data-table.nrl-stacked-table td.col-outer {
-  width: 500px;
-}
-.data-table.nrl-stacked-table td.col-inner {
-  width: 100px;
 }
 
 /* ===================== AFL "MODERN" SCORECARD ===================== */
@@ -2014,6 +2008,8 @@ transform-origin: left center;
   .data-table td.col-inner {
     width: 9%;
   }
+  /* Stacked reuses Classic's cells, so Classic's 41% / 9% split above would
+     leave half the row empty with only one score per row. Re-split it. */
   .data-table.nrl-stacked-table td.col-outer { width: 82%; }
   .data-table.nrl-stacked-table td.col-inner { width: 18%; }
   /* The crest renders ~54px wide at the 40px row height, which is a big slice of
