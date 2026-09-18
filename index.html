@@ -2110,12 +2110,26 @@ transform-origin: left center;
   /* The Modern variant centres itself with left:50% + translateX(-50%). The
      width/left above override its width but NOT the transform, which dragged
      the card half its width off the left edge. Reset all four together. */
+  /* Modern is the finals card and keeps its 150px shape on a phone — two fit
+     across 375px with room to spare, so it runs two abreast here as well. The
+     container becomes a wrapping flex row and the headlines block spans the
+     full width beneath the cards. */
   .afl-data-table.afl-modern-table {
     left: 0 !important;
     right: auto !important;
-    width: 100% !important;
+    width: 150px !important;
     max-width: none !important;
     transform: none !important;
+    margin-bottom: 0;
+  }
+  #afl-games-container:has(.afl-modern-table) {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px 12px;
+  }
+  #afl-games-container:has(.afl-modern-table) .headlines {
+    flex-basis: 100%;
   }
   /* Inline width/height on the cells needs !important to shift. Classic only —
      the Modern cell is 48px and its row/logo are fixed to match. */
@@ -8219,6 +8233,14 @@ function nrlCardHeight() {
   return cardDesign.nrl === 'stacked' ? NRL_ROW_H * 2 : NRL_ROW_H;
 }
 
+// Modern cards run two abreast; Classic is a 60%-wide strip and stays single
+// file. Both the panel height and the headlines block key off the number of
+// ROWS, so they go through here rather than counting games.
+const AFL_MODERN_COLS = 2;
+const AFL_MODERN_COL_GAP = 12;   // horizontal space between the two cards
+function aflCardCols() { return cardDesign.afl === 'modern' ? AFL_MODERN_COLS : 1; }
+function aflCardRows(gameCount) { return Math.ceil(gameCount / aflCardCols()); }
+
 // The one place that knows how tall each AFL design's card is. renderAFLRound
 // sizes the panel from it and renderHeadlines sits below the last card using
 // it, so they can't drift apart when a design is added or resized.
@@ -8475,16 +8497,26 @@ function renderAFLRound(roundIndex) {
   const isModern = cardDesign.afl === 'modern';
   const cardH = aflCardHeight();
   const gap = 8;
-  container.closest('.panel').style.minHeight = `${185 + (cardH + gap) * games.length}px`;
+  container.closest('.panel').style.minHeight = `${185 + (cardH + gap) * aflCardRows(games.length)}px`;
   games.forEach((game, i) => {
     const scoreKey = `R${roundIndex + 1}G${i}`;
     const saved = aflSeasons[currentSeason].scores[scoreKey] || { home: 0, away: 0 };
     const homeConfig = aflSeasons[currentSeason].teamConfig[game.home];
     const awayConfig = aflSeasons[currentSeason].teamConfig[game.away];
-    const top = `calc(185px + (${cardH}px + ${gap}px) * ${i})`;
+    // Grid position: which row this card sits on, and which column. Classic
+    // has one column, so col is always 0 and row is just i.
+    const cols = aflCardCols();
+    const row = Math.floor(i / cols), col = i % cols;
     const table = document.createElement('table');
     table.className = 'afl-data-table' + (isModern ? ' afl-modern-table' : '');
-    table.style.top = top;
+    table.style.top = `calc(185px + (${cardH}px + ${gap}px) * ${row})`;
+    if (cols > 1) {
+      // Two 150px cards centred as a pair. The CSS centres a single card with
+      // left:50% + translateX(-50%); override both so the pair centres instead.
+      const pairW = 150 * cols + AFL_MODERN_COL_GAP * (cols - 1);
+      table.style.transform = 'none';
+      table.style.left = `calc(50% - ${pairW / 2}px + ${col * (150 + AFL_MODERN_COL_GAP)}px)`;
+    }
     table.innerHTML = getCardHTML('afl', cardDesign.afl, game, saved, homeConfig, awayConfig, ladderPos[game.home], ladderPos[game.away],
       `R${roundIndex + 1} · G${i + 1}`);
     const inputs = table.querySelectorAll('.score-input');
@@ -9966,7 +9998,8 @@ function renderHeadlines(sport) {
   const games = season.rounds[currentRound] || [];
   const cardH = isAfl ? aflCardHeight() : nrlCardHeight();
   const gap = isAfl ? 8 : 10.6;
-  el.style.top = `calc(185px + (${cardH}px + ${gap}px) * ${games.length} + 8px)`;
+  const rows = isAfl ? aflCardRows(games.length) : games.length;
+  el.style.top = `calc(185px + (${cardH}px + ${gap}px) * ${rows} + 8px)`;
   container.appendChild(el);
 
   // Grow the panel so the block isn't clipped. renderAFLRound already sets an
