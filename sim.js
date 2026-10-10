@@ -102,7 +102,10 @@ const SIM_CONFIG = {
     // and upsets. IND is each side's own wobble, scaled by its consistency.
     // Splitting them this way is what allows tight, believable scorelines and a
     // healthy upset rate at the same time — one combined roll cannot do both.
-    TEMPO: 7, SWING: 13.5, IND: 8,
+    // TEMPO 15 puts a 230+ or sub-120 game at about 4% each (roughly eight
+    // or nine of each a season) and a game-total spread of ±31 — a touch
+    // wilder than the real ±28, on purpose.
+    TEMPO: 15, SWING: 13.5, IND: 8,
     DRAW_BAND: 0.35,           // no golden point in the AFL — a level game just draws
     // Plain bounds on a team's own score, which is NOT the old SCORE_FLOOR —
     // that one clamped a margin so subtraction couldn't drag the loser to nil.
@@ -120,7 +123,10 @@ const SIM_CONFIG = {
   },
   nrl: {
     AVG: 21, W: 0.30, HOME: 2,
-    TEMPO: 3, SWING: 6.5, IND: 3,   // see afl.TEMPO
+    // See afl.TEMPO. 7: a 70+ game about 3% of the time and a sub-20 one about
+    // 5.5% (the floor at nil makes the low end come up more), roughly six and
+    // eleven a season, and a game-total spread of ±14.
+    TEMPO: 7, SWING: 6.5, IND: 3,
     // Level at full time goes to golden point, and golden point is nearly always
     // settled by a field goal — which is why the NRL has far more 1-point
     // margins than draws. Wider than the AFL's, because most of what lands in it
@@ -161,6 +167,10 @@ const SIM_CONFIG = {
       streak: 5,         // consecutive wins or losses
       shutout: true,     // nil is a real NRL scoreline; the AFL floor is 20
       bigScore: 46,
+      // The match centre tells every game's story, so its bars sit lower than
+      // the round list's. upsetMargin is what the favourite was expected to
+      // win by, in points.
+      matchCentre: { comeback: 12, smashing: 30, upsetMargin: 6 },
     },
     afl: {
       upsetGap: 25,
@@ -172,15 +182,45 @@ const SIM_CONFIG = {
       streak: 5,
       shutout: false,
       bigScore: 150,
+      matchCentre: { comeback: 24, smashing: 60, upsetMargin: 12 },   // four goals, ten goals, two goals
     },
   },
   // Play-by-play reconstruction — see buildProgression().
   progression: {
     conversionRate: 0.78,                    // NRL: share of tries converted
     penaltyGoals: [0.55, 0.30, 0.12, 0.03],  // NRL: weights for 0/1/2/3 penalty goals
-    fullTime: { nrl: 80, afl: 120 },         // minutes, used only to order plays
     lateWindow: 0.70,                        // field goals land in the last 30% of the game
     goldenPointWindow: 10,                   // extra-time minutes for a golden-point kick
+    // NRL halves — see buildNrlTimeline(). Same momentum model as the AFL's.
+    nrl: {
+      halfMins: 40,
+      phasesPerHalf: 4,
+      flowSD: 0.30, phaseSD: 0.30,
+      penaltyTilt: 0.5,        // penalty goals follow momentum less than tries do
+      gapAfterTry: 150, gapAfterGoal: 60,   // seconds before the next score can land
+      goldenPointWidth: 0.08,  // share of the worm's axis golden point takes up
+    },
+    // AFL is played out in quarters — see buildAflTimeline().
+    afl: {
+      quarterMins: 31, quarterSD: 2,         // 20 minutes plus time on
+      quarterMin: 28, quarterMax: 35,
+      minGapSecs: 20,                        // no two scores closer than this, either side
+      phasesPerQuarter: 3,
+      // Who's on top. FLOW is a quarter-long tilt shared by every phase in it;
+      // PHASE is a shorter burst on top of that. Scoring plays are dealt out in
+      // proportion to e^(+tilt) for the home side and e^(-tilt) for the away
+      // side, so a quarter can belong to one team without the totals moving.
+      // Tuned so a side goes goalless in ~5% of quarters, kicks 8+ in ~1%, and
+      // an 8-goal swing in one quarter turns up in ~1% of games.
+      flowSD: 0.26, phaseSD: 0.22,
+      // No quarter may hold more than this share of a side's goals (or
+      // quarterGoalFloor, for low scores where a share means little). A deal
+      // that breaks it is re-dealt, up to maxRedeals times.
+      maxQuarterShare: 0.45, quarterGoalFloor: 6, maxRedeals: 12,
+      // Behinds follow momentum less than goals do — a side under the pump
+      // still sprays a few. Their tilt is scaled by this.
+      behindTilt: 0.5,
+    },
   },
   // Goals/behinds split for the AFL display layer. Bands are cumulative
   // probability thresholds; these are the values already shipping in
@@ -599,7 +639,8 @@ function nrlBreakdown(total, rng) {
 //
 // Returns cumulative states, the last of which always equals the final score:
 //   [{ home, away, team, play, points, minute,
-//      homeGoals, homeBehinds, awayGoals, awayBehinds }]   (AFL fields AFL-only)
+//      homeGoals, homeBehinds, awayGoals, awayBehinds,   (AFL only)
+//      quarter, clock, t }]                              (AFL only — see buildAflTimeline)
 
 function pickCount(rng, weights) {
   let r = rng(), acc = 0;
@@ -644,24 +685,133 @@ function aflPlayList(split) {
   return plays;
 }
 
-function buildProgression(opts) {
-  const config = opts.config || SIM_CONFIG;
-  const rng = opts.rng || Math.random;
-  const p = config.progression;
-  const afl = opts.sport === 'afl';
-  const home = Math.max(0, Math.round(num(opts.home, 0)));
-  const away = Math.max(0, Math.round(num(opts.away, 0)));
+// AFL: four quarters, each with its own length and its own ebb and flow.
+// Every goal and behind is dealt to a phase of a quarter, weighted by who was
+// on top in that phase, then given a clock time inside it.
+//
+// Returns { steps, quarterLengths, quarters, periods }:
+//   steps          — as buildProgression, plus quarter (1-4), period (0-3),
+//                    clock (seconds into the quarter) and t (0-1 across the
+//                    match, each quarter an equal quarter of it — what the score
+//                    worm plots against)
+//   quarterLengths — seconds
+//   quarters       — running G.B at the end of each quarter, for both sides
+//   periods        — the sport-neutral view the match centre draws from; see
+//                    buildNrlTimeline()
+function buildAflTimeline(home, away, homeSplit, awaySplit, rng, config) {
+  const p = config.progression.afl;
+  const P = p.phasesPerQuarter;
 
-  let homePlays, awayPlays;
-  if (afl) {
-    // Splits can be passed in so the progression ends on the same G.B the
-    // scorecard shows; otherwise one is generated here.
-    homePlays = aflPlayList(opts.homeSplit || generateGoalsBehinds(home, rng, config));
-    awayPlays = aflPlayList(opts.awaySplit || generateGoalsBehinds(away, rng, config));
-  } else {
-    homePlays = nrlPlayList(home, rng, config);
-    awayPlays = nrlPlayList(away, rng, config);
+  const quarterLengths = [];
+  for (let q = 0; q < 4; q++) {
+    const mins = clamp(gaussian(rng, p.quarterMins, p.quarterSD), p.quarterMin, p.quarterMax);
+    quarterLengths.push(Math.round(mins * 60));
   }
+
+  // Deal every goal and behind to a phase. A deal that piles too much of a
+  // side's scoring into one quarter (a 12-goal last quarter after 2.7 at the
+  // final change) is thrown out and dealt again with fresh momentum; the last
+  // attempt stands, so this always finishes.
+  let events;
+  for (let attempt = 0; attempt < p.maxRedeals; attempt++) {
+    const tilts = [];
+    for (let q = 0; q < 4; q++) {
+      const flow = gaussian(rng, 0, p.flowSD);
+      for (let ph = 0; ph < P; ph++) tilts.push(flow + gaussian(rng, 0, p.phaseSD));
+    }
+    const deal = (count, sign, scale) => {
+      const w = tilts.map(m => Math.exp(sign * m * scale));
+      const sum = w.reduce((a, b) => a + b, 0);
+      return Array.from({ length: count }, () => pickCount(rng, w.map(x => x / sum)));
+    };
+    events = [];
+    const place = (split, team) => {
+      const sign = team === 'home' ? 1 : -1;
+      deal(split.goals, sign, 1).forEach(ph => events.push({ team, play: 'goal', points: 6, ph }));
+      deal(split.behinds, sign, p.behindTilt).forEach(ph => events.push({ team, play: 'behind', points: 1, ph }));
+    };
+    place(homeSplit, 'home');
+    place(awaySplit, 'away');
+
+    const tooLopsided = [['home', homeSplit], ['away', awaySplit]].some(([team, split]) => {
+      const cap = Math.max(p.quarterGoalFloor, Math.round(split.goals * p.maxQuarterShare));
+      const perQ = [0, 0, 0, 0];
+      events.forEach(e => { if (e.team === team && e.play === 'goal') perQ[Math.floor(e.ph / P)]++; });
+      return perQ.some(g => g > cap);
+    });
+    if (!tooLopsided) break;
+  }
+
+  events.forEach(e => {
+    const q = Math.floor(e.ph / P), ph = e.ph % P;
+    const len = quarterLengths[q];
+    // Nothing in the first 20 seconds — the ball has to get from the centre
+    // bounce to a goal — but a score can land right on the siren.
+    const lo = Math.max(20, len * ph / P), hi = Math.min(len - 1, len * (ph + 1) / P);
+    e.quarter = q + 1;
+    e.clock = Math.round(lo + rng() * (hi - lo));
+    e.t = (q + e.clock / len) / 4;
+  });
+  events.sort((a, b) => a.t - b.t);
+  // Spread out scores that landed on top of each other: push each one back to
+  // at least minGapSecs after the last, then, if that ran a quarter past its
+  // siren, pull them forward from the end the same way.
+  for (let q = 1; q <= 4; q++) {
+    const qe = events.filter(e => e.quarter === q);
+    const len = quarterLengths[q - 1];
+    for (let i = 1; i < qe.length; i++) qe[i].clock = Math.max(qe[i].clock, qe[i - 1].clock + p.minGapSecs);
+    if (qe.length) qe[qe.length - 1].clock = Math.min(qe[qe.length - 1].clock, len - 1);
+    for (let i = qe.length - 2; i >= 0; i--) qe[i].clock = Math.min(qe[i].clock, qe[i + 1].clock - p.minGapSecs);
+    qe.forEach(e => { e.t = (q - 1 + e.clock / len) / 4; });
+  }
+
+  let h = 0, a = 0, hg = 0, hb = 0, ag = 0, ab = 0;
+  const quarters = [];
+  const snap = () => ({
+    home: { goals: hg, behinds: hb, points: h },
+    away: { goals: ag, behinds: ab, points: a },
+  });
+  let qi = 0;
+  const steps = [];
+  events.forEach(e => {
+    while (e.quarter - 1 > qi) { quarters.push(snap()); qi++; }
+    if (e.team === 'home') { h += e.points; if (e.play === 'goal') hg++; else hb++; }
+    else { a += e.points; if (e.play === 'goal') ag++; else ab++; }
+    let elapsed = e.clock;
+    for (let i = 0; i < e.quarter - 1; i++) elapsed += quarterLengths[i];
+    steps.push({
+      home: h, away: a, team: e.team, play: e.play, points: e.points,
+      minute: Math.round(elapsed / 60), quarter: e.quarter, period: e.quarter - 1, clock: e.clock, t: e.t,
+      homeGoals: hg, homeBehinds: hb, awayGoals: ag, awayBehinds: ab,
+    });
+  });
+  while (quarters.length < 4) quarters.push(snap());
+
+  const periods = quarterLengths.map((len, q) => ({
+    label: 'Q' + (q + 1), start: q / 4, end: (q + 1) / 4, len, offset: 0, score: quarters[q],
+  }));
+  return { steps, quarterLengths, quarters, periods };
+}
+
+// NRL: two 40-minute halves, plus golden point when a level game was settled by
+// a field goal. Tries, conversions and penalty goals are dealt to phases of a
+// half by who was on top, as the AFL deals goals; field goals still go late in
+// the second half, or into golden point.
+//
+// Returns { steps, periods }:
+//   steps   — as buildProgression, plus period (0 = 1st half, 1 = 2nd half,
+//             2 = golden point), clock (seconds into the period), t (0-1 across
+//             the match) and running homeTries/homeGoals/homeFieldGoals and the
+//             away equivalents (goals = conversions + penalty goals)
+//   periods — [{ label, start, end, len, offset, score }]: where each period
+//             sits on the 0-1 axis, its length and match-clock offset in
+//             seconds, and the running score at its end
+function buildNrlTimeline(home, away, rng, config) {
+  const p = config.progression;
+  const n = p.nrl;
+  const P = n.phasesPerHalf;
+  const homePlays = nrlPlayList(home, rng, config);
+  const awayPlays = nrlPlayList(away, rng, config);
 
   // A 1-point margin with the winner odd and the loser even is a golden-point
   // finish, so that field goal belongs after the siren rather than late in the
@@ -671,37 +821,145 @@ function buildProgression(opts) {
   const loserEven = (margin > 0 ? away : home) % 2 === 0;
   const golden = Math.abs(margin) === 1 && winnerOdd && loserEven;
 
-  const full = afl ? p.fullTime.afl : p.fullTime.nrl;
+  const half = n.halfMins * 60;
+  const gpLen = p.goldenPointWindow * 60;
+  // Golden point gets a sliver of the axis; the halves share the rest.
+  const hw = golden ? (1 - n.goldenPointWidth) / 2 : 0.5;
+  const periods = [
+    { label: '1H', start: 0, end: hw, len: half, offset: 0 },
+    { label: '2H', start: hw, end: 2 * hw, len: half, offset: half },
+  ];
+  if (golden) periods.push({ label: 'GP', start: 2 * hw, end: 1, len: gpLen, offset: 2 * half });
+
+  const tilts = [];
+  for (let hIdx = 0; hIdx < 2; hIdx++) {
+    const flow = gaussian(rng, 0, n.flowSD);
+    for (let ph = 0; ph < P; ph++) tilts.push(flow + gaussian(rng, 0, n.phaseSD));
+  }
+  const weights = (sign, scale) => {
+    const w = tilts.map(m => Math.exp(sign * m * scale));
+    const sum = w.reduce((a, b) => a + b, 0);
+    return w.map(x => x / sum);
+  };
+
   const events = [];
-  const place = (list, team) => list.forEach(pl => {
-    let minute;
-    if (pl.play === 'fieldGoal') {
-      const isWinner = (team === 'home') === (margin > 0);
-      minute = golden && isWinner
-        ? full + 1 + rng() * p.goldenPointWindow
-        : full * p.lateWindow + rng() * full * (1 - p.lateWindow);
-    } else {
-      minute = 1 + rng() * (full - 1);
-    }
-    events.push({ team, play: pl.play, points: pl.points, minute });
-  });
+  const place = (list, team) => {
+    const sign = team === 'home' ? 1 : -1;
+    const tryW = weights(sign, 1), penW = weights(sign, n.penaltyTilt);
+    list.forEach(pl => {
+      let period, clock;
+      if (pl.play === 'fieldGoal') {
+        const isWinner = (team === 'home') === (margin > 0);
+        if (golden && isWinner) {
+          period = 2;
+          clock = Math.round(10 + rng() * (gpLen - 10));
+        } else {
+          // Late in the second half: the last (1 - lateWindow) of the match.
+          period = 1;
+          const lo = (p.lateWindow * 2 - 1) * half;
+          clock = Math.round(lo + rng() * (half - 1 - lo));
+        }
+      } else {
+        const ph = pickCount(rng, pl.play === 'penaltyGoal' ? penW : tryW);
+        period = Math.floor(ph / P);
+        const k = ph % P;
+        const lo = Math.max(30, half * k / P), hi = Math.min(half - 1, half * (k + 1) / P);
+        clock = Math.round(lo + rng() * (hi - lo));
+      }
+      const pd = periods[period];
+      events.push({ team, play: pl.play, points: pl.points, period, clock,
+        t: pd.start + (clock / pd.len) * (pd.end - pd.start) });
+    });
+  };
   place(homePlays, 'home');
   place(awayPlays, 'away');
-  events.sort((a, b) => a.minute - b.minute);
-
-  let h = 0, a = 0, hg = 0, hb = 0, ag = 0, ab = 0;
-  return events.map(e => {
-    if (e.team === 'home') {
-      h += e.points;
-      if (e.play === 'goal') hg++; else if (e.play === 'behind') hb++;
-    } else {
-      a += e.points;
-      if (e.play === 'goal') ag++; else if (e.play === 'behind') ab++;
-    }
-    const step = { home: h, away: a, team: e.team, play: e.play, points: e.points, minute: Math.round(e.minute) };
-    if (afl) { step.homeGoals = hg; step.homeBehinds = hb; step.awayGoals = ag; step.awayBehinds = ab; }
-    return step;
+  events.sort((a, b) => a.t - b.t);
+  // There's a restart after every score, so nothing lands on top of the last
+  // one: push a play back until the gap is long enough.
+  // If that ran a period past its siren, pull scores forward from the end the
+  // same way, so nothing ever shares a second.
+  const gapAfter = e => e.play === 'convertedTry' || e.play === 'try' ? n.gapAfterTry : n.gapAfterGoal;
+  periods.forEach((pd, pi) => {
+    const pe = events.filter(e => e.period === pi);
+    for (let i = 1; i < pe.length; i++) pe[i].clock = Math.max(pe[i].clock, pe[i - 1].clock + gapAfter(pe[i - 1]));
+    if (pe.length) pe[pe.length - 1].clock = Math.min(pe[pe.length - 1].clock, pd.len - 1);
+    for (let i = pe.length - 2; i >= 0; i--) pe[i].clock = Math.min(pe[i].clock, pe[i + 1].clock - gapAfter(pe[i]));
+    pe.forEach(e => { e.t = pd.start + (Math.max(0, e.clock) / pd.len) * (pd.end - pd.start); });
   });
+
+  const c = { home: { points: 0, tries: 0, goals: 0, fieldGoals: 0 }, away: { points: 0, tries: 0, goals: 0, fieldGoals: 0 } };
+  const snap = () => ({ home: Object.assign({}, c.home), away: Object.assign({}, c.away) });
+  let pi = 0;
+  const steps = events.map(e => {
+    while (e.period > pi) { periods[pi].score = snap(); pi++; }
+    const side = c[e.team];
+    side.points += e.points;
+    if (e.play === 'convertedTry') { side.tries++; side.goals++; }
+    else if (e.play === 'try') side.tries++;
+    else if (e.play === 'penaltyGoal') side.goals++;
+    else if (e.play === 'fieldGoal') side.fieldGoals++;
+    return {
+      home: c.home.points, away: c.away.points, team: e.team, play: e.play, points: e.points,
+      minute: Math.round((periods[e.period].offset + e.clock) / 60),
+      period: e.period, clock: e.clock, t: e.t,
+      homeTries: c.home.tries, homeGoals: c.home.goals, homeFieldGoals: c.home.fieldGoals,
+      awayTries: c.away.tries, awayGoals: c.away.goals, awayFieldGoals: c.away.fieldGoals,
+    };
+  });
+  for (; pi < periods.length; pi++) periods[pi].score = snap();
+
+  return { steps, periods };
+}
+
+function buildProgression(opts) {
+  const config = opts.config || SIM_CONFIG;
+  const rng = opts.rng || Math.random;
+  const home = Math.max(0, Math.round(num(opts.home, 0)));
+  const away = Math.max(0, Math.round(num(opts.away, 0)));
+
+  if (opts.sport === 'afl') {
+    // Splits can be passed in so the progression ends on the same G.B the
+    // scorecard shows; otherwise one is generated here.
+    return buildAflTimeline(home, away,
+      opts.homeSplit || generateGoalsBehinds(home, rng, config),
+      opts.awaySplit || generateGoalsBehinds(away, rng, config),
+      rng, config).steps;
+  }
+  return buildNrlTimeline(home, away, rng, config).steps;
+}
+
+// ============================================================
+// ONE GAME'S TIMELINE
+// ============================================================
+// The single recipe for a game's play-by-play. The live animation, the round
+// headlines and the match centre all come through here, so what you watched,
+// what the headline says and what the worm draws are the same game.
+//
+// Seeds are keyed on the season, the game and the scoreline — never on whether
+// the score was simulated or typed. The AFL G.B split is keyed on team and side
+// exactly as the scorecard's generateGoalsBehinds() in index.html keys it.
+function aflSplitFor(team, side, points, config) {
+  return generateGoalsBehinds(points, makeRng(hashKey(team + '|' + side + ':' + points)), config);
+}
+
+// buildMatchTimeline({sport, seasonKey, roundIdx, gameIdx, game, score, config})
+//   AFL -> { steps, periods, quarterLengths, quarters, homeSplit, awaySplit }
+//   NRL -> { steps, periods }
+function buildMatchTimeline(opts) {
+  const config = opts.config || SIM_CONFIG;
+  const s = opts.score;
+  const home = Math.max(0, Math.round(num(s.home, 0)));
+  const away = Math.max(0, Math.round(num(s.away, 0)));
+  const rng = makeRng(hashKey((opts.seasonKey || '') + scoreKey(opts.roundIdx, opts.gameIdx) + home + ':' + away));
+  if (opts.sport === 'afl') {
+    const homeSplit = aflSplitFor(opts.game.home, 'H', home, config);
+    const awaySplit = aflSplitFor(opts.game.away, 'A', away, config);
+    const tl = buildAflTimeline(home, away, homeSplit, awaySplit, rng, config);
+    tl.homeSplit = homeSplit;
+    tl.awaySplit = awaySplit;
+    return tl;
+  }
+  return buildNrlTimeline(home, away, rng, config);
 }
 
 // ============================================================
@@ -732,6 +990,9 @@ function pickVariant(rng, list, used, tag) {
 
 // "an 18-point deficit", not "a 18-point deficit". Only the numbers that can
 // actually turn up here matter: 8, 11, 18 and the eighties.
+// "Carlton's", but "Gold Coast Suns'".
+function possessive(name) { return /s$/i.test(name) ? name + "'" : name + "'s"; }
+
 function articleFor(n) {
   const s = String(Math.abs(Math.round(n)));
   if (s[0] === '8') return 'an';
@@ -801,8 +1062,13 @@ function buildHeadlines(opts) {
   const streaks = streaksThrough(teams, rounds, scores, roundIdx);
   const used = new Set();   // phrasings already spent this round
   const out = [];
+  // onlyGame asks for one game's headline — the match centre's — and always
+  // gets one. Round headlines stay exclusive: the minor candidates below never
+  // reach the round list.
+  const only = opts.onlyGame != null ? opts.onlyGame : null;
 
   round.forEach((game, gi) => {
+    if (only != null && gi !== only) return;
     const s = readScore(scores, roundIdx, gi);
     if (!s) return;
 
@@ -815,6 +1081,7 @@ function buildHeadlines(opts) {
     const ws = Math.max(s.home, s.away), ls = Math.min(s.home, s.away);
     const margin = ws - ls;
     const cands = [];
+    let tl = null;
 
     if (drawn) {
       cands.push({ kind: 'draw', weight: 85, text: pickVariant(rng, [
@@ -832,12 +1099,9 @@ function buildHeadlines(opts) {
 
       // Comeback — rebuild the same play-by-play the card animated and look for
       // the largest deficit the winner came back from.
-      const prog = buildProgression({
-        sport, home: s.home, away: s.away, config,
-        rng: makeRng(hashKey(seasonKey + scoreKey(roundIdx, gi) + s.home + ':' + s.away)),
-      });
+      tl = buildMatchTimeline({ sport, seasonKey, roundIdx, gameIdx: gi, game, score: s, config });
       let deficit = 0;
-      prog.forEach(step => {
+      tl.steps.forEach(step => {
         const behind = homeWon ? step.away - step.home : step.home - step.away;
         if (behind > deficit) deficit = behind;
       });
@@ -856,7 +1120,11 @@ function buildHeadlines(opts) {
         return (r.att + r.def) / 2;
       };
       const rw = ovr(winner), rl = ovr(loser);
-      const gap = rl - rw + (loser === game.home ? cfg.HGA : -cfg.HGA);
+      // Home ground in the same units. expectedScore() turns an overall rating
+      // gap into a margin at 2*W points per rating point, so HOME points of
+      // home advantage is worth HOME / (2*W) rating points.
+      const homeEdge = cfg.HOME / (2 * cfg.W);
+      const gap = rl - rw + (loser === game.home ? homeEdge : -homeEdge);
       if (gap >= th.upsetGap) {
         // A 2-point upset and a 36-point upset are not the same story, so the
         // wording follows the margin instead of one generic "boilover" line.
@@ -886,6 +1154,73 @@ function buildHeadlines(opts) {
         // Outrank the plain thrashing line — that a favourite was beaten this
         // badly is the bigger story, and the wording already carries the margin.
         cands.push({ kind: 'upset', weight: 70 + gap / 4, text: pickVariant(rng, variants, used, tag) });
+      }
+
+      // The match centre's lead story. Comebacks, upsets and hidings are told
+      // on lower bars than the round list, and told together when a game had
+      // more than one of them.
+      if (only != null) {
+        const mc = th.matchCentre;
+        const comeback = deficit >= mc.comeback;
+        const upset = gap * 2 * cfg.W >= mc.upsetMargin;   // the favourite's expected margin
+        const smash = margin >= mc.smashing;
+        const score = ws + '–' + ls;
+        const golden = sport === 'nrl' && margin === 1 && ws % 2 === 1 && ls % 2 === 0;
+        let variants = null, tag;
+        if (golden && (comeback || upset)) {
+          // Golden point is the headline; the rest is how they got there.
+          tag = 'mcGolden';
+          variants = comeback ? [
+            winner + ' win it in golden point after trailing ' + loser + ' by ' + deficit,
+            'Golden point: ' + winner + ' complete a ' + deficit + '-point comeback against ' + loser,
+          ] : [
+            'Underdogs ' + winner + ' edge ' + loser + ' in golden point',
+            winner + ' stun favourites ' + loser + ' in golden point, ' + score,
+          ];
+        } else if (golden) {
+          variants = null;   // the plain golden-point headline already leads
+        } else if (comeback && upset) {
+          tag = 'mcComebackUpset';
+          variants = [
+            winner + ' come from ' + deficit + ' down to upset ' + loser + ' ' + score,
+            winner + ' stun favourites ' + loser + ' after trailing by ' + deficit,
+            'Underdogs ' + winner + ' overturn ' + articleFor(deficit) + ' ' + deficit + '-point deficit to topple ' + loser,
+          ];
+        } else if (upset && smash) {
+          tag = 'mcUpsetSmash';
+          variants = [
+            winner + ' smash favourites ' + loser + ' by ' + margin,
+            'Underdogs ' + winner + ' thump ' + loser + ' ' + score,
+            winner + ' tear favourites ' + loser + ' apart, ' + score,
+          ];
+        } else if (comeback) {
+          tag = 'mcComeback';
+          variants = [
+            winner + ' come from ' + deficit + ' down to beat ' + loser + ' ' + score,
+            winner + ' fight back from ' + articleFor(deficit) + ' ' + deficit + '-point hole to beat ' + loser,
+            winner + ' overturn ' + articleFor(deficit) + ' ' + deficit + '-point deficit against ' + loser,
+          ];
+        } else if (upset) {
+          tag = 'mcUpset';
+          variants = margin <= th.narrowUpset ? [
+            winner + ' edge favourites ' + loser + ' ' + score,
+            'Favourites ' + loser + ' go down narrowly to ' + winner + ', ' + score,
+            winner + ' pinch it against fancied ' + loser + ', ' + score,
+          ] : [
+            winner + ' upset ' + loser + ' ' + score,
+            winner + ' stun favourites ' + loser + ' ' + score,
+            'Favourites ' + loser + ' fall to ' + winner + ', ' + score,
+          ];
+        } else if (smash) {
+          tag = 'mcSmash';
+          variants = [
+            winner + ' smash ' + loser + ' by ' + margin,
+            winner + ' put ' + loser + ' to the sword, ' + score,
+            winner + ' hammer ' + loser + ' by ' + margin + ' points',
+            winner + ' crush ' + loser + ' in a ' + margin + '-point hiding',
+          ];
+        }
+        if (variants) cands.push({ kind: 'story', minor: true, weight: 300, text: pickVariant(rng, variants, used, tag) });
       }
 
       if (th.shutout && ls === 0) {
@@ -925,7 +1260,7 @@ function buildHeadlines(opts) {
 
       if (roundIdx + 1 >= H.minRoundForSeasonHigh && ws > bests.bestScore && ws >= th.bigScore) {
         cands.push({ kind: 'seasonHigh', weight: 72, text:
-          winner + "'s " + ws + ' is the highest score of the season' });
+          possessive(winner) + ' ' + ws + ' is the highest score of the season' });
       }
 
       const notableRun = c => c === th.streak || c % H.streakMilestone === 0;
@@ -943,11 +1278,95 @@ function buildHeadlines(opts) {
       }
     }
 
-    if (cands.length) {
-      cands.sort((a, b) => b.weight - a.weight);
-      out.push(Object.assign({ gameIdx: gi }, cands[0]));
+    // Minor stories: how the game was won, quarter by quarter (or half by
+    // half). Every game has one, so they only ever feed the match centre.
+    if (only != null) {
+      const fmt = sp => sp.goals + '.' + sp.behinds;
+      if (!drawn && tl && sport === 'nrl') {
+        const w = homeWon ? 'home' : 'away', l = homeWon ? 'away' : 'home';
+        const ht = tl.periods[0].score, ft = tl.periods[1].score;
+        const htLead = ht[w].points - ht[l].points;
+        const tries2 = ft[w].tries - ht[w].tries, oTries2 = ft[l].tries - ht[l].tries;
+        if (htLead < 0) {
+          cands.push({ kind: 'secondHalf', minor: true, weight: 36 + -htLead / 2, text: pickVariant(rng, [
+            winner + ' turn around ' + articleFor(-htLead) + ' ' + (-htLead) + '-point half-time deficit to beat ' + loser,
+            winner + ' trail at the break but beat ' + loser + ' ' + ws + '–' + ls,
+          ], used, 'nrlTurn') });
+        }
+        if (tries2 >= 3 && tries2 - oTries2 >= 2) {
+          cands.push({ kind: 'secondHalfTries', minor: true, weight: 33 + tries2, text: pickVariant(rng, [
+            winner + ' run in ' + tries2 + ' second-half tries to beat ' + loser,
+            winner + ' pull away after the break, scoring ' + tries2 + ' tries to ' + oTries2 + ' against ' + loser,
+          ], used, 'nrl2H') });
+        }
+        if (htLead >= 6) {
+          cands.push({ kind: 'wireToWire', minor: true, weight: 30, text: pickVariant(rng, [
+            winner + ' lead at the break and never look back against ' + loser,
+            winner + ' build an early lead to beat ' + loser + ' ' + ws + '–' + ls,
+          ], used, 'nrlWire') });
+        }
+      }
+      if (!drawn && tl && tl.quarters) {
+        const w = homeWon ? 'home' : 'away', l = homeWon ? 'away' : 'home';
+        const q = tl.quarters;
+        const lead = i => q[i][w].points - q[i][l].points;
+        const qtrName = ['first', 'second', 'third', 'last'];
+        // The winner's best quarter, by goals kicked against goals conceded.
+        let best = 0, bestDiff = -Infinity;
+        for (let i = 0; i < 4; i++) {
+          const prev = i ? q[i - 1] : { home: { goals: 0, behinds: 0 }, away: { goals: 0, behinds: 0 } };
+          const diff = (q[i][w].goals - prev[w].goals) - (q[i][l].goals - prev[l].goals);
+          if (diff > bestDiff) { bestDiff = diff; best = i; }
+        }
+        const prevB = best ? q[best - 1] : { home: { goals: 0, behinds: 0 }, away: { goals: 0, behinds: 0 } };
+        const qGoals = q[best][w].goals - prevB[w].goals;
+        const qBehinds = q[best][w].behinds - prevB[w].behinds;
+        const oGoals = q[best][l].goals - prevB[l].goals;
+        const oBehinds = q[best][l].behinds - prevB[l].behinds;
+
+        if (lead(0) > 0 && lead(1) > 0 && lead(2) > 0) {
+          cands.push({ kind: 'wireToWire', minor: true, weight: 30, text: pickVariant(rng, [
+            winner + ' lead at every change to beat ' + loser + ' ' + ws + '–' + ls,
+            winner + ' never headed in a ' + margin + '-point win over ' + loser,
+          ], used, 'wire') });
+        }
+        if (lead(2) <= 0) {
+          cands.push({ kind: 'lastQuarter', minor: true, weight: 36, text: pickVariant(rng, [
+            winner + ' storm home in the last to beat ' + loser + ' ' + ws + '–' + ls,
+            'Final-quarter surge lifts ' + winner + ' past ' + loser,
+          ], used, 'lastQ') });
+        }
+        if (bestDiff >= 4) {
+          cands.push({ kind: 'bigQuarter', minor: true, weight: 33 + bestDiff, text: pickVariant(rng, [
+            possessive(winner) + ' ' + qGoals + '-goal ' + qtrName[best] + ' quarter sinks ' + loser,
+            winner + ' kick ' + qGoals + '.' + qBehinds + ' to ' + oGoals + '.' + oBehinds +
+              ' in the ' + qtrName[best] + ' to account for ' + loser,
+          ], used, 'bigQ') });
+        }
+      }
+      if (!drawn) {
+        const split = tl && (homeWon ? tl.homeSplit : tl.awaySplit);
+        const fin = tl && tl.periods && tl.periods[tl.periods.length - 1].score;
+        const wTries = fin ? (homeWon ? fin.home : fin.away).tries : null;
+        const lTries = fin ? (homeWon ? fin.away : fin.home).tries : null;
+        let third = winner + ' see off ' + loser + ' ' + ws + '–' + ls;
+        if (split) third = winner + ' kick ' + fmt(split) + ' to see off ' + loser;
+        else if (wTries != null) third = winner + ' score ' + wTries + ' tries to ' + lTries + ' to beat ' + loser;
+        cands.push({ kind: 'result', minor: true, weight: 1, text: pickVariant(rng, [
+          winner + ' too good for ' + loser + ', ' + ws + '–' + ls,
+          winner + ' beat ' + loser + ' by ' + margin,
+          third,
+        ], used, 'result') });
+      }
+    }
+
+    const real = only != null ? cands : cands.filter(c => !c.minor);
+    if (real.length) {
+      real.sort((a, b) => b.weight - a.weight);
+      out.push(Object.assign({ gameIdx: gi }, real[0]));
     }
   });
+  if (only != null) return out;
 
   // League-level: a change at the top isn't tied to any one game.
   // Ladder news. Round 1 has no "before" to change from, so it reports who
@@ -1142,7 +1561,7 @@ return {
   computeSeeds, computeSeedDetail, computeVolatility, describeTrajectory,
   positionToRating, regressToMean,
   simulateGame, simulateRound, simulateRest,
-  buildProgression, buildHeadlines, hashKey,
+  buildProgression, buildMatchTimeline, buildHeadlines, hashKey,
   generateGoalsBehinds, nrlBreakdown,
 };
 });

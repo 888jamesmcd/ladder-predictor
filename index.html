@@ -8,8 +8,8 @@
   <button class="sport-btn" data-sport="mens-wc">Men's WC</button>
   <button class="sport-btn" data-sport="records">Records</button>
   <div class="save-slot-picker" id="save-slot-picker" style="margin-left:auto;display:none;">
-    <button class="sport-btn save-slot-btn" id="save-slot-btn">
-      Save: <span id="save-slot-label">Slot 1</span> <span class="save-slot-caret">&#9662;</span>
+    <button class="sport-btn save-slot-btn" id="save-slot-btn" aria-haspopup="true">
+      <span class="save-slot-dot"></span><span id="save-slot-label">Slot 1</span><span class="save-slot-caret">&#9662;</span>
     </button>
     <div class="save-slot-menu" id="save-slot-menu"></div>
   </div>
@@ -95,58 +95,85 @@
   color: #ffffff;
 }
 
-/* Save slot picker */
+/* Save picker — also the switch between the predictor and the Universe. A
+   quiet pill: a dot in the mode's colour, the save's name, a caret. */
 .save-slot-picker {
   position: relative;
 }
 .save-slot-btn {
-  border: 1px solid #2a2a3d;
-  border-radius: 6px;
-  padding: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #2a2a4a;
+  border-radius: 999px;
+  padding: 6px 12px 6px 10px;
+  background: #16213E;
+  color: #ffffff;
 }
 .save-slot-btn:hover {
-  border-color: #3a3a52;
+  border-color: #4a4a6e;
 }
+.save-slot-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f0c040;
+  flex-shrink: 0;
+}
+.save-slot-btn.is-universe .save-slot-dot { background: #9be59b; }
 #save-slot-label {
-  color: #f0c040;
+  color: #ffffff;
   font-weight: 700;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .save-slot-caret {
-  font-size: 10px;
-  color: #666;
-  margin-left: 2px;
+  font-size: 9px;
+  color: #8888aa;
 }
 .save-slot-menu {
   display: none;
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 8px);
   right: 0;
-  min-width: 220px;
+  width: 260px;
   background: #16213E;
   border: 1px solid #2a2a4a;
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 6px;
   z-index: 50;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }
 .save-slot-menu.open {
   display: block;
 }
+.save-slot-heading {
+  color: #8888aa;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  padding: 8px 10px 4px;
+}
 .save-slot-row {
   display: flex;
   align-items: center;
-  gap: 4px;
-  border-radius: 5px;
-  padding: 2px;
+  gap: 2px;
+  border-radius: 6px;
+  padding-right: 4px;
 }
 .save-slot-row:hover {
   background: #1e2a4d;
 }
-.save-slot-row.active .save-slot-select {
-  color: #f0c040;
-}
-.save-slot-select {
+.save-slot-select,
+.save-slot-universe {
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
   text-align: left;
   background: transparent;
   border: none;
@@ -154,39 +181,49 @@
   font-family: 'DIN Next LT Pro', sans-serif;
   font-weight: 700;
   font-size: 13px;
-  padding: 7px 8px;
+  padding: 9px 10px;
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  border-radius: 6px;
 }
+.save-slot-row.active .save-slot-select { color: #ffffff; }
+.save-slot-tick {
+  width: 12px;
+  flex-shrink: 0;
+  color: #f0c040;
+  font-size: 12px;
+}
+/* Rename and delete stay out of the way until the row is pointed at; on a
+   touch screen, where nothing hovers, they're always shown. */
 .save-slot-icon-btn {
   background: transparent;
   border: none;
   color: #8888aa;
-  font-size: 13px;
-  width: 24px;
-  height: 24px;
+  font-size: 12px;
+  width: 26px;
+  height: 26px;
   flex-shrink: 0;
-  border-radius: 4px;
+  border-radius: 5px;
   cursor: pointer;
+  opacity: 0;
 }
+.save-slot-row:hover .save-slot-icon-btn,
+.save-slot-icon-btn:focus-visible { opacity: 1; }
+@media (hover: none) { .save-slot-icon-btn { opacity: 1; } }
 .save-slot-icon-btn:hover {
   background: #2a2a4a;
   color: #ffffff;
 }
 .save-slot-icon-btn:disabled {
-  opacity: 0.3;
+  opacity: 0;
   cursor: default;
-}
-.save-slot-icon-btn:disabled:hover {
-  background: transparent;
-  color: #8888aa;
 }
 .save-slot-divider {
   height: 1px;
   background: #2a2a4a;
-  margin: 4px 2px;
+  margin: 6px 4px 2px;
 }
 .save-slot-new {
   width: 100%;
@@ -196,14 +233,21 @@
   color: #f0c040;
   font-family: 'DIN Next LT Pro', sans-serif;
   font-weight: 700;
-  font-size: 13px;
-  padding: 8px;
+  font-size: 12px;
+  padding: 8px 10px 8px 30px;
   cursor: pointer;
-  border-radius: 5px;
+  border-radius: 6px;
 }
-.save-slot-new:hover {
-  background: #1e2a4d;
-}
+.save-slot-new:hover { background: #1e2a4d; }
+.save-slot-universe { width: 100%; }
+.save-slot-universe:hover { background: #1e2a4d; }
+.save-slot-universe .save-slot-tick { color: #9be59b; }
+.save-slot-universe.active { color: #ffffff; }
+.save-slot-uni-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.save-slot-uni-sub { color: #8888aa; font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+
+/* Universe mode: the predictor's tabs step aside. */
+.mode-universe .sport-btn[data-sport] { display: none; }
     .header {
       width: 100%;
       height: 56px;
@@ -950,6 +994,718 @@ input[type=number] {
   border-radius: 50%;
   background: #f0c040;
 }
+
+/* ===================== MATCH CENTRE ===================== */
+/* The MC tab: a dark green strip attached to the right edge of an AFL card,
+   the full height of it, with the letters stacked. Shown only once the game
+   has a score. */
+.mc-btn {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  width: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 0 5px 5px 0;
+  background: #1f5c2e;
+  color: #c8f5c8;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1;
+  gap: 4px;
+  cursor: pointer;
+}
+.mc-btn:hover { background: #28753b; }
+.mc-btn[hidden] { display: none; }
+/* AFL Classic: anchored in row 1's score cell, so it runs down through row 2 —
+   two rows plus the cell borders around them. */
+.mc-btn-classic { top: -1px; height: calc(200% + 3px); }
+/* NRL Classic: the full height of the right-hand cell. */
+.mc-btn-row { top: 0; height: 100%; }
+/* NRL Stacked: row 1's score cell, running down through row 2. */
+.mc-btn-stack { top: 0; height: 200%; }
+/* NRL Modern: anchored to the whole card. */
+.mc-btn-full { bottom: 0; }
+/* Modern: anchored to the whole card. It tucks 6px under the card so the
+   card's rounded corners don't leave a notch against the tab. The card is
+   isolated so "under" means under the card, not under the whole panel. */
+.afl-modern-table { isolation: isolate; }
+.mc-btn-modern {
+  bottom: 0;
+  left: calc(100% - 6px);
+  width: 22px;
+  padding-left: 6px;
+  box-sizing: border-box;
+  z-index: -1;
+}
+
+.mc-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(8, 8, 20, 0.72);
+}
+.mc-panel {
+  position: relative;
+  width: 520px;
+  max-width: 100%;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 18px 18px 14px;
+  background: #16213E;
+  border: 1px solid #2a2a4a;
+  border-radius: 8px;
+  color: #ffffff;
+  font-family: 'DIN Next LT Pro', sans-serif;
+}
+.mc-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  border: none;
+  background: transparent;
+  color: #8888aa;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+.mc-close:hover { color: #ffffff; }
+.mc-meta {
+  color: #8888aa;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+.mc-scoreline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 12px 0 10px;
+}
+.mc-team {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 10px;
+  opacity: 0.6;
+}
+.mc-team.mc-won { opacity: 1; }
+.mc-team-home { grid-template-areas: "logo pts" "abbr gb"; }
+.mc-team-away { grid-template-areas: "pts logo" "gb abbr"; }
+.mc-logo { grid-area: logo; width: 52px; height: 52px; object-fit: contain; justify-self: center; }
+.mc-abbr { grid-area: abbr; font-weight: 700; font-size: 13px; text-align: center; }
+.mc-pts { grid-area: pts; font-family: 'AFL Modern', 'DIN Next LT Pro', sans-serif; font-size: 44px; line-height: 1; text-align: center; }
+.mc-gb { grid-area: gb; color: #aaaacc; font-size: 13px; text-align: center; }
+.mc-dash { color: #8888aa; font-weight: 700; font-size: 12px; }
+.mc-dash .mc-live {
+  display: block;
+  margin: 0 auto 3px;
+  padding: 2px 5px;
+  width: max-content;
+  border-radius: 3px;
+  background: #d61f2c;
+  color: #ffffff;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  animation: mc-pulse 1.4s ease-in-out infinite;
+}
+.mc-dash .mc-gp {
+  display: block;
+  margin-top: 3px;
+  color: #f0c040;
+  font-size: 9px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+.mc-dash .mc-clock { display: block; color: #ffffff; text-align: center; font-variant-numeric: tabular-nums; }
+@keyframes mc-pulse { 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) { .mc-dash .mc-live { animation: none; } }
+.mc-quarters td.mc-q-live { background: rgba(214, 31, 44, 0.12); }
+.mc-quarters td.mc-q-empty { color: #55557a; }
+.mc-headline {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-left: 3px solid #9be59b;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 15px;
+  line-height: 1.4;
+}
+.mc-quarters {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+.mc-quarters th, .mc-quarters td {
+  padding: 6px 4px;
+  text-align: center;
+  border-bottom: 1px solid #2a2a4a;
+  white-space: nowrap;
+}
+.mc-quarters thead th { color: #8888aa; font-size: 11px; }
+.mc-quarters tbody th { text-align: left; font-weight: 700; width: 52px; }
+/* The logo files are 221x103 banners. */
+.mc-q-logo { display: block; width: 48px; height: 22px; object-fit: contain; }
+.mc-q-gb { color: #aaaacc; }
+.mc-section-title {
+  color: #8888aa;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.mc-worm-wrap { border-radius: 6px; overflow: hidden; background: #f4f5f8; }
+.mc-worm { display: block; width: 100%; height: auto; touch-action: pan-y; }
+.mc-w-bg { fill: #f4f5f8; }
+.mc-w-grid { stroke: #dde0e8; stroke-width: 1; }
+.mc-w-zero { stroke: #9a9eb0; stroke-width: 1; }
+.mc-w-band { fill: #e6e8ee; }
+.mc-w-qmark { fill: #1A192E; opacity: 0.07; font-size: 64px; font-weight: 700; text-anchor: middle; dominant-baseline: central; font-family: 'DIN Next LT Pro', sans-serif; }
+.mc-w-grid { stroke-dasharray: 3 3; }
+.mc-w-qmark-sm { font-size: 12px; opacity: 0.35; }
+.mc-w-area { opacity: 0.3; }
+.mc-w-line { fill: none; stroke: #1A192E; stroke-width: 2; stroke-linejoin: miter; }
+.mc-w-ylab { fill: #6b6f80; font-size: 10px; text-anchor: end; dominant-baseline: middle; font-family: 'DIN Next LT Pro', sans-serif; }
+.mc-w-cursor { stroke: #1A192E; stroke-width: 1; }
+.mc-w-head { fill: #d61f2c; stroke: #ffffff; stroke-width: 1.5; }
+.mc-w-hit { fill: transparent; cursor: crosshair; }
+.mc-readout {
+  margin-top: 6px;
+  min-height: 1.2em;
+  color: #aaaacc;
+  font-size: 12px;
+  text-align: center;
+  white-space: pre;
+}
+/* On a phone the NRL cards fill the panel's width; leave room for the tab. */
+@media (max-width: 640px) {
+  #games-container .data-table { width: calc(100% - 16px) !important; }
+}
+@media (max-width: 480px) {
+  /* Cards come close to a phone's edge, so the tab slims down to fit. */
+  .mc-btn { width: 13px; font-size: 9px; }
+  .mc-btn-modern { width: 19px; }
+  .mc-overlay { padding: 0; align-items: stretch; }
+  .mc-panel { max-height: 100vh; border-radius: 0; border: none; }
+  .mc-pts { font-size: 36px; }
+  .mc-logo { width: 40px; height: 40px; }
+  .mc-readout { white-space: normal; }
+}
+
+/* ===================== UNIVERSE ===================== */
+/* Mobile-first: one column of Modern cards, the width of a phone, centred on
+   anything wider. Type and colour come from the rest of the app: DIN for UI,
+   AFL Modern for team names and scores, team gradients on every row. */
+.uni-wrap {
+  max-width: 460px;
+  margin: 0 auto;
+  padding: 18px 16px 40px;
+  color: #ffffff;
+  font-family: 'DIN Next LT Pro', sans-serif;
+}
+.uni-eyebrow {
+  color: #8888aa;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.uni-title {
+  font-family: 'AFL Modern', 'DIN Next LT Pro', sans-serif;
+  font-weight: normal;
+  font-size: 30px;
+  line-height: 1.05;
+  margin-top: 2px;
+}
+.uni-copy { color: #c8c8dc; font-size: 14px; line-height: 1.5; margin: 12px 0 16px; }
+.uni-muted { color: #8888aa; font-size: 12px; margin-top: 10px; }
+.uni-intro-sched {
+  background: #16213E;
+  border: 1px solid #2a2a4a;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.uni-intro-sched span { display: inline-block; width: 52px; color: #8888aa; }
+.uni-start {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 13px;
+  border: none;
+  border-radius: 8px;
+  background: #1f5c2e;
+  color: #c8f5c8;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.uni-start:hover { background: #28753b; }
+.uni-start-now { margin-top: 8px; background: transparent; border: 1px solid #2a2a4a; color: #c8c8dc; font-size: 13px; padding: 10px; }
+.uni-start-now:hover { background: #22223a; }
+
+.uni-head { display: flex; align-items: flex-end; justify-content: space-between; }
+.uni-live-pill {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: #d61f2c;
+  color: #ffffff;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+.uni-next { color: #c8c8dc; font-size: 13px; margin: 8px 0 14px; min-height: 1em; }
+.uni-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.uni-controls { display: flex; gap: 6px; margin: -4px 0 14px; }
+.uni-ctl {
+  padding: 5px 12px;
+  border: 1px solid #2a2a4a;
+  border-radius: 4px;
+  background: transparent;
+  color: #c8c8dc;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+}
+.uni-ctl:hover { background: #22223a; color: #ffffff; }
+.uni-ctl-go { border-color: #1f5c2e; background: #1f5c2e; color: #c8f5c8; }
+.uni-ctl-go:hover { background: #28753b; color: #ffffff; }
+.uni-tabs .panel-toggle-btn { flex: 1; padding: 8px 14px; }
+
+.uni-stepper {
+  display: flex;
+  align-items: center;
+  background: #16213E;
+  border: 1px solid #2a2a4a;
+  border-radius: 8px;
+  margin-bottom: 6px;
+}
+.uni-step {
+  width: 44px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  color: #ffffff;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+.uni-step:disabled { color: #3a3a55; cursor: default; }
+.uni-step-label {
+  flex: 1;
+  text-align: center;
+  font-family: 'AFL Modern', 'DIN Next LT Pro', sans-serif;
+  font-size: 20px;
+  padding-top: 2px;
+}
+/* AFL | NRL: an underlined pair, like the app's own top tabs. */
+.uni-sports { display: flex; gap: 18px; margin-bottom: 14px; border-bottom: 1px solid #2a2a3d; }
+.uni-sport {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 4px 2px 8px;
+  color: #8888aa;
+  font-family: 'AFL Modern', 'DIN Next LT Pro', sans-serif;
+  font-size: 18px;
+  cursor: pointer;
+}
+.uni-sport:hover { color: #ffffff; }
+.uni-sport.active { color: #ffffff; border-bottom-color: #9be59b; }
+
+/* The round's byes, under its games. */
+.uni-byes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 18px;
+  padding: 10px 12px;
+  border: 1px dashed #2a2a4a;
+  border-radius: 8px;
+  color: #c8c8dc;
+  font-size: 13px;
+}
+.uni-byes-label { color: #8888aa; font-size: 11px; letter-spacing: 0.6px; text-transform: uppercase; }
+.uni-bye { display: inline-flex; align-items: center; gap: 6px; }
+.uni-crest.uni-crest-xs { width: 38px; height: 18px; }
+
+/* Day heading, as the AFL fixture sets it: plain and bold, not a label. */
+.uni-day {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 15px;
+  margin: 22px 0 4px;
+}
+
+/* A match card, after the AFL fixture: a status tab notched into the top,
+   the fixture, crests either side of the scores, a result line, the venue.
+   The card carries a soft wash of each side's colour from its own end. */
+.uni-match {
+  position: relative;
+  margin-top: 22px;
+  padding: 24px 14px 14px;
+  border: 1px solid #2a2a4a;
+  border-radius: 10px;
+  background-color: #16213E;
+  text-align: center;
+}
+.uni-match.uni-clickable { cursor: pointer; }
+.uni-match.uni-clickable:hover { border-color: #4a4a6e; }
+.uni-match.uni-clickable:focus-visible { outline: 2px solid #9be59b; outline-offset: 2px; }
+.uni-match.uni-is-live { border-color: #d61f2c; }
+.uni-ribbon {
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 132px;
+  padding: 4px 22px 3px;
+  clip-path: polygon(0 0, 100% 0, 91% 100%, 9% 100%);
+  background: #2a2a4a;
+  color: #c8c8dc;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.uni-ribbon.uni-r-live, .uni-ribbon.uni-r-ft { background: #d61f2c; color: #ffffff; }
+.uni-r-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 6px 1px 0;
+  border-radius: 50%;
+  background: #ffffff;
+  animation: mc-pulse 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) { .uni-r-dot { animation: none; } }
+.uni-mstage {
+  color: #f0c040;
+  font-size: 10px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.uni-mtitle { color: #ffffff; font-weight: 700; font-size: 14px; }
+.uni-mrow {
+  display: grid;
+  grid-template-columns: 76px 1fr 30px 1fr 76px;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0 10px;
+}
+.uni-crest {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 76px;
+  height: 40px;
+}
+/* The club logos exactly as manual mode shows them: the file's own shape
+   (AFL banners, NRL near-4:3), uncropped, nothing behind them. The box only
+   sets the most room a logo can take. */
+.uni-crest img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  display: block;
+}
+.uni-abbr {
+  font-family: 'AFL Modern', 'DIN Next LT Pro', sans-serif;
+  font-size: 13px;
+  color: #c8c8dc;
+  margin-top: 4px;
+}
+.uni-score {
+  font-family: 'AFL Modern', 'DIN Next LT Pro', sans-serif;
+  font-size: 40px;
+  line-height: 1;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+.uni-score.uni-score-lost { color: #8888aa; }
+.uni-gb {
+  margin-top: 3px;
+  color: #8888aa;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  min-height: 1em;
+}
+.uni-v {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid #3a3a5a;
+  background: #1A192E;
+  color: #8888aa;
+  font-size: 12px;
+  line-height: 29px;
+}
+/* Pre-match view, inside the match centre panel. */
+.uni-pre-pos { font-size: 34px; }
+.uni-pre-in { display: block; margin-top: 3px; color: #8888aa; font-size: 11px; }
+.uni-pre-form { display: flex; align-items: center; gap: 6px; padding: 7px 0; border-bottom: 1px solid #2a2a4a; }
+.uni-pre-form .mc-q-logo { margin-right: 6px; }
+.uni-chip { width: 24px; height: 24px; border-radius: 4px; font-size: 12px; line-height: 25px; text-align: center; font-weight: 700; }
+.uni-chip-W { background: #1f5c2e; color: #c8f5c8; }
+.uni-chip-L { background: #5c1f24; color: #f5c8cc; }
+.uni-chip-D { background: #3a3a55; color: #e0e0f0; }
+.uni-pre-none { color: #8888aa; font-size: 12px; }
+.uni-pre-h2h { color: #c8c8dc; font-size: 13px; }
+.uni-mresult { color: #ffffff; font-weight: 700; font-size: 14px; min-height: 1.2em; }
+.uni-mvenue { color: #8888aa; font-size: 12px; margin-top: 3px; }
+
+.uni-ladder {
+  background: #16213E;
+  border: 1px solid #2a2a4a;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.uni-lrow {
+  display: grid;
+  align-items: center;
+  height: 40px;
+  padding-right: 8px;
+  font-size: 13px;
+  border-top: 1px solid #22223a;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+/* Records: sections as cards, rows ranked down the left. */
+.uni-subtabs { display: flex; gap: 6px; margin-bottom: 12px; overflow-x: auto; }
+.uni-subtab {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: 1px solid #2a2a4a;
+  border-radius: 999px;
+  background: transparent;
+  color: #c8c8dc;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+}
+.uni-subtab:hover { color: #ffffff; border-color: #4a4a6e; }
+.uni-subtab.active { background: #ffffff; border-color: #ffffff; color: #1A192E; }
+.uni-rec {
+  background: #16213E;
+  border: 1px solid #2a2a4a;
+  border-radius: 10px;
+  padding: 12px 12px 4px;
+  margin-bottom: 12px;
+}
+.uni-rec-title {
+  color: #8888aa;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.uni-rec-empty { color: #8888aa; font-size: 13px; padding: 6px 0 10px; }
+.uni-rec-row {
+  display: grid;
+  grid-template-columns: 18px auto auto auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid #22223a;
+  font-size: 13px;
+}
+.uni-rec-row:first-of-type { border-top: none; }
+.uni-rec-rank { color: #8888aa; font-size: 12px; }
+.uni-rec-team { display: inline-flex; align-items: center; gap: 6px; color: #ffffff; font-weight: 700; white-space: nowrap; }
+.uni-rec-team-wide { grid-column: span 2; }
+.uni-rec-score { font-family: 'AFL Modern', 'DIN Next LT Pro', sans-serif; font-size: 16px; color: #ffffff; font-variant-numeric: tabular-nums; }
+.uni-rec-meta { color: #8888aa; font-size: 11px; text-align: right; white-space: nowrap; }
+.uni-hist-premier { display: flex; align-items: center; gap: 12px; padding: 6px 0 10px; }
+.uni-hist-team { font-family: 'AFL Modern', 'DIN Next LT Pro', sans-serif; font-size: 20px; color: #ffffff; }
+.uni-hist-label { color: #8888aa; font-size: 11px; letter-spacing: 0.4px; text-transform: uppercase; }
+.uni-hist-extra { color: #c8c8dc; font-size: 12px; }
+.uni-hist-line { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid #22223a; }
+.uni-hist-line .uni-hist-label { width: 104px; flex-shrink: 0; }
+.uni-hist-line .uni-hist-extra { margin-left: auto; }
+.uni-fin-row {
+  display: grid;
+  grid-template-columns: 1fr 48px 40px 52px;
+  align-items: center;
+  padding: 8px 0;
+  border-top: 1px solid #22223a;
+  font-size: 13px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.uni-fin-row .uni-rec-team { justify-self: start; }
+.uni-fin-head { color: #8888aa; font-size: 11px; border-top: none; padding-top: 2px; }
+.uni-fin-flags { color: #f0c040; font-weight: 700; }
+.uni-h2h-pick { display: flex; align-items: center; gap: 8px; color: #8888aa; margin-bottom: 10px; }
+.uni-select {
+  flex: 1;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid #2a2a4a;
+  border-radius: 6px;
+  background: #1A192E;
+  color: #ffffff;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+}
+.uni-h2h-sum { display: grid; grid-template-columns: 1fr 1fr 1fr; text-align: center; padding: 6px 0 12px; }
+.uni-h2h-sum > div { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.uni-h2h-n { font-family: 'AFL Modern', 'DIN Next LT Pro', sans-serif; font-size: 30px; color: #ffffff; line-height: 1; }
+.uni-h2h-d { margin-top: 34px; color: #c8c8dc; }
+
+/* The NRL ladder has a bye column, and points differential for percentage. */
+.uni-ladder-bar { display: flex; justify-content: flex-end; margin: -4px 0 8px; }
+/* The full ladder is wider than a phone: it scrolls sideways inside its card. */
+.uni-ladder-scroll { overflow-x: auto; }
+.uni-ladder-full .uni-lrow { min-width: 470px; }
+/* While it scrolls sideways, position, crest and team stay pinned on the left. */
+.uni-ladder-full .uni-lrow > :nth-child(-n+3) {
+  position: sticky;
+  z-index: 1;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  background: #16213E;
+}
+.uni-ladder-full .uni-lrow > :nth-child(1) { left: 0; justify-content: center; }
+.uni-ladder-full .uni-lrow > :nth-child(2) { left: 20px; }
+.uni-ladder-full .uni-lrow > :nth-child(3) { left: 70px; box-shadow: 8px 0 8px -8px rgba(0, 0, 0, 0.7); }
+.uni-streak { font-weight: 700; font-size: 12px; }
+.uni-streak-W { color: #7ee08f; }
+.uni-streak-L { color: #ff8a8a; }
+.uni-streak-D { color: #c8c8dc; }
+.uni-lhead { height: 30px; color: #8888aa; font-size: 11px; border-top: none; }
+.uni-lpos { color: #8888aa; }
+.uni-llogo { display: flex; align-items: center; justify-content: center; }
+/* The same round crest as the match cards, small enough to sit inside the
+   row, so the cut-off lines run clean underneath. */
+.uni-crest.uni-crest-sm { width: 48px; height: 24px; }
+/* Talent: the start-screen picker and the Talent tab. */
+.uni-tpick { margin-top: 16px; }
+.uni-tpick .uni-eyebrow { margin-bottom: 8px; }
+.uni-tpick .uni-subtabs { margin-bottom: 0; }
+.uni-tpick .uni-muted { margin: 8px 0 10px; }
+.uni-tctl { margin: 0 0 10px; }
+.uni-trow {
+  display: grid;
+  grid-template-columns: 50px minmax(44px, 1fr) 56px 56px 36px;
+  align-items: center;
+  gap: 4px;
+  height: 40px;
+  padding-right: 8px;
+  font-size: 13px;
+  border-top: 1px solid #22223a;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.uni-trow.uni-lhead { height: 30px; }
+.uni-trow-view { grid-template-columns: 20px 40px minmax(56px, 1fr) 32px 32px 40px 58px; height: 46px; }
+.uni-trow-view .uni-crest.uni-crest-sm { width: 40px; height: 20px; }
+.uni-tedit .uni-trow { grid-template-columns: 36px minmax(40px, 1fr) 52px 52px 32px; border-top: none; }
+.uni-tedit-club { border-top: 1px solid #22223a; padding-bottom: 8px; }
+.uni-tedit-club:first-of-type { border-top: none; }
+.uni-tedit-sub { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 0 8px 0 40px; }
+.uni-trow-tap { cursor: pointer; }
+.uni-trow-tap:hover, .uni-trow-tap.open { background: #1b2748; }
+.uni-tdetail { padding: 2px 12px 10px; background: #1b2748; border-top: 1px solid #22223a; font-size: 13px; }
+.uni-tdetail .uni-hist-line { padding: 6px 0; }
+.uni-tdetail .uni-hist-line .uni-hist-label { width: 72px; }
+.uni-tdetail-head { color: #8888aa; font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; margin: 8px 0 2px; }
+.uni-off { padding-bottom: 10px; }
+.uni-off-row { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-top: 1px solid #22223a; font-size: 13px; line-height: 1.35; color: #e0e0ee; }
+.uni-off-row:first-of-type { border-top: none; }
+.uni-off-row .uni-crest-xs { flex-shrink: 0; margin-top: 1px; }
+.uni-off-kind { flex-shrink: 0; width: 6px; height: 6px; margin-top: 6px; border-radius: 50%; background: #8888aa; }
+.uni-off-coach { background: #f0c040; }
+.uni-off-trade, .uni-off-free-agent { background: #7ab8ff; }
+.uni-off-retire, .uni-off-injury { background: #ff8a8a; }
+.uni-off-breakout, .uni-off-draft { background: #7ee08f; }
+.uni-off-more { margin-top: 8px; }
+.uni-stage-peak { color: #f0c040; }
+.uni-stage-contending { color: #7ee08f; }
+.uni-stage-emerging { color: #b8e8c0; }
+.uni-stage-ageing { color: #f0b8b8; }
+.uni-stage-rebuilding { color: #8888aa; }
+.uni-tedit .uni-crest.uni-crest-sm { width: 36px; height: 18px; }
+.uni-tselect { padding: 5px 4px; font-size: 12px; text-align: left; }
+.uni-tstack { display: flex; flex-direction: column; align-items: center; line-height: 1.2; }
+.uni-tdelta { font-size: 10px; }
+.uni-tswing { font-size: 10px; }
+.uni-tswing-n { color: #8888aa; }
+.uni-tcons { font-size: 10px; font-weight: 700; letter-spacing: 0.2px; text-transform: uppercase; }
+.uni-tcons-volatile { color: #ff8a8a; }
+.uni-tcons-streaky { color: #f0b8b8; }
+.uni-tcons-balanced { color: #c8c8dc; }
+.uni-tcons-steady { color: #b8e8c0; }
+.uni-tcons-ruthless { color: #7ee08f; }
+.uni-trow .uni-lteam { text-align: left; display: flex; flex-direction: column; line-height: 1.15; }
+.uni-tlabel { color: #8888aa; font-size: 10px; font-weight: 400; letter-spacing: 0.3px; text-transform: uppercase; }
+.uni-tinput {
+  width: 100%;
+  padding: 5px 4px;
+  border: 1px solid #2a2a4a;
+  border-radius: 4px;
+  background: #1A192E;
+  color: #ffffff;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-size: 13px;
+  text-align: center;
+}
+.uni-tedit { max-height: 360px; overflow-y: auto; }
+.uni-t-hi { color: #7ee08f; font-weight: 700; }
+.uni-t-up { color: #b8e8c0; }
+.uni-t-down { color: #f0b8b8; }
+.uni-t-lo { color: #ff8a8a; font-weight: 700; }
+.uni-ldot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin: 0 0 3px 5px;
+  border-radius: 50%;
+  background: #d61f2c;
+  animation: mc-pulse 1.4s ease-in-out infinite;
+}
+.uni-lteam { white-space: nowrap; text-align: left; padding-left: 8px; font-family: 'AFL Modern', 'DIN Next LT Pro', sans-serif; font-size: 17px; padding-top: 2px; }
+.uni-lhead .uni-lteam { font-family: 'DIN Next LT Pro', sans-serif; font-size: 11px; }
+.uni-lpct { color: #c8c8dc; }
+.uni-lpts { font-weight: 700; }
+.uni-cut-top6 { border-bottom: 2px solid #f0c040; }
+.uni-cut-wild { border-bottom: 2px dashed #7B4FD4; }
+.uni-lkey { display: flex; align-items: center; gap: 6px; padding: 10px 12px; color: #8888aa; font-size: 11px; border-top: 1px solid #22223a; flex-wrap: wrap; }
+.uni-lkey span:not(.uni-ldot) { display: inline-block; width: 14px; height: 0; }
+.uni-ldot-key { margin: 0 0 0 8px; }
+.uni-key-top6 { border-top: 2px solid #f0c040; }
+.uni-key-wild { border-top: 2px dashed #7B4FD4; margin-left: 8px; }
 
 /* Automate controls — same shape as .reset-btn, gold so the sim group reads
    as one set. Margin rather than a gap on .panel-header-reset, to leave the
@@ -2651,7 +3407,7 @@ transform-origin: left center;
           <div>P</div>
           <div>W</div>
           <div>L</div>
-          <div>B</div>
+          <div>D</div>
           <div>F</div>
           <div>A</div>
           <div>%</div>
@@ -2676,6 +3432,7 @@ transform-origin: left center;
       </div>
     </div>
   </div>
+  <div id="universe-content" style="display:none;"></div>
   <div id="wc-mens-content" style="display:none;">
   <div id="wc-mens-inner" style="padding:16px;max-width:1600px;margin:0 auto;"></div>
 </div>
@@ -2716,6 +3473,8 @@ transform-origin: left center;
        silently come out with the previous tuning, which looks like the change
        "didn't work". This forces a fresh copy every load. -->
   <script>document.write('<script src="sim.js?v=' + Date.now() + '"><\/script>');</script>
+  <!-- Universe mode's calendar and catch-up, on top of sim.js. Same cache-bust. -->
+  <script>document.write('<script src="universe.js?v=' + Date.now() + '"><\/script>');</script>
   <script>
 (async function() {
 
@@ -2749,8 +3508,11 @@ const SAVE_REGISTRY_KEY = 'lp_save_registry';
 // with zero migration and zero risk of appearing to go missing.
 let activeSaveSlotId = '';
 
+// Keys that belong to the account, not to a save: the registry itself, and
+// the Universe, which sits alongside the saves rather than inside one.
+const UNSLOTTED_KEYS = new Set([SAVE_REGISTRY_KEY, 'lp_universe_afl', 'lp_universe_nrl']);
 function slotPrefixedKey(key) {
-  if (key === SAVE_REGISTRY_KEY) return key;
+  if (UNSLOTTED_KEYS.has(key)) return key;
   return activeSaveSlotId ? ('slot_' + activeSaveSlotId + '__' + key) : key;
 }
 
@@ -2841,6 +3603,7 @@ function saveSlotNextName() {
 async function saveSlotSwitchTo(id) {
   await flushPendingSaves();
   saveRegistry.activeSlotId = id;
+  saveRegistry.mode = 'predictor';
   await persistSaveRegistryNow();
   window.location.reload();
 }
@@ -2854,6 +3617,7 @@ async function saveSlotCreate() {
   await flushPendingSaves();
   saveRegistry.slots.push({ id, name: trimmed, createdAt: new Date().toISOString() });
   saveRegistry.activeSlotId = id;
+  saveRegistry.mode = 'predictor';
   await persistSaveRegistryNow();
   window.location.reload();
 }
@@ -2898,30 +3662,46 @@ function renderSaveSlotMenu() {
   const menu = document.getElementById('save-slot-menu');
   if (!menu) return;
   menu.innerHTML = '';
+  const inUniverse = appMode() === 'universe';
 
+  const heading = text => {
+    const h = document.createElement('div');
+    h.className = 'save-slot-heading';
+    h.textContent = text;
+    menu.appendChild(h);
+  };
+
+  heading('Saves');
   saveRegistry.slots.forEach(slot => {
+    const current = !inUniverse && slot.id === saveRegistry.activeSlotId;
     const row = document.createElement('div');
-    row.className = 'save-slot-row' + (slot.id === saveRegistry.activeSlotId ? ' active' : '');
+    row.className = 'save-slot-row' + (current ? ' active' : '');
 
     const selectBtn = document.createElement('button');
     selectBtn.className = 'save-slot-select';
-    selectBtn.textContent = (slot.id === saveRegistry.activeSlotId ? '● ' : '') + slot.name;
-    selectBtn.title = slot.id === saveRegistry.activeSlotId ? 'Current save' : ('Switch to "' + slot.name + '"');
+    const tick = document.createElement('span');
+    tick.className = 'save-slot-tick';
+    tick.textContent = current ? '✓' : '';
+    selectBtn.appendChild(tick);
+    selectBtn.appendChild(document.createTextNode(slot.name));
+    selectBtn.title = current ? 'Current save' : ('Switch to "' + slot.name + '"');
     selectBtn.addEventListener('click', () => {
       if (slot.id !== saveRegistry.activeSlotId) saveSlotSwitchTo(slot.id);
-      else closeSaveSlotMenu();
+      else { closeSaveSlotMenu(); appSetMode('predictor'); }
     });
 
     const renameBtn = document.createElement('button');
     renameBtn.className = 'save-slot-icon-btn';
     renameBtn.textContent = '✎';
     renameBtn.title = 'Rename';
+    renameBtn.setAttribute('aria-label', 'Rename ' + slot.name);
     renameBtn.addEventListener('click', (e) => { e.stopPropagation(); saveSlotRename(slot.id); });
 
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'save-slot-icon-btn';
     deleteBtn.textContent = '✕';
     deleteBtn.title = 'Delete';
+    deleteBtn.setAttribute('aria-label', 'Delete ' + slot.name);
     deleteBtn.disabled = saveRegistry.slots.length <= 1;
     deleteBtn.addEventListener('click', (e) => { e.stopPropagation(); saveSlotDelete(slot.id); });
 
@@ -2931,19 +3711,99 @@ function renderSaveSlotMenu() {
     menu.appendChild(row);
   });
 
+  const newBtn = document.createElement('button');
+  newBtn.className = 'save-slot-new';
+  newBtn.textContent = '+ New save';
+  newBtn.addEventListener('click', () => saveSlotCreate());
+  menu.appendChild(newBtn);
+
   const divider = document.createElement('div');
   divider.className = 'save-slot-divider';
   menu.appendChild(divider);
 
-  const newBtn = document.createElement('button');
-  newBtn.className = 'save-slot-new';
-  newBtn.textContent = '+ New Save';
-  newBtn.addEventListener('click', () => saveSlotCreate());
-  menu.appendChild(newBtn);
+  heading('Universe');
+  const uniBtn = document.createElement('button');
+  uniBtn.className = 'save-slot-universe' + (inUniverse ? ' active' : '');
+  const uTick = document.createElement('span');
+  uTick.className = 'save-slot-tick';
+  uTick.textContent = inUniverse ? '✓' : '';
+  const uText = document.createElement('span');
+  uText.className = 'save-slot-uni-text';
+  const uName = document.createElement('span');
+  uName.textContent = 'AFL Universe';
+  const uSub = document.createElement('span');
+  uSub.className = 'save-slot-uni-sub';
+  uSub.textContent = appUniverseSummary();
+  uName.textContent = 'Universe';
+  uText.appendChild(uName);
+  uText.appendChild(uSub);
+  uniBtn.appendChild(uTick);
+  uniBtn.appendChild(uText);
+  uniBtn.addEventListener('click', () => { closeSaveSlotMenu(); appSetMode('universe'); });
+  menu.appendChild(uniBtn);
 
   const label = document.getElementById('save-slot-label');
   const active = saveRegistry.slots.find(s => s.id === saveRegistry.activeSlotId);
-  if (label) label.textContent = active ? active.name : 'Slot 1';
+  if (label) label.textContent = inUniverse ? 'Universe' : (active ? active.name : 'Slot 1');
+  const btn = document.getElementById('save-slot-btn');
+  if (btn) btn.classList.toggle('is-universe', inUniverse);
+}
+
+// ---------- app mode: Predictor or Universe ----------
+// The save picker is also the mode switch: pick a save and you're in the
+// predictor (NRL, AFL, World Cup, Records); pick the Universe and the app
+// becomes the Universe screen alone. The choice is kept in the registry, so
+// the app comes back the way it was left.
+//
+// `var`, not `let`: the save menu first renders before the rest of the app
+// has been defined, and must be able to read this without tripping over it.
+var appBooted = false;
+
+function appMode() { return (saveRegistry && saveRegistry.mode) || 'predictor'; }
+
+// The Universe line in the save menu: where it's up to.
+function appUniverseSummary() {
+  if (!appBooted || !uniReady()) return 'Seasons on the real clock';
+  // Each sport's Universe, briefly: "AFL S1 R3 · NRL not started".
+  const keep = [uniSport, uniState];
+  const parts = Object.keys(UNI_SPORTS).map(sp => {
+    if (!(sp in uniStates)) uniStates[sp] = uniLoad(sp);
+    const u = uniStates[sp];
+    if (!u) return UNI_SPORTS[sp].name + ' not started';
+    uniSport = sp; uniState = u;
+    const season = uniSeason();
+    const page = uniDefaultPage(season, uniNow());
+    return UNI_SPORTS[sp].name + ' S' + season.n + ' ' +
+      (page < season.rounds.length ? 'R' + (page + 1) : 'finals');
+  });
+  [uniSport, uniState] = keep;
+  return parts.join(' · ');
+}
+
+function appSetMode(mode) {
+  if (appMode() !== mode) {
+    saveRegistry.mode = mode;
+    persistSaveRegistryNow();
+  }
+  appApplyMode();
+}
+
+function appApplyMode() {
+  const uni = appMode() === 'universe';
+  document.body.classList.toggle('mode-universe', uni);
+  renderSaveSlotMenu();
+  if (uni) {
+    ['nrl-content', 'afl-content', 'wc-mens-content', 'records-panel', 'nrl-year-nav', 'afl-year-nav']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+    document.getElementById('universe-content').style.display = '';
+    uniShow();
+  } else {
+    uniStop();
+    document.getElementById('universe-content').style.display = 'none';
+    // Back to the predictor's front page.
+    const nrl = document.querySelector('.sport-btn[data-sport="nrl"]');
+    if (nrl) nrl.click();
+  }
 }
 
 function closeSaveSlotMenu() {
@@ -2962,6 +3822,7 @@ function initSaveSlotUI() {
 
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
+    if (!menu.classList.contains('open')) renderSaveSlotMenu();
     menu.classList.toggle('open');
   });
   document.addEventListener('click', (e) => {
@@ -8422,6 +9283,8 @@ function renderRound(roundIndex) {
       + (cardDesign.nrl === 'modern' ? ' nrl-modern-table' : cardDesign.nrl === 'stacked' ? ' nrl-stacked-table' : '');
     table.style.top = top;
     table.innerHTML = getCardHTML('nrl', cardDesign.nrl, game, saved, homeConfig, awayConfig, homeLogo, awayLogo, homeTextClass, awayTextClass, ladderPos[game.home], ladderPos[game.away]);
+    const mcBtn = addMatchCentreButton(table, 'nrl', roundIndex, i, cardDesign.nrl);
+    mcBtn.hidden = !(saved.home || saved.away);
 
     const inputs = table.querySelectorAll('.score-input');
     inputs.forEach(input => {
@@ -8442,6 +9305,7 @@ function renderRound(roundIndex) {
         const awayScore = parseInt(inputs[1].textContent) || 0;
         if (!seasons[currentSeason].scores) seasons[currentSeason].scores = {};
         seasons[currentSeason].scores[scoreKey] = { home: homeScore, away: awayScore };
+        mcBtn.hidden = !(homeScore || awayScore);
         calculateLadder();
         populateFinals();
         refreshLadderPositions('nrl');
@@ -8500,6 +9364,8 @@ function renderAFLRound(roundIndex) {
       table.style.left = `calc(50% - ${pairW / 2}px + ${col * (150 + AFL_MODERN_COL_GAP)}px)`;
     }
     table.innerHTML = getCardHTML('afl', cardDesign.afl, game, saved, homeConfig, awayConfig, ladderPos[game.home], ladderPos[game.away]);
+    const mcBtn = addMatchCentreButton(table, 'afl', roundIndex, i, cardDesign.afl);
+    mcBtn.hidden = !(saved.home || saved.away);
     const inputs = table.querySelectorAll('.score-input');
     inputs.forEach(input => {
       input.addEventListener('keypress', function(e) {
@@ -8518,6 +9384,7 @@ function renderAFLRound(roundIndex) {
         const homeScore = parseInt(inputs[0].textContent) || 0;
         const awayScore = parseInt(inputs[1].textContent) || 0;
         aflSeasons[currentSeason].scores[scoreKey] = { home: homeScore, away: awayScore };
+        mcBtn.hidden = !(homeScore || awayScore);
         calculateAFLLadder();
         refreshLadderPositions('afl');
         renderHeadlines('afl');
@@ -9197,6 +10064,11 @@ const SIM_ANIM = {
 };
 
 let simAnimRunning = false;
+// The game the animation is playing right now, for the live match centre:
+// { seasonKey, roundIdx, gameIdx, score, tl, segFrom, segTo, segStart, segDur }.
+// segFrom/segTo are match time (0-1) either side of the current wait. Null
+// between games and whenever no round is playing.
+let simLive = null;
 let simAnimPaused = false;
 function simSleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -9251,14 +10123,22 @@ async function simAnimateRound(sport, written, season, scoresRef) {
     const gEls = table.querySelectorAll('.afl-modern-g');
     const bEls = table.querySelectorAll('.afl-modern-b');
 
-    // Same keys the scorecard uses, so the goals/behinds the animation lands on
-    // are the ones still showing after the redraw.
-    const prog = window.LadderSim.buildProgression({
-      sport, home: result.home, away: result.away, config,
-      rng: window.LadderSim.makeRng(gbSeedFrom(currentSeason + key + result.home + ':' + result.away)),
-      homeSplit: sport === 'afl' ? generateGoalsBehinds(result.home, round[i].home + '|H') : null,
-      awaySplit: sport === 'afl' ? generateGoalsBehinds(result.away, round[i].away + '|A') : null,
+    // The same timeline the match centre and the headlines rebuild, so the game
+    // you watch is the game the worm draws.
+    const tl = window.LadderSim.buildMatchTimeline({
+      sport, seasonKey: currentSeason, roundIdx: currentRound, gameIdx: i,
+      game: round[i], score: result, config,
     });
+    const prog = tl.steps;
+
+    // Publish the game in progress so its match centre can follow it live.
+    const live = {
+      seasonKey: currentSeason, roundIdx: currentRound, gameIdx: i, score: result, tl,
+      segFrom: 0, segTo: 0, segStart: 0, segDur: 0,
+    };
+    simLive = live;
+    const liveBtn = table.querySelector('.mc-btn');
+    if (liveBtn) liveBtn.hidden = false;
 
     const paint = (h, a, hg, hb, ag, ab) => {
       inputs[0].textContent = h;
@@ -9281,7 +10161,15 @@ async function simAnimateRound(sport, written, season, scoresRef) {
     const unitMs = Math.min(SIM_ANIM.stepMs, SIM_ANIM.maxGameMs / weightSum);
 
     for (let s = 0; s < prog.length; s++) {
-      await simStepWait(Math.max(SIM_ANIM.minStepMs, unitMs * weights[s]), () => table.isConnected);
+      const ms = Math.max(SIM_ANIM.minStepMs, unitMs * weights[s]);
+      {
+        // The match clock runs from the last score to this one over the wait.
+        live.segFrom = s ? prog[s - 1].t : 0;
+        live.segTo = prog[s].t;
+        live.segStart = performance.now();
+        live.segDur = ms;
+      }
+      await simStepWait(ms, () => table.isConnected);
       if (!table.isConnected) return;
       const st = prog[s];
       paint(st.home, st.away, st.homeGoals || 0, st.homeBehinds || 0, st.awayGoals || 0, st.awayBehinds || 0);
@@ -9292,6 +10180,7 @@ async function simAnimateRound(sport, written, season, scoresRef) {
     // this round was playing — drop the result rather than resurrect it.
     if (season.scores !== scoresRef) return;
     season.scores[key] = result;
+    simLive = null;   // full time — an open match centre flips to the final view
     if (sport === 'afl') { calculateAFLLadder(); lsSaveAFL(); }
     else { calculateLadder(); populateFinals(); lsSaveNRL(); }
 
@@ -9475,6 +10364,7 @@ async function simRunRound(overwrite, skipAnim) {
     }
     simAnimRunning = false;
     simAnimPaused = false;
+    simLive = null;
     simSetAutomateLabel(ctx.sport);
     simRedraw(ctx.sport);
   }
@@ -9987,6 +10877,1678 @@ function renderHeadlines(sport) {
   }
 }
 
+// ============================================================
+// MATCH CENTRE
+// ============================================================
+// Everything here is rebuilt from the saved score through
+// LadderSim.buildMatchTimeline — the same timeline the Automate animation plays
+// — so a typed score and a simulated one open the same way. Nothing is stored.
+// The timeline describes itself as periods (four AFL quarters; two NRL halves
+// and maybe golden point), so the panel, table and worm draw either sport.
+
+// Default home ground per team, with the name it went by that season. Games
+// played away from it (Hawthorn in Launceston, a Magic Round, a neutral final)
+// go in the overrides, keyed 'afl2012|R1G0' / 'nrl2012|R1G0'.
+const AFL_VENUE_OVERRIDES = {};
+const NRL_VENUE_OVERRIDES = {};
+function aflHomeGround(team, year) {
+  const docklands = year <= 2017 ? 'Etihad Stadium' : 'Marvel Stadium';
+  const perth = year <= 2013 ? 'Patersons Stadium' : year <= 2017 ? 'Domain Stadium' : 'Optus Stadium';
+  const adelaide = year <= 2013 ? 'AAMI Stadium' : 'Adelaide Oval';
+  switch (team) {
+    case 'Adelaide': case 'Port Adelaide': return adelaide;
+    case 'Brisbane Lions': return 'The Gabba';
+    case 'Carlton': case 'Collingwood': case 'Hawthorn': case 'Melbourne': case 'Richmond': return 'MCG';
+    case 'Essendon': case 'North Melbourne': case 'St Kilda': case 'Western Bulldogs': return docklands;
+    case 'Fremantle': case 'West Coast Eagles': return perth;
+    case 'Geelong Cats': return year <= 2016 ? 'Simonds Stadium' : 'GMHBA Stadium';
+    case 'Gold Coast Suns':
+      return year <= 2022 ? 'Metricon Stadium' : year === 2023 ? 'Heritage Bank Stadium' : 'People First Stadium';
+    case 'GWS Giants':
+      return year <= 2013 ? 'Skoda Stadium' : year <= 2018 ? 'Spotless Stadium'
+        : year <= 2022 ? 'GIANTS Stadium' : 'ENGIE Stadium';
+    case 'Sydney': return 'SCG';
+    default: return '';
+  }
+}
+function nrlHomeGround(team, year) {
+  const homebush = year <= 2020 ? 'ANZ Stadium' : 'Accor Stadium';
+  switch (team) {
+    case 'Broncos': case 'Dolphins': return 'Suncorp Stadium';
+    case 'Bulldogs': case 'Rabbitohs': return homebush;
+    case 'Cowboys': return year <= 2019 ? '1300SMILES Stadium' : 'Queensland Country Bank Stadium';
+    case 'Dragons': return 'WIN Stadium';
+    case 'Eels':
+      return year <= 2016 ? 'Pirtek Stadium' : year <= 2018 ? homebush
+        : year <= 2021 ? 'Bankwest Stadium' : 'CommBank Stadium';
+    case 'Knights': return year <= 2015 ? 'Hunter Stadium' : 'McDonald Jones Stadium';
+    case 'Panthers':
+      return year <= 2012 ? 'Centrebet Stadium' : year <= 2015 ? 'Sportingbet Stadium'
+        : year <= 2018 ? 'Pepper Stadium' : year <= 2020 ? 'Panthers Stadium' : 'BlueBet Stadium';
+    case 'Raiders': return year <= 2013 ? 'Canberra Stadium' : 'GIO Stadium';
+    case 'Roosters': return year <= 2018 ? 'Allianz Stadium' : year <= 2022 ? 'SCG' : 'Allianz Stadium';
+    case 'Sea Eagles': return year <= 2016 ? 'Brookvale Oval' : year <= 2021 ? 'Lottoland' : '4 Pines Park';
+    case 'Sharks':
+      return year <= 2012 ? 'Toyota Stadium' : year <= 2015 ? 'Remondis Stadium'
+        : year <= 2018 ? 'Southern Cross Group Stadium' : year <= 2023 ? 'PointsBet Stadium' : 'Ocean Protect Stadium';
+    case 'Storm': return 'AAMI Park';
+    case 'Titans': return 'Cbus Super Stadium';
+    case 'Warriors': return year <= 2021 ? 'Mt Smart Stadium' : 'Go Media Stadium';
+    case 'Wests Tigers': return 'Leichhardt Oval';
+    default: return '';
+  }
+}
+function mcVenue(sport, seasonKey, roundIdx, gameIdx, game) {
+  const key = seasonKey + '|R' + (roundIdx + 1) + 'G' + gameIdx;
+  const o = (sport === 'afl' ? AFL_VENUE_OVERRIDES : NRL_VENUE_OVERRIDES)[key];
+  const year = parseInt(seasonKey.replace(/\D/g, ''), 10);
+  return o || (sport === 'afl' ? aflHomeGround : nrlHomeGround)(game.home, year);
+}
+
+// Worm colours. The primary is the team's main colour; the alt is used for
+// the away side when both primaries are too close to tell apart (Adelaide v
+// Geelong, the reds).
+const AFL_WORM_ALT_COLOURS = {
+  'Adelaide': '#E21937', 'Brisbane Lions': '#FDBE57', 'Carlton': '#6C8BA6',
+  'Collingwood': '#8C8C8C', 'Essendon': '#000000', 'Fremantle': '#9B8BC4',
+  'Geelong Cats': '#6E8FC2', 'Gold Coast Suns': '#FFC20E', 'GWS Giants': '#4A4F55',
+  'Hawthorn': '#FBBF15', 'Melbourne': '#DE0316', 'North Melbourne': '#7F9BD1',
+  'Port Adelaide': '#000000', 'Richmond': '#000000', 'St Kilda': '#000000',
+  'Sydney': '#000000', 'West Coast Eagles': '#003087', 'Western Bulldogs': '#BD002B',
+};
+const NRL_WORM_COLOURS = {
+  'Broncos': ['#6A0F35', '#FBB03B'], 'Bulldogs': ['#005BAC', '#7A8A99'],
+  'Cowboys': ['#002B5C', '#FFC20E'], 'Dolphins': ['#E4002B', '#FFC72C'],
+  'Dragons': ['#E2231A', '#000000'], 'Eels': ['#006EB5', '#FFD100'],
+  'Knights': ['#003B73', '#EE3524'], 'Panthers': ['#000000', '#8E8E8E'],
+  'Rabbitohs': ['#003C1F', '#E2231A'], 'Raiders': ['#6CBE45', '#003B73'],
+  'Roosters': ['#002B5C', '#E2231A'], 'Sea Eagles': ['#6F163D', '#8E8E8E'],
+  'Sharks': ['#00A9D8', '#000000'], 'Storm': ['#632390', '#002B5C'],
+  'Titans': ['#009FDF', '#FFB819'], 'Warriors': ['#1B3D6D', '#00A651'],
+  'Wests Tigers': ['#F68B1F', '#000000'],
+};
+function mcWormColours(sport, home, away) {
+  const prim = t => sport === 'afl' ? AFL_TEAM_COLOURS[t] : (NRL_WORM_COLOURS[t] || [])[0];
+  const alt = t => sport === 'afl' ? AFL_WORM_ALT_COLOURS[t] : (NRL_WORM_COLOURS[t] || [])[1];
+  const hex = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+  const hc = prim(home) || '#4CAF50';
+  let ac = prim(away) || '#888888';
+  const [r1, g1, b1] = hex(hc), [r2, g2, b2] = hex(ac);
+  if (Math.hypot(r1 - r2, g1 - g2, b1 - b2) < 110) ac = alt(away) || '#888888';
+  return { home: hc, away: ac };
+}
+
+// What differs between the sports, in one place.
+const MC_SPORT = {
+  afl: {
+    seasons: () => aflSeasons,
+    logoW: 44, logoH: 20.5,            // AFL logo files are 221x103 banners
+    periodName: p => p.label,
+    // Scoreline detail and quarter-table detail: the G.B.
+    detail: s => s.goals + '.' + s.behinds,
+    cellDetail: s => s.goals + '.' + s.behinds,
+    clock: (p, clock) => p.label + ' ' + mcClock(clock),
+  },
+  nrl: {
+    seasons: () => seasons,
+    logoW: 30, logoH: 22,              // NRL logo files are about 130x95
+    periodName: p => ({ '1H': '1st half', '2H': '2nd half', GP: 'Golden pt' })[p.label] || p.label,
+    // Points only — the NRL has no G.B equivalent worth showing.
+    detail: () => '',
+    cellDetail: () => '',
+    // The NRL clock runs on through the match: the second half starts at 40:00.
+    clock: (p, clock) => p.label + ' ' + mcClock(p.offset + clock),
+  },
+};
+
+// The MC tab on a scorecard. Where it hangs depends on the card's markup.
+function addMatchCentreButton(table, sport, roundIdx, gameIdx, design) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.innerHTML = '<span>M</span><span>C</span>';
+  btn.title = 'Match centre';
+  btn.setAttribute('aria-label', 'Match centre');
+  btn.addEventListener('mousedown', e => e.preventDefault());   // don't steal focus from a score
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    openMatchCentre(sport, roundIdx, gameIdx);
+  });
+  // AFL Modern's frame clips its overflow, so the tab sits in the cell outside
+  // it. The others anchor in a positioned cell on the card's right edge: the
+  // first row's, for the two-row cards.
+  let host, cls;
+  if (sport === 'afl') {
+    if (design === 'modern') { host = table.querySelector('td.afl-modern-cell'); cls = 'mc-btn-modern'; }
+    else { host = table.querySelector('.afl-cell-red'); cls = 'mc-btn-classic'; }
+  } else if (design === 'modern') { host = table.querySelector('td.nrl-modern-cell'); cls = 'mc-btn-full'; }
+  else if (design === 'stacked') { host = table.querySelector('td.col-inner'); cls = 'mc-btn-stack'; }
+  else { const outer = table.querySelectorAll('td.col-outer'); host = outer[outer.length - 1]; cls = 'mc-btn-row'; }
+  btn.className = 'mc-btn ' + cls;
+  (host || table).appendChild(btn);
+  return btn;
+}
+
+function mcClock(sec) {
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+// The scoreboard at match time t (0-1): everything scored at or before t.
+function mcStateAt(sport, tl, t) {
+  let st = null;
+  for (const s of tl.steps) { if (s.t <= t) st = s; else break; }
+  const side = k => {
+    const f = n => (st ? st[k + n] : 0) || 0;
+    const points = st ? st[k] : 0;
+    return sport === 'afl'
+      ? { points, goals: f('Goals'), behinds: f('Behinds') }
+      : { points, tries: f('Tries'), goals: f('Goals'), fieldGoals: f('FieldGoals') };
+  };
+  return { home: side('home'), away: side('away') };
+}
+// The period and seconds into it at match time t.
+function mcClockAt(tl, t) {
+  const ps = tl.periods;
+  let i = ps.findIndex(p => t < p.end);
+  if (i < 0) i = ps.length - 1;
+  const p = ps[i];
+  return { p, clock: Math.min(p.len, Math.round((t - p.start) / (p.end - p.start) * p.len)) };
+}
+// Where the live game's clock is: partway from the last score to the next,
+// over the wait the animation is spending on it.
+function mcLiveT(live) {
+  const k = live.segDur ? Math.min(1, (performance.now() - live.segStart) / live.segDur) : 0;
+  return live.segFrom + (live.segTo - live.segFrom) * k;
+}
+// The periods to show at match time t. A live game that hasn't reached golden
+// point doesn't show it yet — that would give away a level finish.
+function mcVisiblePeriods(tl, t, live) {
+  return tl.periods.filter(p => !(live && p.label === 'GP' && t < p.start));
+}
+
+// The open match centre: { sport, roundIdx, gameIdx, game, tl, hCfg, aCfg,
+// overlay, raf, hoverT, frozenT, axisEnd }. One at a time.
+let mcCtx = null;
+
+function closeMatchCentre() {
+  if (mcCtx && mcCtx.raf) cancelAnimationFrame(mcCtx.raf);
+  mcCtx = null;
+  const el = document.getElementById('mc-overlay');
+  if (el) el.remove();
+  document.removeEventListener('keydown', mcKeydown);
+}
+function mcKeydown(e) { if (e.key === 'Escape') closeMatchCentre(); }
+
+// Opens finished games from the saved score, and the game the animation is
+// playing right now as a live view that follows it to full time.
+function openMatchCentre(sport, roundIdx, gameIdx) {
+  if (!simEngineReady()) return;
+  const season = MC_SPORT[sport].seasons()[currentSeason];
+  const game = season && season.rounds[roundIdx] && season.rounds[roundIdx][gameIdx];
+  if (!game) return;
+  const live = simLive && simLive.seasonKey === currentSeason &&
+    simLive.roundIdx === roundIdx && simLive.gameIdx === gameIdx ? simLive : null;
+  const score = live ? live.score : season.scores[window.LadderSim.scoreKey(roundIdx, gameIdx)];
+  if (!score || (!live && !(score.home || score.away))) return;
+
+  const config = window.LadderSim.SIM_CONFIG;
+  const tl = live ? live.tl : window.LadderSim.buildMatchTimeline({
+    sport, seasonKey: currentSeason, roundIdx, gameIdx, game, score, config,
+  });
+  const venue = mcVenue(sport, currentSeason, roundIdx, gameIdx, game);
+  const savedScore = () => season.scores[window.LadderSim.scoreKey(roundIdx, gameIdx)];
+
+  mcOpen({
+    sport, tl, game,
+    hCfg: season.teamConfig[game.home] || {}, aCfg: season.teamConfig[game.away] || {},
+    meta: 'Round ' + (roundIdx + 1) + (venue ? ' · ' + venue : ''),
+    // While the animation is playing this game: where it's up to. The
+    // animation clears simLive the moment it banks the game.
+    liveState: live ? () => {
+      const l = simLive && simLive.tl === tl ? simLive : null;
+      return l ? { t: mcLiveT(l), paused: simAnimPaused } : null;
+    } : null,
+    // Reset can clear the season while the game is playing; then there's no
+    // full time to show.
+    stillThere: () => { const s = savedScore(); return !!(s && (s.home || s.away)); },
+    headline: () => {
+      const hl = window.LadderSim.buildHeadlines({
+        sport, seasonKey: currentSeason,
+        teams: season.teams, rounds: season.rounds, scores: season.scores,
+        seeds: window.LadderSim.computeSeeds({ sport, seasonKey: currentSeason, archive: simArchive(sport), config }),
+        config, roundIdx, onlyGame: gameIdx,
+      })[0];
+      return hl ? hl.text : '';
+    },
+  });
+}
+
+// The match centre itself, for any game from any source.
+//   opts: { sport, tl, game, hCfg, aCfg, meta,
+//           liveState()  -> { t, paused?, label? } while live, null at full time
+//                           (omit for a game that's already finished)
+//           stillThere() -> false if the game vanished before full time
+//           headline()   -> the full-time headline, or '' }
+function mcOpen(opts) {
+  closeMatchCentre();
+  const { sport, tl, game, hCfg, aCfg } = opts;
+
+  const team = (cfg, side) => `
+    <div class="mc-team mc-team-${side}">
+      <img class="mc-logo mc-logo-${sport}" src="${cfg.logo || ''}" alt="">
+      <div class="mc-abbr">${cfg.abbr || ''}</div>
+      <div class="mc-pts"></div>
+      <div class="mc-gb"></div>
+    </div>`;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'mc-overlay';
+  overlay.className = 'mc-overlay';
+  overlay.innerHTML = `
+    <div class="mc-panel" role="dialog" aria-modal="true" aria-label="Match centre">
+      <button type="button" class="mc-close" aria-label="Close">×</button>
+      <div class="mc-meta">${opts.meta || ''}</div>
+      <div class="mc-scoreline">
+        ${team(hCfg, 'home')}
+        <div class="mc-dash"></div>
+        ${team(aCfg, 'away')}
+      </div>
+      <div class="mc-headline" hidden></div>
+      <table class="mc-quarters">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+      <div class="mc-section-title">Score worm</div>
+      <div class="mc-worm-wrap"></div>
+      <div class="mc-readout" aria-live="polite">&nbsp;</div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const c = mcCtx = {
+    sport, game, tl, hCfg, aCfg, overlay,
+    liveState: opts.liveState || null, stillThere: opts.stillThere || null, headline: opts.headline || null,
+    raf: 0, hoverT: null, frozenT: null, axisEnd: 1,
+  };
+
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeMatchCentre(); });
+  overlay.querySelector('.mc-close').addEventListener('click', closeMatchCentre);
+  document.addEventListener('keydown', mcKeydown);
+
+  // Hover or drag along the worm to read the score at that point. The SVG is
+  // redrawn while live, so the listeners sit on its wrapper.
+  const wrap = overlay.querySelector('.mc-worm-wrap');
+  const track = e => {
+    const r = wrap.getBoundingClientRect();
+    const px = (e.clientX - r.left) * (MC_WORM.w / r.width);
+    const f = Math.min(1, Math.max(0, (px - MC_WORM.padL) / (MC_WORM.w - MC_WORM.padL - MC_WORM.padR)));
+    c.hoverT = f * c.axisEnd;
+    if (!c.raf) mcRender(c, 1, false);
+  };
+  wrap.addEventListener('pointermove', track);
+  wrap.addEventListener('pointerdown', track);
+  wrap.addEventListener('pointerleave', () => { c.hoverT = null; if (!c.raf) mcRender(c, 1, false); });
+
+  if (c.liveState && c.liveState()) mcTick();
+  else mcFinish(c);
+}
+
+function mcTick() {
+  const c = mcCtx;
+  if (!c) return;
+  const st = c.liveState && c.liveState();
+  if (!st) { c.raf = 0; mcFinish(c); return; }
+  let t;
+  if (st.paused) {
+    if (c.frozenT == null) c.frozenT = st.t;
+    t = c.frozenT;
+  } else {
+    c.frozenT = null;
+    t = st.t;
+  }
+  mcRender(c, t, true, st.label);
+  c.raf = requestAnimationFrame(mcTick);
+}
+
+// Full time: the final view, with the headline.
+function mcFinish(c) {
+  if (c.stillThere && !c.stillThere()) { closeMatchCentre(); return; }
+  mcRender(c, 1, false);
+  const text = c.headline ? c.headline() : '';
+  const el = c.overlay.querySelector('.mc-headline');
+  el.textContent = text || '';
+  el.hidden = !text;
+}
+
+// Draw the match centre as it stood at match time t.
+// label, when given, replaces the clock: 'QT', 'HT' and '3QT' during breaks.
+function mcRender(c, t, live, label) {
+  const { sport, tl, overlay, hCfg, aCfg } = c;
+  const S = MC_SPORT[sport];
+  const now = mcStateAt(sport, tl, t);
+  const periods = mcVisiblePeriods(tl, t, live);
+
+  ['home', 'away'].forEach(side => {
+    const el = overlay.querySelector('.mc-team-' + side);
+    el.querySelector('.mc-pts').textContent = now[side].points;
+    el.querySelector('.mc-gb').textContent = S.detail(now[side]);
+    const other = side === 'home' ? 'away' : 'home';
+    // Mid-game nobody has won yet, so neither side is dimmed.
+    el.classList.toggle('mc-won', live || now[side].points >= now[other].points);
+  });
+
+  const dash = overlay.querySelector('.mc-dash');
+  if (live) {
+    const { p, clock } = mcClockAt(tl, t);
+    dash.innerHTML = '<span class="mc-live">LIVE</span><span class="mc-clock">' + (label || S.clock(p, clock)) + '</span>';
+  } else {
+    const gp = tl.periods.some(p => p.label === 'GP');
+    dash.innerHTML = (now.home.points === now.away.points ? 'DRAW' : 'FT') +
+      (gp ? '<span class="mc-gp">Golden point</span>' : '');
+  }
+
+  // Finished periods from the timeline, the current one as it stands, the
+  // rest blank.
+  overlay.querySelector('.mc-quarters thead').innerHTML =
+    '<tr><th></th>' + periods.map(p => '<th>' + S.periodName(p) + '</th>').join('') + '</tr>';
+  const cell = (sc, side, cls) =>
+    `<td class="${cls}">${S.cellDetail(sc[side]) ? `<span class="mc-q-gb">${S.cellDetail(sc[side])}</span> ` : ''}<b>${sc[side].points}</b></td>`;
+  const row = (cfg, side) => {
+    const cells = periods.map(p => {
+      if (t >= p.end || (!live && t >= 1)) return cell(p.score, side, '');
+      if (t >= p.start) return cell(now, side, 'mc-q-live');
+      return '<td class="mc-q-empty">–</td>';
+    });
+    return `<tr><th scope="row"><img class="mc-q-logo" src="${cfg.logo || ''}" alt="${cfg.abbr || ''}" title="${cfg.abbr || ''}"></th>${cells.join('')}</tr>`;
+  };
+  overlay.querySelector('.mc-quarters tbody').innerHTML = row(hCfg, 'home') + row(aCfg, 'away');
+
+  overlay.querySelector('.mc-worm-wrap').innerHTML = mcWormSVG(c, t, live, periods);
+
+  const readout = overlay.querySelector('.mc-readout');
+  if (c.hoverT == null) { readout.innerHTML = '&nbsp;'; return; }
+  const ht = Math.min(c.hoverT, t);
+  const at = mcStateAt(sport, tl, ht);
+  const { p, clock } = mcClockAt(tl, ht);
+  const side = (cfg, sc) => cfg.abbr + ' ' + (sport === 'afl' ? S.detail(sc) + ' (' + sc.points + ')' : sc.points);
+  readout.textContent = S.clock(p, clock) + '  ·  ' + side(hCfg, at.home) + '  –  ' + side(aCfg, at.away);
+}
+
+// Worm geometry, shared by the drawing and the hover readout.
+// padL is the gutter left of the plot: the scale's numbers against the plot,
+// and each club's crest in the middle of its own half, clear of the worm.
+const MC_WORM = { w: 480, h: 200, padL: 72, padR: 8, padT: 8, padB: 8, labelW: 20 };
+
+// axisEnd is where the x axis stops: the full game, or the end of the second
+// half while a live game that will go to golden point hasn't got there yet.
+// The worm's height steps up through these as the margin grows: the smallest
+// one the biggest margin so far fits inside.
+const MC_WORM_SCALES = [6, 9, 18, 30, 50, 75, 100, 150, 200];
+
+function mcWormScale(sport, steps, axisEnd) {
+  let peak = 0;
+  steps.forEach(s => { peak = Math.max(peak, Math.abs(s.home - s.away)); });
+  const yMax = MC_WORM_SCALES.find(v => v >= peak) || Math.ceil(peak / 50) * 50;
+  const { w, h, padL, padR, padT, padB } = MC_WORM;
+  const innerW = w - padL - padR, innerH = h - padT - padB;
+  const mid = padT + innerH / 2;
+  return {
+    yMax, mid,
+    x: t => padL + (t / axisEnd) * innerW,
+    y: m => mid - (m / yMax) * (innerH / 2),
+  };
+}
+
+// The worm up to match time t. The axis always spans the whole game, so a
+// live worm grows across it; the scale only reflects what has happened so far.
+function mcWormSVG(c, upTo, live, periods) {
+  const { sport, tl, game, hCfg, aCfg } = c;
+  const S = MC_SPORT[sport];
+  const { w, h, padL, padR, padT, padB } = MC_WORM;
+  const steps = tl.steps.filter(s => s.t <= upTo);
+  const axisEnd = c.axisEnd = periods[periods.length - 1].end;
+  const sc = mcWormScale(sport, steps, axisEnd);
+  const col = mcWormColours(sport, game.home, game.away);
+
+  // Squared off: the margin holds flat until the next score, then jumps
+  // straight to the new one. Start level, run on to now (or the final siren).
+  const pts = [[0, 0]];
+  let prev = 0;
+  steps.forEach(s => {
+    const m = s.home - s.away;
+    pts.push([s.t, prev], [s.t, m]);
+    prev = m;
+  });
+  const endT = Math.min(upTo, axisEnd);
+  pts.push([endT, prev]);
+  const line = pts.map(([t, m], i) => (i ? 'L' : 'M') + sc.x(t).toFixed(1) + ' ' + sc.y(m).toFixed(1)).join(' ');
+  const area = line + ` L${sc.x(endT).toFixed(1)} ${sc.mid} L${sc.x(0).toFixed(1)} ${sc.mid} Z`;
+
+  const grid = [];
+  // Lines at the top, the middle and the bottom of each half, labelled at the
+  // top and bottom with the scale.
+  [-1, -0.5, 0, 0.5, 1].forEach(f => {
+    const m = f * sc.yMax;
+    const y = sc.y(m).toFixed(1);
+    grid.push(`<line x1="${padL}" x2="${w - padR}" y1="${y}" y2="${y}" class="${f === 0 ? 'mc-w-zero' : 'mc-w-grid'}"/>`);
+    if (f !== 0.5 && f !== -0.5) grid.push(`<text x="${padL - 5}" y="${y}" class="mc-w-ylab">${Math.abs(m)}</text>`);
+  });
+  // Alternate periods shaded, each one's name watermarked behind the worm.
+  // Golden point is too narrow for the big watermark, so it gets a small one.
+  const bands = [];
+  periods.forEach((p, i) => {
+    const x0 = sc.x(p.start), x1 = sc.x(p.end);
+    if (i % 2 === 0) bands.push(`<rect x="${x0}" y="${padT}" width="${x1 - x0}" height="${h - padT - padB}" class="mc-w-band"/>`);
+    const small = x1 - x0 < 80;
+    bands.push(`<text x="${(x0 + x1) / 2}" y="${small ? padT + 12 : sc.mid}" class="mc-w-qmark${small ? ' mc-w-qmark-sm' : ''}">${p.label}</text>`);
+  });
+  const head = live ? `<circle cx="${sc.x(endT).toFixed(1)}" cy="${sc.y(prev).toFixed(1)}" r="3.5" class="mc-w-head"/>` : '';
+  const cx = c.hoverT != null ? sc.x(Math.min(c.hoverT, endT)) : 0;
+  // A club's crest in the gutter at height y (the middle of its half), sitting
+  // just off the scale's numbers.
+  const gutter = padL - MC_WORM.labelW;
+  const crest = (cfg, y) => `<image href="${cfg.logo || ''}" x="${(gutter - S.logoW - 2).toFixed(1)}"
+    y="${(y - S.logoH / 2).toFixed(1)}" width="${S.logoW}" height="${S.logoH}" preserveAspectRatio="xMidYMid meet"><title>${cfg.abbr || ''}</title></image>`;
+  const cursor = c.hoverT != null
+    ? `<line class="mc-w-cursor" x1="${cx}" x2="${cx}" y1="${padT}" y2="${h - padB}"/>`
+    : '';
+
+  return `
+    <svg class="mc-worm" viewBox="0 0 ${w} ${h}" role="img"
+         aria-label="Score worm: margin through the match, ${hCfg.abbr} above the line, ${aCfg.abbr} below">
+      <defs>
+        <clipPath id="mc-clip-home"><rect x="0" y="0" width="${w}" height="${sc.mid}"/></clipPath>
+        <clipPath id="mc-clip-away"><rect x="0" y="${sc.mid}" width="${w}" height="${h - sc.mid}"/></clipPath>
+      </defs>
+      <rect x="${padL}" y="${padT}" width="${w - padL - padR}" height="${h - padT - padB}" class="mc-w-bg"/>
+      ${bands.join('')}
+      ${grid.join('')}
+      <path d="${area}" fill="${col.home}" clip-path="url(#mc-clip-home)" class="mc-w-area"/>
+      <path d="${area}" fill="${col.away}" clip-path="url(#mc-clip-away)" class="mc-w-area"/>
+      <path d="${line}" class="mc-w-line"/>
+      ${head}
+      ${crest(hCfg, padT + (h - padT - padB) / 4)}
+      ${crest(aCfg, padT + 3 * (h - padT - padB) / 4)}
+      ${cursor}
+      <rect class="mc-w-hit" x="${padL}" y="0" width="${w - padL - padR}" height="${h}"/>
+    </svg>`;
+}
+
+// ============================================================
+// UNIVERSE MODE
+// ============================================================
+// A season that plays itself on the real clock. universe.js owns the
+// calendar and the results; this is the screen. Nothing runs in the
+// background: every visit works out where everything is from the clock, and
+// a one-second tick keeps live games moving while the screen is open.
+
+// What differs between the AFL and NRL Universes. Each sport has its own
+// Universe, stored under its own key, started and reset on its own.
+const UNI_SPORTS = {
+  afl: {
+    name: 'AFL',
+    key: 'lp_universe_afl',
+    // The club identities a Universe uses: names, abbreviations and logos.
+    // It's also the season a 'Real world' start takes its ratings from.
+    seasonKey: 'afl2026',
+    clubs: () => aflSeasons.afl2026,
+    colour: t => AFL_TEAM_COLOURS[t],
+    venue: t => aflHomeGround(t, 2026),
+    schedule: ['12:00 · 2:30 · 4:00 · 6:30pm', '12:00 · 2:30 · 4:00 · 6:30 · 8:00pm'],
+    blurb: '24 rounds, then the wildcard round and finals',
+    showGB: true,
+  },
+  nrl: {
+    name: 'NRL',
+    key: 'lp_universe_nrl',
+    seasonKey: 'nrl2026',
+    clubs: () => seasons.nrl2026,
+    colour: t => (NRL_WORM_COLOURS[t] || [])[0],
+    venue: t => nrlHomeGround(t, 2026),
+    schedule: ['1:15 · 3:30 · 6:00 · 9:00pm', '12:45 · 2:00 · 4:30 · 7:00pm'],
+    blurb: '27 rounds with a bye each, then the top-eight finals',
+    showGB: false,
+  },
+};
+let uniSport = 'afl';         // the Universe on screen
+const uniStates = {};         // loaded Universes, by sport
+const UNI_TZ = 'Australia/Brisbane';
+const UNI_FINALS_NAMES = {
+  WC: 'Wildcard Round', W1: 'Finals Week 1', SF: 'Semi Finals', PF: 'Preliminary Finals', GF: 'Grand Final',
+};
+const UNI_FINAL_LABELS = {
+  WC1: 'Wildcard final', WC2: 'Wildcard final', QF1: 'Qualifying final', QF2: 'Qualifying final',
+  EF1: 'Elimination final', EF2: 'Elimination final', SF1: 'Semi final', SF2: 'Semi final',
+  PF1: 'Preliminary final', PF2: 'Preliminary final', GF: 'Grand Final',
+};
+
+let uniState = null;          // the loaded universe, or null if none started
+let uniView = 'games';        // 'games' | 'ladder' | 'records'
+let uniLadderFull = false;    // ladder: the short version, or every column
+let uniRecTab = 'history';    // records section: 'history' | 'records' | 'finals' | 'h2h'
+let uniH2H = [null, null];    // the two clubs head to head
+let uniPage = null;           // round index shown; past the last round = a finals stage
+let uniPageSeason = 0;        // the season uniPage belongs to
+let uniPageManual = false;    // stepped by hand: stay put; otherwise follow the clock
+let uniTimer = 0;
+let uniSig = '';              // what's on screen; a change means rebuild, not just update
+// Shifts the Universe's clock, for testing only. Always 0 in normal use.
+let uniClockOffset = 0;
+function uniNow() { return Date.now() + uniClockOffset; }
+
+function uniReady() { return simEngineReady() && !!window.LadderUniverse; }
+function uniCfg() { return UNI_SPORTS[uniSport]; }
+function uniScfg() { return uniState.config[uniState.sport]; }
+function uniTeamCfg(team) {
+  return (uniCfg().clubs().teamConfig[team]) || { abbr: team.slice(0, 4).toUpperCase(), logo: '' };
+}
+function uniColour(team) { return (team && uniCfg().colour(team)) || '#22223a'; }
+function uniSave() {
+  if (uniState) cloudStorage.setItem(uniCfg().key, JSON.stringify(uniState));
+}
+function uniLoad(sport) {
+  const raw = cloudStorage.getItem(UNI_SPORTS[sport || uniSport].key);
+  if (!raw) return null;
+  try {
+    const data = JSON.parse(raw);
+    return data ? window.LadderUniverse.attach(data) : null;
+  }
+  catch (e) { console.warn('Universe failed to load', e); return null; }
+}
+
+// Brisbane-time formatting.
+const uniFmtTime = new Intl.DateTimeFormat('en-AU', { timeZone: UNI_TZ, hour: 'numeric', minute: '2-digit', hour12: true });
+const uniFmtDay = new Intl.DateTimeFormat('en-AU', { timeZone: UNI_TZ, weekday: 'long', day: 'numeric', month: 'long' });
+function uniTime(ms) { return uniFmtTime.format(ms).replace(/\s/g, '').toLowerCase(); }
+function uniDay(ms) { return uniFmtDay.format(ms); }
+function uniCountdown(ms) {
+  const m = Math.max(0, Math.ceil(ms / 60000));
+  if (m < 60) return m + 'm';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + 'h ' + String(m % 60).padStart(2, '0') + 'm';
+  return Math.floor(h / 24) + 'd ' + (h % 24) + 'h';
+}
+
+function uniSeason() { return uniState && uniState.seasons[uniState.seasons.length - 1]; }
+function uniStages() { return uniScfg().finals; }
+function uniPageCount(season) { return season.rounds.length + uniStages().length; }
+function uniPageLabel(season, page) {
+  return page < season.rounds.length ? 'Round ' + (page + 1) : UNI_FINALS_NAMES[uniStages()[page - season.rounds.length].stage];
+}
+
+// The page to open on: the round (or finals day) being played or next up.
+function uniDefaultPage(season, now) {
+  const U = window.LadderUniverse;
+  const lastRoundEnd = U.roundEnd(uniState, season, season.rounds.length - 1);
+  if (now < lastRoundEnd) return U.currentRoundIdx(uniState, season, now);
+  let stage = 0;
+  while (stage < uniStages().length - 1 && now >= U.finalsStageStart(uniState, season, stage + 1)) stage++;
+  return season.rounds.length + stage;
+}
+
+// Every game on a page, as { key, home, away, kickoff, venue, prime, tag,
+// tl, status... }. Finals not yet drawn come back with home/away null.
+function uniGames(season, page, now) {
+  const U = window.LadderUniverse;
+  const scfg = uniScfg();
+  if (page < season.rounds.length) {
+    return U.roundView(uniState, season, page, now).map(g => Object.assign(g, {
+      key: 'R' + page + 'G' + g.gameIdx,
+      venue: uniCfg().venue(g.home),
+      tag: '',
+    }));
+  }
+  const si = page - season.rounds.length;
+  const stage = uniStages()[si];
+  return stage.games.map(([id, time]) => {
+    const f = season.finals[id];
+    const kickoff = f ? f.kickoff : U.finalKickoff(uniState, season, si, time);
+    const tl = f ? U.finalTimeline(uniState, season, id) : null;
+    const st = tl ? U.gameStatusAt(tl, kickoff, now, scfg)
+      : { status: 'upcoming', startsInMs: Math.max(0, kickoff - now) };
+    return Object.assign({
+      key: id, finalId: id, home: f ? f.home : null, away: f ? f.away : null, kickoff, tl,
+      venue: f ? (f.venue || uniCfg().venue(f.home)) : '', tag: UNI_FINAL_LABELS[id], prime: false,
+    }, st);
+  });
+}
+
+// ---------- show / tick ----------
+function uniShow() {
+  const root = document.getElementById('universe-content');
+  if (!uniReady()) {
+    root.innerHTML = '<div class="uni-wrap"><p class="uni-muted">Universe needs the simulation engine, which didn\'t load.</p></div>';
+    return;
+  }
+  if (saveRegistry && saveRegistry.uniSport && UNI_SPORTS[saveRegistry.uniSport]) uniSport = saveRegistry.uniSport;
+  uniState = uniStates[uniSport] = uniLoad();
+  uniPage = null;
+  uniPageManual = false;
+  uniSig = '';
+  uniRender();
+  uniStop();
+  uniTimer = setInterval(uniTick, 1000);
+}
+function uniStop() { clearInterval(uniTimer); uniTimer = 0; }
+
+function uniTick() {
+  if (!uniState) return;
+  if (window.LadderUniverse.advance(uniState, uniNow())) uniSave();
+  uniRender();
+}
+
+// The AFL | NRL switch at the top of the Universe screen.
+function uniSwitchSport(sport) {
+  if (sport === uniSport) return;
+  uniSport = sport;
+  if (saveRegistry) { saveRegistry.uniSport = sport; persistSaveRegistryNow(); }
+  if (!(sport in uniStates)) uniStates[sport] = uniLoad(sport);
+  uniState = uniStates[sport];
+  uniPage = null;
+  uniPageManual = false;
+  uniSig = '';
+  uniRender();
+}
+
+// startNow: Round 1 bounces in a minute. 'test': test mode on top of that —
+// whole rounds at once, back to back (see testGap in universe.js).
+function uniStart(startNow) {
+  const U = window.LadderUniverse;
+  if (uniState && !uniNotStarted(uniSeason())) return;
+  // Pulling forward a season that hasn't started keeps the start it was
+  // given; otherwise it's the start picked on this screen.
+  const prev = uniState && uniSeason();
+  const pick = prev ? {
+    seed: uniState.seed, preset: uniState.start, seeds: prev.seeds, consistency: prev.consistency,
+    stages: Object.fromEntries(Object.entries(prev.clubs || {}).map(([t, c]) => [t, c.stage])),
+  } : uniStartPick();
+  uniState = uniStates[uniSport] = U.createUniverse({
+    sport: uniSport, teams: uniCfg().clubs().teams, nowMs: uniNow(), startNow: !!startNow, test: startNow === 'test',
+    seed: pick.seed, start: pick.preset, seeds: pick.seeds, consistency: pick.consistency,
+    clubs: Object.fromEntries(Object.entries(pick.stages).map(([t, stage]) => [t, { stage }])),
+  });
+  uniStartState = null;
+  U.advance(uniState, uniNow());
+  uniSave();
+  uniPage = null;
+  uniSig = '';
+  uniRender();
+}
+
+// Off-season skip: the next season starts now instead of after the break.
+function uniNextSeason() {
+  if (!uniState || !window.LadderUniverse.startNextSeason(uniState, uniNow())) return;
+  uniSave();
+  uniPage = null;
+  uniPageManual = false;
+  uniSig = '';
+  uniRender();
+}
+
+function uniDelete() {
+  if (!confirm('Reset this Universe?\n\nEvery season it has played will be gone and you\'ll be back at the start screen. This cannot be undone.')) return;
+  uniState = uniStates[uniSport] = null;
+  cloudStorage.setItem(uniCfg().key, JSON.stringify(null));
+  uniSig = '';
+  uniRender();
+}
+
+// ---------- render ----------
+// Rebuilds the screen when what's on it changes shape (another page, a new
+// result decided, a final drawn); otherwise only the live bits are updated,
+// so logos don't reload and nothing jumps once a second.
+function uniRender() {
+  const root = document.getElementById('universe-content');
+  if (!uniState) {
+    const introSig = 'intro' + uniSport + '|' + uniStartVer;
+    if (uniSig !== introSig) { uniSig = introSig; root.innerHTML = uniIntroHTML(); uniWire(root); }
+    else uniUpdateIntro(root);
+    return;
+  }
+  const U = window.LadderUniverse;
+  if (U.advance(uniState, uniNow())) uniSave();
+  const now = uniNow();
+  const season = uniSeason();
+  // A new season starts on its current round, not where the last one was left.
+  if (uniPage == null || uniPageSeason !== season.n || uniPage >= uniPageCount(season) || !uniPageManual) {
+    uniPage = uniDefaultPage(season, now);
+    uniPageSeason = season.n;
+    uniPageManual = false;
+  }
+  const games = uniView === 'games' ? uniGames(season, uniPage, now) : [];
+  const sig = [uniSport, season.n, uniView, uniPage, uniNotStarted(season), U.seasonOver(uniState, season, now), games.map(g => g.key + (g.home || '') + (g.tl ? 1 : 0)).join(',')].join('|');
+  if (sig !== uniSig) {
+    uniSig = sig;
+    root.innerHTML = uniScreenHTML(season, games, now);
+    uniWire(root);
+  }
+  uniUpdate(root, season, games, now);
+}
+
+// AFL | NRL, at the top of every Universe screen.
+function uniSportTabsHTML() {
+  return `<div class="uni-sports" role="tablist">${Object.keys(UNI_SPORTS).map(sp =>
+    `<button type="button" role="tab" aria-selected="${sp === uniSport}" class="uni-sport${sp === uniSport ? ' active' : ''}"
+       data-act="sport" data-sport-key="${sp}">${UNI_SPORTS[sp].name}</button>`).join('')}</div>`;
+}
+
+// When Round 1 would start if the season were started now.
+function uniFirstBounce() {
+  const U = window.LadderUniverse;
+  const scfg = U.UNIVERSE_CONFIG[uniSport];
+  return U.slotMs(U.firstDay0(uniNow(), scfg), scfg.slots[0][0]);
+}
+
+function uniIntroHTML() {
+  const c = uniCfg();
+  const first = uniFirstBounce();
+  return `
+    <div class="uni-wrap">
+      ${uniSportTabsHTML()}
+      <div class="uni-eyebrow">${c.name} Universe</div>
+      <h1 class="uni-title">A season that plays itself</h1>
+      <p class="uni-copy">Every game kicks off at a real time and takes as long as a real game.
+        A round runs over two days: ${c.blurb}, a two-day break, and the next season.
+        Check in whenever you like.</p>
+      <div class="uni-intro-sched">
+        <div><span>Day 1</span>${c.schedule[0]}</div>
+        <div><span>Day 2</span>${c.schedule[1]}</div>
+      </div>
+      ${uniStartTalentHTML()}
+      <button type="button" class="uni-start" data-act="start">Start season</button>
+      <button type="button" class="uni-start uni-start-now" data-act="start-test">Test mode: all games at once</button>
+      <p class="uni-muted" data-intro-when>Round 1 starts ${uniDay(first)}, ${uniTime(first)} (Brisbane).</p>
+    </div>`;
+}
+function uniUpdateIntro(root) {
+  const el = root.querySelector('[data-intro-when]');
+  const first = uniFirstBounce();
+  if (el) el.textContent = 'Round 1 starts ' + uniDay(first) + ', ' + uniTime(first) + ' (Brisbane).';
+}
+
+function uniScreenHTML(season, games, now) {
+  const pages = uniPageCount(season);
+  const head = `
+    ${uniSportTabsHTML()}
+    <div class="uni-head">
+      <div>
+        <div class="uni-eyebrow">${uniCfg().name} Universe</div>
+        <div class="uni-title">Season ${season.n}</div>
+      </div>
+      <div class="uni-head-status" data-status></div>
+    </div>
+    <div class="uni-next" data-next></div>
+    <div class="uni-controls">
+      ${uniNotStarted(season) ? '<button type="button" class="uni-ctl uni-ctl-go" data-act="start-now">Start now</button>' : ''}
+      ${window.LadderUniverse.seasonOver(uniState, season, now) ? `<button type="button" class="uni-ctl uni-ctl-go" data-act="next-season">Start Season ${season.n + 1} now</button>` : ''}
+      <button type="button" class="uni-ctl" data-act="delete">Reset</button>
+    </div>
+    <div class="uni-tabs">
+      <button type="button" class="panel-toggle-btn${uniView === 'games' ? ' active' : ''}" data-act="view" data-view="games">Games</button>
+      <button type="button" class="panel-toggle-btn${uniView === 'ladder' ? ' active' : ''}" data-act="view" data-view="ladder">Ladder</button>
+      <button type="button" class="panel-toggle-btn${uniView === 'talent' ? ' active' : ''}" data-act="view" data-view="talent">Teams</button>
+      <button type="button" class="panel-toggle-btn${uniView === 'records' ? ' active' : ''}" data-act="view" data-view="records">Records</button>
+    </div>`;
+
+  if (uniView === 'ladder') {
+    return `<div class="uni-wrap">${head}<div data-ladder></div></div>`;
+  }
+  if (uniView === 'records') {
+    return `<div class="uni-wrap">${head}<div data-records></div></div>`;
+  }
+  if (uniView === 'talent') {
+    return `<div class="uni-wrap">${head}<div data-talent-view></div></div>`;
+  }
+
+  // Games, grouped by day.
+  let body = '', lastDay = '';
+  games.forEach(g => {
+    const day = uniDay(g.kickoff);
+    if (day !== lastDay) { body += `<div class="uni-day">${day}</div>`; lastDay = day; }
+    body += uniGameHTML(g);
+  });
+  return `
+    <div class="uni-wrap">
+      ${head}
+      <div class="uni-stepper">
+        <button type="button" class="uni-step" data-act="page" data-dir="-1" aria-label="Previous"${uniPage <= 0 ? ' disabled' : ''}>‹</button>
+        <div class="uni-step-label">${uniPageLabel(season, uniPage)}</div>
+        <button type="button" class="uni-step" data-act="page" data-dir="1" aria-label="Next"${uniPage >= pages - 1 ? ' disabled' : ''}>›</button>
+      </div>
+      ${uniOffseasonBannerHTML(season)}
+      <div class="uni-games">${body}</div>
+      ${uniByesHTML(season)}
+    </div>`;
+}
+
+// Who has the week off, under the round's games.
+function uniByesHTML(season) {
+  const list = (season.byes || [])[uniPage] || [];
+  if (uniPage >= season.rounds.length || !list.length) return '';
+  return `<div class="uni-byes"><span class="uni-byes-label">Bye</span>${list.map(t => {
+    const cfg = uniTeamCfg(t);
+    return `<span class="uni-bye"><span class="uni-crest uni-crest-xs"><img src="${cfg.logo}" alt=""></span>${t}</span>`;
+  }).join('')}</div>`;
+}
+
+// Before the very first bounce, the season can still be pulled forward.
+function uniNotStarted(season) {
+  return season.n === 1 && uniNow() < season.rounds[0][0].kickoff;
+}
+
+// One game, as a fixture card in the AFL's style: status tab, fixture, crests and scores,
+// result line, venue. Live and finished cards open the match centre.
+function uniGameHTML(g) {
+  const wash = (team, a) => (team && uniCfg().colour(team) ? uniCfg().colour(team) + a : 'transparent');
+  const side = (team, s) => {
+    const cfg = team ? uniTeamCfg(team) : null;
+    return {
+      crest: `<div><div class="uni-crest">${cfg && cfg.logo ? `<img src="${cfg.logo}" alt="">` : ''}</div>
+        <div class="uni-abbr">${cfg ? cfg.abbr : 'TBC'}</div></div>`,
+      score: `<div><div class="uni-score" data-score="${s}"></div><div class="uni-gb" data-gb="${s}"></div></div>`,
+    };
+  };
+  const h = side(g.home, 'home'), a = side(g.away, 'away');
+  const title = g.home ? `${g.home} v ${g.away}` : 'To be decided';
+  return `
+    <div class="uni-match" data-game="${g.key}" data-act="mc" data-key="${g.key}"
+         style="background-image: linear-gradient(90deg, ${wash(g.home, '5c')} 0%, transparent 40%, transparent 60%, ${wash(g.away, '5c')} 100%)">
+      <div class="uni-ribbon" data-ribbon></div>
+      ${g.tag ? `<div class="uni-mstage">${g.tag}</div>` : ''}
+      <div class="uni-mtitle">${title}</div>
+      <div class="uni-mrow">
+        ${h.crest}${h.score}<div class="uni-v">v</div>${a.score}${a.crest}
+      </div>
+      <div class="uni-mresult" data-result></div>
+      <div class="uni-mvenue">${g.venue || ''}</div>
+    </div>`;
+}
+
+const UNI_BREAK_NAMES = { QT: 'Quarter time', HT: 'Half time', '3QT': 'Three-quarter time' };
+
+// The live parts: clocks, scores, countdowns, the ladder.
+function uniUpdate(root, season, games, now) {
+  const U = window.LadderUniverse;
+  // Header: what's live, what's next — across the whole current day, not
+  // just the page being looked at.
+  const todayPage = uniDefaultPage(season, now);
+  const around = uniGames(season, todayPage, now);
+  const liveN = around.filter(g => g.status === 'live' || g.status === 'break').length;
+  const next = around.filter(g => g.status === 'upcoming').sort((a, b) => a.kickoff - b.kickoff)[0];
+  const st = root.querySelector('[data-status]');
+  if (st) st.innerHTML = liveN ? `<span class="uni-live-pill">${liveN} live</span>` : '';
+  const nx = root.querySelector('[data-next]');
+  if (nx) {
+    nx.textContent = next
+      ? (next.home ? `Next: ${uniTeamCfg(next.home).abbr} v ${uniTeamCfg(next.away).abbr}` : `Next: ${next.tag}`) +
+        ` · ${uniTime(next.kickoff)} · in ${uniCountdown(next.kickoff - now)}`
+      : (season.finals.GF ? (() => {
+        const first = U.seasonFirstKickoff(uniState, season.nextDay0, uniState.test);
+        return `Season ${season.n + 1} starts ${uniDay(first)}, ${uniTime(first)}`;
+      })() : '');
+  }
+
+  if (uniView === 'ladder') { uniRenderLadder(root, season, now); return; }
+  if (uniView === 'records') { uniRenderRecords(root, now); return; }
+  if (uniView === 'talent') { uniRenderTalent(root, season, now); return; }
+
+  games.forEach(g => {
+    const el = root.querySelector(`[data-game="${g.key}"]`);
+    if (!el) return;
+    const sc = g.tl ? mcStateAt(uniState.sport, g.tl, g.t) : null;
+    const on = g.status !== 'upcoming' && !!sc;
+    const live = g.status === 'live' || g.status === 'break';
+
+    const rib = el.querySelector('[data-ribbon]');
+    rib.className = 'uni-ribbon' + (live ? ' uni-r-live' : g.status === 'final' ? ' uni-r-ft' : '');
+    if (g.status === 'upcoming') rib.textContent = uniTime(g.kickoff);
+    else if (g.status === 'final') rib.textContent = 'Full time';
+    else rib.innerHTML = '<span class="uni-r-dot"></span>Live · ' +
+      (g.status === 'break' ? UNI_BREAK_NAMES[g.label] || g.label : MC_SPORT[uniState.sport].clock(g.period, g.clock));
+
+    ['home', 'away'].forEach(side => {
+      const other = side === 'home' ? 'away' : 'home';
+      const s = el.querySelector(`[data-score="${side}"]`);
+      s.textContent = on ? sc[side].points : '';
+      s.classList.toggle('uni-score-lost', g.status === 'final' && sc[side].points < sc[other].points);
+      el.querySelector(`[data-gb="${side}"]`).textContent = on && uniCfg().showGB ? sc[side].goals + '.' + sc[side].behinds : '';
+    });
+
+    let result = '';
+    if (!on) result = `Starts in ${uniCountdown(g.startsInMs)}`;
+    else {
+      const m = sc.home.points - sc.away.points;
+      const lead = m > 0 ? g.home : g.away;
+      if (g.status === 'final') result = m ? `${lead} won by ${Math.abs(m)}` : 'Match drawn';
+      else result = m ? `${lead} lead by ${Math.abs(m)}` : 'Scores level';
+    }
+    el.querySelector('[data-result]').textContent = result;
+
+    el.classList.toggle('uni-is-live', live);
+    const tappable = !!g.home;
+    el.classList.toggle('uni-clickable', tappable);
+    if (tappable) {
+      el.setAttribute('role', 'button');
+      el.tabIndex = 0;
+      el.setAttribute('aria-label', (on ? 'Match centre: ' : 'Pre-match: ') + g.home + ' v ' + g.away);
+    } else { el.removeAttribute('role'); el.removeAttribute('tabindex'); el.removeAttribute('aria-label'); }
+  });
+}
+
+// Each side's current run of results, from finished games: 'W3', 'L1', 'D1'.
+function uniStreak(season, team, now) {
+  const form = uniForm(season, team, now);
+  if (!form.length) return '';
+  const last = form[form.length - 1].res;
+  let n = 0;
+  for (let i = form.length - 1; i >= 0 && form[i].res === last; i--) n++;
+  return last + n;
+}
+
+function uniRenderLadder(root, season, now) {
+  const box = root.querySelector('[data-ladder]');
+  if (!box) return;
+  const nrl = uniState.sport === 'nrl';
+  // The live ladder: games in progress count as they stand.
+  const rows = window.LadderUniverse.ladderAt(uniState, season, now, { live: true });
+  const streaks = {};
+  rows.forEach(r => { streaks[r.team] = uniStreak(season, r.team, now); });
+  const sig = uniLadderFull + '|' + rows.map(r => r.team + r.p + r.b + r.pts + r.f + r.a + (r.live ? '*' : '') + streaks[r.team]).join(',');
+  if (box.dataset.sig === sig) return;
+  box.dataset.sig = sig;
+
+  // Columns: the short ladder fits a phone; "Extended" adds the rest of
+  // the manual ladder (points for and against) and scrolls sideways.
+  const pd = d => (d > 0 ? '+' : '') + d;
+  const pct = r => r.p ? (isFinite(r.pct) ? r.pct.toFixed(1) : '—') : '—';
+  const streakCell = r => {
+    const st = streaks[r.team];
+    return st ? `<span class="uni-streak uni-streak-${st[0]}">${st}</span>` : '—';
+  };
+  // Widths are set so the short NRL ladder, the widest, fits a 343px phone card.
+  const cols = [
+    { h: 'P', w: 22, v: r => r.p },
+    { h: 'W', w: 22, v: r => r.w },
+    { h: 'L', w: 22, v: r => r.l },
+    { h: 'D', w: 22, v: r => r.d },
+  ];
+  if (nrl) cols.push({ h: 'B', w: 22, v: r => r.b });
+  if (uniLadderFull) cols.push({ h: 'F', w: 38, v: r => r.f }, { h: 'A', w: 38, v: r => r.a });
+  cols.push(nrl ? { h: 'PD', w: 38, cls: 'uni-lpct', v: r => (r.p || r.b ? pd(r.diff) : '—') }
+                : { h: '%', w: 46, cls: 'uni-lpct', v: pct });
+  cols.push({ h: 'Streak', w: 40, v: streakCell });
+  cols.push({ h: 'Pts', w: 30, cls: 'uni-lpts', v: r => r.pts });
+  const grid = `grid-template-columns: 20px 50px minmax(44px, 1fr) ${cols.map(c => c.w + 'px').join(' ')};`;
+
+  // AFL: top 6 straight in, 7-10 to the wildcard round. NRL: top 8.
+  const cut = i => nrl ? (i === 7 ? ' uni-cut-top6' : '') : (i === 5 ? ' uni-cut-top6' : i === 9 ? ' uni-cut-wild' : '');
+  box.innerHTML = `
+    <div class="uni-ladder-bar">
+      <button type="button" class="uni-ctl" data-act="ladder-full" aria-pressed="${uniLadderFull}">${uniLadderFull ? 'Standard' : 'Extended'}</button>
+    </div>
+    <div class="uni-ladder${uniLadderFull ? ' uni-ladder-full' : ''}">
+      <div class="uni-ladder-scroll">
+        <div class="uni-lrow uni-lhead" style="${grid}"><span>#</span><span></span><span class="uni-lteam">Team</span>
+          ${cols.map(c => `<span class="${c.cls || ''}">${c.h}</span>`).join('')}</div>
+        ${rows.map((r, i) => {
+          const cfg = uniTeamCfg(r.team);
+          return `<div class="uni-lrow${cut(i)}" style="${grid}"><span class="uni-lpos">${i + 1}</span>
+            <span class="uni-llogo"><span class="uni-crest uni-crest-sm"><img src="${cfg.logo}" alt=""></span></span>
+            <span class="uni-lteam">${cfg.abbr}${r.live ? '<span class="uni-ldot" title="Playing now"></span>' : ''}</span>
+            ${cols.map(c => `<span class="${c.cls || ''}">${c.v(r)}</span>`).join('')}</div>`;
+        }).join('')}
+      </div>
+      <div class="uni-lkey">${nrl
+        ? '<span class="uni-key-top6"></span>Top 8 make the finals'
+        : '<span class="uni-key-top6"></span>Top 6 straight into finals <span class="uni-key-wild"></span>7–10 wildcard round'}
+        <span class="uni-ldot uni-ldot-key"></span>Live</div>
+    </div>`;
+  uniWire(box);
+}
+
+// ---------- talent ----------
+// Season 1's talent is picked on the start screen; every season after that
+// works its own out (see talent in universe.js).
+const UNI_TALENT_PRESETS = [
+  { id: 'real', name: 'Real world', blurb: 'Every club as it stands in the predictor, carried into a new season.' },
+  { id: 'level', name: 'Level', blurb: 'Everyone starts dead even. A pecking order sorts itself out within a few seasons.' },
+  { id: 'random', name: 'Random', blurb: 'A fresh pecking order, drawn at random.' },
+];
+let uniStartState = null;     // { sport, preset, seed, seeds, consistency, stages, editing } while on the start screen
+let uniStartVer = 0;          // bumped when the picker needs redrawing
+
+function uniStartPick() {
+  if (!uniStartState || uniStartState.sport !== uniSport) {
+    uniStartState = { sport: uniSport, preset: 'real', seed: uniNewSeed(), seeds: null, consistency: null, stages: {}, editing: false };
+    uniStartState.seeds = uniPresetTalent('real', uniStartState.seed);
+    uniStartState.consistency = uniPresetConsistency('real', uniStartState.seed);
+  }
+  return uniStartState;
+}
+function uniNewSeed() { return String(Math.floor(Math.random() * 1e9)); }
+
+function uniPresetTalent(preset, seed) {
+  const teams = uniCfg().clubs().teams;
+  if (preset === 'real') {
+    const real = uniRealTalent();
+    if (real) return real;
+  }
+  return window.LadderUniverse.startingTalent(teams, preset === 'real' ? 'level' : preset, seed);
+}
+
+// Consistency for a preset. Level puts everyone on balanced; Real world keeps
+// any a club has been given in the predictor's Season Preview; the rest are
+// drawn.
+function uniPresetConsistency(preset, seed) {
+  const U = window.LadderUniverse;
+  const teams = uniCfg().clubs().teams;
+  const drawn = U.startingConsistency(teams, seed);
+  const levels = U.consistencyLevels();
+  const set = preset === 'real' ? (getSeedInputs(uniSport, uniCfg().seasonKey) || {}) : {};
+  const out = {};
+  teams.forEach(t => {
+    const c = set[t] && set[t].consistency;
+    out[t] = preset === 'level' ? window.LadderSim.SIM_CONFIG.common.DEFAULT_CONSISTENCY
+      : levels.indexOf(c) >= 0 ? c : drawn[t];
+  });
+  return out;
+}
+const UNI_CONSISTENCY_NAMES = { volatile: 'Volatile', streaky: 'Streaky', balanced: 'Balanced', steady: 'Steady', ruthless: 'Ruthless' };
+
+// Where each club stands in the predictor: its seeds for the season the
+// Universe takes its clubs from, moved by every result entered so far, then
+// pulled toward the middle as a new season would be.
+function uniRealTalent() {
+  const LS = window.LadderSim, config = LS.SIM_CONFIG;
+  const s = uniCfg().clubs();
+  try {
+    const seeds = LS.computeSeeds({ sport: uniSport, seasonKey: uniCfg().seasonKey, archive: simArchive(uniSport), config });
+    const end = LS.computeRatings({
+      teams: s.teams, rounds: s.rounds, scores: s.scores || {}, seeds, config, sport: uniSport,
+    }).current;
+    const out = {};
+    s.teams.forEach(t => {
+      const r = LS.regressToMean(end[t], config.common);
+      out[t] = { att: Math.round(r.att * 10) / 10, def: Math.round(r.def * 10) / 10 };
+    });
+    return out;
+  } catch (e) { console.warn('Real-world talent unavailable', e); return null; }
+}
+
+function uniStartSetPreset(preset, reroll) {
+  const pick = uniStartPick();
+  if (reroll || preset === 'random') pick.seed = uniNewSeed();
+  pick.preset = preset;
+  pick.seeds = uniPresetTalent(preset, pick.seed);
+  pick.consistency = uniPresetConsistency(preset, pick.seed);
+  pick.stages = {};
+  uniStartVer++;
+  uniRender();
+}
+
+// A typed rating makes it a custom start; only the touched row redraws, so the
+// field keeps focus.
+function uniStartEditInput(e) {
+  const inp = e.target, pick = uniStartPick();
+  const t = inp.dataset.talentTeam, k = inp.dataset.talentKey;
+  if (k === 'consistency') {
+    pick.consistency[t] = inp.value;
+  } else if (k === 'stage') {
+    if (inp.value) pick.stages[t] = inp.value; else delete pick.stages[t];
+  } else {
+    const v = Math.max(2, Math.min(98, Number(inp.value)));
+    if (!Number.isFinite(Number(inp.value)) || inp.value === '') return;
+    pick.seeds[t] = Object.assign({}, pick.seeds[t], { [k]: v });
+  }
+  pick.preset = 'custom';
+  const row = inp.closest('.uni-tedit-club');
+  const ovr = row && row.querySelector('[data-ovr]');
+  if (ovr) ovr.innerHTML = uniTalentNum((pick.seeds[t].att + pick.seeds[t].def) / 2);
+  const wrap = inp.closest('.uni-tpick');
+  if (wrap) {
+    wrap.querySelectorAll('[data-preset]').forEach(b => b.classList.remove('active'));
+    const reroll = wrap.querySelector('[data-act="talent-reroll"]');
+    if (reroll) reroll.remove();
+    const blurb = wrap.querySelector('[data-tblurb]');
+    if (blurb) blurb.textContent = 'Your own start, edited by hand.';
+  }
+}
+
+// A rating, coloured by how far it sits from the league average.
+function uniTalentNum(v) {
+  const d = v - window.LadderSim.SIM_CONFIG.common.MEAN;
+  const cls = d >= 9 ? 'uni-t-hi' : d >= 3 ? 'uni-t-up' : d <= -9 ? 'uni-t-lo' : d <= -3 ? 'uni-t-down' : '';
+  return `<span class="${cls}">${Math.round(v)}</span>`;
+}
+
+function uniStartTalentHTML() {
+  const pick = uniStartPick();
+  const preset = UNI_TALENT_PRESETS.find(p => p.id === pick.preset);
+  const ovs = Object.values(pick.seeds).map(r => r.att + r.def);
+  const flat = Math.max(...ovs) - Math.min(...ovs) < 2;
+  const blurb = !preset ? 'Your own start, edited by hand.'
+    : preset.blurb + (pick.preset === 'real' && flat ? ' No results in the predictor yet, so everyone comes out level.' : '');
+  const teams = uniCfg().clubs().teams.slice()
+    .sort((a, b) => (pick.seeds[b].att + pick.seeds[b].def) - (pick.seeds[a].att + pick.seeds[a].def));
+  const U = window.LadderUniverse;
+  const table = !pick.editing ? '' : `
+    <div class="uni-ladder uni-tedit">
+      <div class="uni-trow uni-lhead"><span></span><span class="uni-lteam">Team</span><span>ATT</span><span>DEF</span><span>OVR</span></div>
+      ${teams.map(t => {
+        const cfg = uniTeamCfg(t), r = pick.seeds[t];
+        const field = k => `<input class="uni-tinput" type="number" inputmode="numeric" min="2" max="98" step="1"
+          value="${Math.round(r[k])}" data-talent-team="${t}" data-talent-key="${k}" aria-label="${t} ${k === 'att' ? 'attack' : 'defence'}">`;
+        return `<div class="uni-tedit-club">
+          <div class="uni-trow"><span class="uni-llogo"><span class="uni-crest uni-crest-sm"><img src="${cfg.logo}" alt=""></span></span>
+            <span class="uni-lteam">${cfg.abbr}</span>${field('att')}${field('def')}<span data-ovr>${uniTalentNum((r.att + r.def) / 2)}</span></div>
+          <div class="uni-tedit-sub">
+            <select class="uni-tinput uni-tselect" data-talent-team="${t}" data-talent-key="stage" aria-label="${t} list stage">
+              <option value="">Stage: auto</option>
+              ${U.STAGES.map(st => `<option value="${st}"${pick.stages[t] === st ? ' selected' : ''}>${U.STAGE_NAMES[st]}</option>`).join('')}
+            </select>
+            <select class="uni-tinput uni-tselect" data-talent-team="${t}" data-talent-key="consistency" aria-label="${t} consistency">
+              ${U.consistencyLevels().map(c => `<option value="${c}"${pick.consistency[t] === c ? ' selected' : ''}>${UNI_CONSISTENCY_NAMES[c] || c}</option>`).join('')}
+            </select>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    <p class="uni-muted">Stage is where a club's list is in its cycle, and sets which way it heads. Auto picks one to suit its rating. Coaches are appointed when the Universe starts.</p>`;
+  return `
+    <div class="uni-tpick">
+      <div class="uni-eyebrow">Starting point</div>
+      <div class="uni-subtabs">
+        ${UNI_TALENT_PRESETS.map(p => `<button type="button" class="uni-subtab${pick.preset === p.id ? ' active' : ''}"
+          data-act="talent-preset" data-preset="${p.id}">${p.name}</button>`).join('')}
+      </div>
+      <p class="uni-muted" data-tblurb>${blurb}</p>
+      <div class="uni-controls uni-tctl">
+        <button type="button" class="uni-ctl" data-act="talent-edit" aria-pressed="${pick.editing}">${pick.editing ? 'Hide clubs' : 'Edit clubs'}</button>
+        ${pick.preset === 'random' ? '<button type="button" class="uni-ctl" data-act="talent-reroll">Re-roll</button>' : ''}
+      </div>
+      ${table}
+    </div>`;
+}
+
+// The Teams tab: the off-season's news, then every club's strength for the
+// season, its stage, how its results compare, and its consistency. Tap a club
+// for its coach and its off-season.
+let uniTeamOpen = null;       // the club whose details are showing
+let uniOffseasonAll = false;  // the whole off-season list, not just the top
+
+function uniOffseasonItems(events, limit) {
+  return events.slice(0, limit).map(e => {
+    const cfg = uniTeamCfg(e.team);
+    return `<div class="uni-off-row"><span class="uni-crest uni-crest-xs"><img src="${cfg.logo}" alt=""></span>
+      <span class="uni-off-kind uni-off-${e.kind}"></span><span>${e.text}</span></div>`;
+  }).join('');
+}
+
+// The top of the off-season on the Games tab, for the first two rounds.
+function uniOffseasonBannerHTML(season) {
+  const ev = season.offseason || [];
+  if (!ev.length || uniPage > 1) return '';
+  const coaches = ev.filter(e => e.kind === 'coach').length;
+  const moves = ev.filter(e => e.kind === 'trade' || e.kind === 'free-agent').length;
+  return `<div class="uni-rec uni-off">
+    <div class="uni-rec-title">Season ${season.n} off-season · ${coaches} coaching change${coaches === 1 ? '' : 's'} · ${moves} trade${moves === 1 ? '' : 's'}</div>
+    ${uniOffseasonItems(ev, 3)}
+    <button type="button" class="uni-ctl uni-off-more" data-act="view" data-view="talent">All off-season news</button>
+  </div>`;
+}
+
+function uniRenderTalent(root, season, now) {
+  const box = root.querySelector('[data-talent-view]');
+  if (!box) return;
+  const U = window.LadderUniverse;
+  const view = U.talentView(uniState, season, now);
+  const rows = Object.keys(view).map(t => Object.assign({ team: t }, view[t]))
+    .sort((a, b) => b.overall - a.overall);
+  const sig = [uniTeamOpen, uniOffseasonAll].concat(rows.map(r => r.team + r.form.toFixed(1) + r.games)).join(',');
+  if (box.dataset.sig === sig) return;
+  box.dataset.sig = sig;
+  // Form: how far results have this club above or below its true level.
+  const form = r => {
+    if (!r.games || Math.abs(r.form) < 0.5) return '<span class="uni-lpos">–</span>';
+    return `<span class="${r.form > 0 ? 'uni-streak-W' : 'uni-streak-L'}">${r.form > 0 ? '▲' : '▼'}${Math.abs(r.form).toFixed(0)}</span>`;
+  };
+  // Measured swing, against the league's this season: green is a side doing
+  // what its strength says week to week, red one that's all over the place.
+  const played = rows.filter(r => r.games);
+  const avg = played.length ? played.reduce((a, r) => a + r.swing, 0) / played.length : 0;
+  const swing = r => {
+    if (!r.games) return '<span class="uni-tswing uni-tswing-n">–</span>';
+    const rel = r.swing / avg;
+    const cls = r.games < 3 ? '' : rel <= 0.85 ? 'uni-t-hi' : rel <= 0.95 ? 'uni-t-up' : rel >= 1.15 ? 'uni-t-lo' : rel >= 1.05 ? 'uni-t-down' : '';
+    return `<span class="uni-tswing ${cls || 'uni-tswing-n'}">±${Math.round(r.swing)}</span>`;
+  };
+  const sign = v => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1);
+  const detail = r => {
+    const co = r.coach;
+    const nth = n => n + (n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th');
+    const ev = r.events.length
+      ? r.events.map(e => `<div class="uni-off-row"><span class="uni-off-kind uni-off-${e.kind}"></span><span>${e.text}</span></div>`).join('')
+      : '<div class="uni-rec-empty">A quiet off-season.</div>';
+    return `<div class="uni-tdetail">
+      <div class="uni-hist-line"><span class="uni-hist-label">Coach</span><span>${co.name}</span>
+        <span class="uni-hist-extra">${r.coachGrade} · ${nth(co.years)} season</span></div>
+      <div class="uni-hist-line"><span class="uni-hist-label">Strength</span><span>List ${Math.round(r.list)}</span>
+        <span class="uni-hist-extra">coach ${sign(r.coachEffect)}${Math.abs(r.overall - r.list - r.coachEffect) >= 0.5 ? ` · injuries ${sign(r.overall - r.list - r.coachEffect)}` : ''}</span></div>
+      <div class="uni-hist-line"><span class="uni-hist-label">Stage</span><span>${r.stageName}</span></div>
+      ${season.n > 1 ? `<div class="uni-tdetail-head">Off-season</div>${ev}` : ''}
+    </div>`;
+  };
+  const ev = season.offseason || [];
+  const news = !ev.length ? '' : `<div class="uni-rec uni-off">
+    <div class="uni-rec-title">Season ${season.n} off-season</div>
+    ${uniOffseasonItems(ev, uniOffseasonAll ? ev.length : 6)}
+    ${ev.length > 6 ? `<button type="button" class="uni-ctl uni-off-more" data-act="offseason-all">${uniOffseasonAll ? 'Show less' : `Show all ${ev.length}`}</button>` : ''}
+  </div>`;
+  box.innerHTML = `${news}
+    <div class="uni-ladder">
+      <div class="uni-trow uni-trow-view uni-lhead"><span>#</span><span></span><span class="uni-lteam">Team</span>
+        <span>ATT</span><span>DEF</span><span>OVR</span><span>Consist.</span></div>
+      ${rows.map((r, i) => {
+        const cfg = uniTeamCfg(r.team), open = uniTeamOpen === r.team;
+        return `<div class="uni-trow uni-trow-view uni-trow-tap${open ? ' open' : ''}" data-act="team-open" data-team="${r.team}" role="button" tabindex="0" aria-expanded="${open}">
+          <span class="uni-lpos">${i + 1}</span>
+          <span class="uni-llogo"><span class="uni-crest uni-crest-sm"><img src="${cfg.logo}" alt=""></span></span>
+          <span class="uni-lteam">${cfg.abbr}<span class="uni-tlabel uni-stage-${r.stage}">${r.stageName}</span></span>
+          <span>${uniTalentNum(r.att)}</span><span>${uniTalentNum(r.def)}</span>
+          <span class="uni-tstack"><span class="uni-lpts">${uniTalentNum(r.overall)}</span><span class="uni-tdelta">${form(r)}</span></span>
+          <span class="uni-tstack"><span class="uni-tcons uni-tcons-${r.consistency}">${UNI_CONSISTENCY_NAMES[r.consistency] || r.consistency}</span>${swing(r)}</span></div>
+          ${open ? detail(r) : ''}`;
+      }).join('')}
+    </div>
+    <p class="uni-muted">Ratings are each club's true strength for the season: its list plus its coach, set before Round 1. 50 is league average. Results don't change it; the ▲/▼ under OVR is form, how far results have the club playing above or below that.</p>
+    <p class="uni-muted">Stage is where the list is in its cycle: Rebuilding → Emerging → Contending → Peak → Ageing, and round again. Each off-season it moves clubs up or down, the bottom sides get draft help, coaches are sacked or kept, and trades, free agents, retirements and injuries shake things up.</p>
+    <p class="uni-muted">Consistency is how much results wobble around that strength: Volatile sides are all over the place, Ruthless ones do what they should. The ± is how far, on average, its margins have missed expectation this season (green is steadier than the league, red wilder).</p>`;
+  uniWire(box);
+}
+
+// ---------- records ----------
+// Built from finished games only — a game counts once its siren has gone on
+// the clock, so records never give anything away early. Home-and-away games
+// and finals, across every season this Universe has played.
+function uniFinishedGames(now) {
+  const U = window.LadderUniverse, LS = window.LadderSim;
+  const scfg = uniScfg();
+  const maxMs = scfg.maxGameMins * 60000;
+  const out = [];
+  const add = (season, g, sc, kickoff, label, finalId, makeTl) => {
+    let tl = null;
+    const getTl = () => tl || (tl = makeTl());
+    if (now < kickoff) return;
+    if (now < kickoff + maxMs && U.gameStatusAt(getTl(), kickoff, now, scfg).status !== 'final') return;
+    out.push({ n: season.n, label, finalId, home: g.home, away: g.away, hs: sc.home, as: sc.away, kickoff, tl: getTl });
+  };
+  uniState.seasons.forEach(season => {
+    season.rounds.forEach((round, r) => round.forEach((g, i) => {
+      const sc = season.scores[LS.scoreKey(r, i)];
+      if (sc) add(season, g, sc, g.kickoff, 'R' + (r + 1), null, () => U.timelineFor(uniState, season, r, i));
+    }));
+    Object.keys(season.finals).forEach(id => {
+      const f = season.finals[id];
+      if (f && f.score) add(season, f, f.score, f.kickoff, id, id, () => U.finalTimeline(uniState, season, id));
+    });
+  });
+  return out.sort((a, b) => a.kickoff - b.kickoff);
+}
+
+function uniCrestHTML(team, size) {
+  const cfg = uniTeamCfg(team);
+  return `<span class="uni-crest ${size || 'uni-crest-xs'}"><img src="${cfg.logo}" alt=""></span>`;
+}
+function uniRecSection(title, body) {
+  return `<div class="uni-rec"><div class="uni-rec-title">${title}</div>${body || '<div class="uni-rec-empty">Nothing yet.</div>'}</div>`;
+}
+// One ranked game: winner first, the score, the loser, where and when.
+function uniRecGameRow(i, g, meta) {
+  const homeWon = g.hs >= g.as;
+  const [w, l, ws, ls] = homeWon ? [g.home, g.away, g.hs, g.as] : [g.away, g.home, g.as, g.hs];
+  return `<div class="uni-rec-row"><span class="uni-rec-rank">${i + 1}</span>
+    <span class="uni-rec-team">${uniCrestHTML(w)}${uniTeamCfg(w).abbr}</span>
+    <span class="uni-rec-score">${ws}–${ls}</span>
+    <span class="uni-rec-team">${uniCrestHTML(l)}${uniTeamCfg(l).abbr}</span>
+    <span class="uni-rec-meta">S${g.n} · ${g.label}${meta ? ' · ' + meta : ''}</span></div>`;
+}
+function uniRecTeamRow(i, team, value, meta) {
+  return `<div class="uni-rec-row"><span class="uni-rec-rank">${i + 1}</span>
+    <span class="uni-rec-team uni-rec-team-wide">${uniCrestHTML(team)}${team}</span>
+    <span class="uni-rec-score">${value}</span>
+    <span class="uni-rec-meta">${meta || ''}</span></div>`;
+}
+
+function uniRenderRecords(root, now) {
+  const box = root.querySelector('[data-records]');
+  if (!box) return;
+  const games = uniFinishedGames(now);
+  const sig = [uniSport, uniRecTab, games.length, uniH2H.join('|')].join('/');
+  if (box.dataset.sig === sig) return;
+  box.dataset.sig = sig;
+
+  const tabs = [['history', 'History'], ['records', 'Records'], ['finals', 'Finals'], ['h2h', 'Head to head']];
+  const nav = `<div class="uni-subtabs">${tabs.map(([k, label]) =>
+    `<button type="button" class="uni-subtab${k === uniRecTab ? ' active' : ''}" data-act="rectab" data-tab="${k}">${label}</button>`).join('')}</div>`;
+  const body = uniRecTab === 'history' ? uniRecHistoryHTML(games, now)
+    : uniRecTab === 'records' ? uniRecRecordsHTML(games)
+    : uniRecTab === 'finals' ? uniRecFinalsHTML(games)
+    : uniRecH2HHTML(games);
+  box.innerHTML = nav + body;
+  uniWire(box);
+  box.querySelectorAll('select[data-h2h]').forEach(sel => sel.addEventListener('change', () => {
+    uniH2H[Number(sel.dataset.h2h)] = sel.value;
+    uniRenderRecords(root, uniNow());
+  }));
+}
+
+// Season by season: the premiers and the rest of the honour roll.
+function uniRecHistoryHTML(games, now) {
+  const U = window.LadderUniverse;
+  const cards = uniState.seasons.slice().reverse().map(season => {
+    const gf = games.find(g => g.n === season.n && g.finalId === 'GF');
+    const hnaDone = now >= U.roundEnd(uniState, season, season.rounds.length - 1);
+    const ladder = hnaDone ? U.ladderAt(uniState, season, Infinity) : null;
+    const line = (label, team, extra) => `<div class="uni-hist-line"><span class="uni-hist-label">${label}</span>
+      ${team ? `<span class="uni-rec-team">${uniCrestHTML(team)}${team}</span>${extra ? `<span class="uni-hist-extra">${extra}</span>` : ''}` : '<span class="uni-hist-extra">—</span>'}</div>`;
+    let lines = '';
+    if (gf) {
+      const [w, l, ws, ls] = gf.hs > gf.as ? [gf.home, gf.away, gf.hs, gf.as] : [gf.away, gf.home, gf.as, gf.hs];
+      lines += `<div class="uni-hist-premier">${uniCrestHTML(w, 'uni-crest-sm')}<div><div class="uni-hist-label">Premiers</div><div class="uni-hist-team">${w}</div>
+        <div class="uni-hist-extra">def. ${l} ${ws}–${ls}</div></div></div>`;
+    } else {
+      const page = uniDefaultPage(season, now);
+      lines += `<div class="uni-hist-extra">In progress · ${uniPageLabel(season, page)}</div>`;
+    }
+    if (ladder) {
+      lines += line('Minor premiers', ladder[0].team, ladder[0].pts + ' pts');
+      lines += line('Wooden spoon', ladder[ladder.length - 1].team, ladder[ladder.length - 1].pts + ' pts');
+    }
+    return `<div class="uni-rec"><div class="uni-rec-title">Season ${season.n}</div>${lines}</div>`;
+  });
+  return cards.join('');
+}
+
+function uniRecRecordsHTML(games) {
+  const scfg = uniScfg();
+  const isAfl = uniState.sport === 'afl';
+  const decided = games.filter(g => g.hs !== g.as);
+  const top = (list, key, n) => list.slice().sort((a, b) => key(b) - key(a)).slice(0, n || 5);
+
+  const wins = top(decided, g => Math.abs(g.hs - g.as)).map((g, i) => uniRecGameRow(i, g, '+' + Math.abs(g.hs - g.as))).join('');
+  const high = top(games, g => g.hs + g.as).map((g, i) => uniRecGameRow(i, g, (g.hs + g.as) + ' total')).join('');
+  const low = top(games, g => -(g.hs + g.as)).map((g, i) => uniRecGameRow(i, g, (g.hs + g.as) + ' total')).join('');
+
+  const teamScores = [];
+  games.forEach(g => { teamScores.push({ team: g.home, v: g.hs, g }); teamScores.push({ team: g.away, v: g.as, g }); });
+  const sideRow = (x, i) => uniRecTeamRow(i, x.team, x.v, `v ${uniTeamCfg(x.team === x.g.home ? x.g.away : x.g.home).abbr} · S${x.g.n} · ${x.g.label}`);
+  const highTeam = top(teamScores, x => x.v).map(sideRow).join('');
+  const lowTeam = top(teamScores, x => -x.v).map(sideRow).join('');
+
+  // Comebacks: the biggest deficit the winner overturned — at any point, and
+  // for the AFL at each break too.
+  const comeback = periodIdx => top(decided.map(g => {
+    const tl = g.tl();
+    const w = g.hs > g.as ? 'home' : 'away', l = w === 'home' ? 'away' : 'home';
+    let d = 0;
+    if (periodIdx == null) tl.steps.forEach(st => { d = Math.max(d, st[l] - st[w]); });
+    else { const p = tl.periods[periodIdx]; d = p ? p.score[l].points - p.score[w].points : 0; }
+    return { g, d };
+  }).filter(x => x.d > 0), x => x.d).map((x, i) => uniRecGameRow(i, x.g, 'down ' + x.d)).join('');
+
+  // Streaks, in the order games were played, finals included.
+  const runs = {};
+  const best = { W: [], L: [] };
+  games.forEach(g => [[g.home, g.hs - g.as], [g.away, g.as - g.hs]].forEach(([t, m]) => {
+    const res = m > 0 ? 'W' : m < 0 ? 'L' : 'D';
+    const r = runs[t] && runs[t].res === res ? runs[t] : (runs[t] = { res, len: 0, from: g });
+    r.len++;
+    r.to = g;
+    if (res !== 'D') best[res].push({ team: t, len: r.len, from: r.from, to: g, run: r });
+  }));
+  const streak = res => {
+    // Keep each run once, at its longest.
+    const seen = new Map();
+    best[res].forEach(x => { const k = x.run; if (!seen.has(k) || seen.get(k).len < x.len) seen.set(k, x); });
+    return top([...seen.values()], x => x.len).map((x, i) =>
+      uniRecTeamRow(i, x.team, x.len, `S${x.from.n} ${x.from.label} – S${x.to.n} ${x.to.label}`)).join('');
+  };
+  const draws = games.filter(g => g.hs === g.as);
+
+  return uniRecSection('Biggest wins', wins) +
+    uniRecSection('Biggest comebacks', comeback(null)) +
+    (isAfl ? uniRecSection('Comebacks from quarter time', comeback(0)) +
+      uniRecSection('Comebacks from half time', comeback(1)) +
+      uniRecSection('Comebacks from three-quarter time', comeback(2))
+      : uniRecSection('Comebacks from half time', comeback(0))) +
+    uniRecSection('Highest scoring games', high) +
+    uniRecSection('Lowest scoring games', low) +
+    uniRecSection('Highest team scores', highTeam) +
+    uniRecSection('Lowest team scores', lowTeam) +
+    uniRecSection('Longest winning streaks', streak('W')) +
+    uniRecSection('Longest losing streaks', streak('L')) +
+    uniRecSection(`Draws (${draws.length})`, draws.slice().reverse().map((g, i) => uniRecGameRow(i, g, 'draw')).join(''));
+}
+
+// Club by club: flags, grand finals, finals record.
+function uniRecFinalsHTML(games) {
+  const rows = {};
+  const row = t => rows[t] = rows[t] || { team: t, flags: 0, gfs: 0, w: 0, l: 0 };
+  games.filter(g => g.finalId).forEach(g => {
+    const homeWon = g.hs > g.as;
+    const w = homeWon ? g.home : g.away, l = homeWon ? g.away : g.home;
+    row(w).w++; row(l).l++;
+    if (g.finalId === 'GF') { row(w).flags++; row(w).gfs++; row(l).gfs++; }
+  });
+  const list = Object.values(rows).sort((a, b) => b.flags - a.flags || b.gfs - a.gfs || b.w - a.w || a.l - b.l);
+  if (!list.length) return uniRecSection('Finals', '');
+  return `<div class="uni-rec"><div class="uni-rec-title">Finals by club</div>
+    <div class="uni-fin-row uni-fin-head"><span></span><span>Flags</span><span>GFs</span><span>W–L</span></div>
+    ${list.map(r => `<div class="uni-fin-row"><span class="uni-rec-team">${uniCrestHTML(r.team)}${r.team}</span>
+      <span class="uni-fin-flags">${r.flags || '–'}</span><span>${r.gfs || '–'}</span><span>${r.w}–${r.l}</span></div>`).join('')}</div>`;
+}
+
+function uniRecH2HHTML(games) {
+  const teams = uniState.teams.slice().sort();
+  if (!uniH2H[0] || !teams.includes(uniH2H[0])) uniH2H[0] = teams[0];
+  if (!uniH2H[1] || !teams.includes(uniH2H[1]) || uniH2H[1] === uniH2H[0]) uniH2H[1] = teams.find(t => t !== uniH2H[0]);
+  const [a, b] = uniH2H;
+  const pick = (idx, val) => `<select class="uni-select" data-h2h="${idx}" aria-label="Club ${idx + 1}">${teams.map(t =>
+    `<option value="${t}"${t === val ? ' selected' : ''}>${t}</option>`).join('')}</select>`;
+  const met = games.filter(g => (g.home === a && g.away === b) || (g.home === b && g.away === a));
+  let aw = 0, bw = 0, d = 0;
+  met.forEach(g => {
+    const am = g.home === a ? g.hs - g.as : g.as - g.hs;
+    if (am > 0) aw++; else if (am < 0) bw++; else d++;
+  });
+  const summary = `<div class="uni-h2h-sum">
+      <div>${uniCrestHTML(a, 'uni-crest-sm')}<div class="uni-h2h-n">${aw}</div><div class="uni-hist-label">Wins</div></div>
+      <div><div class="uni-h2h-n uni-h2h-d">${d}</div><div class="uni-hist-label">Draws</div></div>
+      <div>${uniCrestHTML(b, 'uni-crest-sm')}<div class="uni-h2h-n">${bw}</div><div class="uni-hist-label">Wins</div></div>
+    </div>`;
+  const recent = met.slice().reverse().slice(0, 10).map((g, i) => uniRecGameRow(i, g, g.hs === g.as ? 'draw' : '+' + Math.abs(g.hs - g.as))).join('');
+  return `<div class="uni-rec"><div class="uni-h2h-pick">${pick(0, a)}<span>v</span>${pick(1, b)}</div>
+    ${met.length ? summary : '<div class="uni-rec-empty">They haven\'t met yet.</div>'}</div>` +
+    (met.length ? uniRecSection('Meetings, most recent first', recent) : '');
+}
+
+// ---------- actions ----------
+function uniWire(root) {
+  root.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', e => {
+    const act = b.dataset.act;
+    if (act === 'start') uniStart(false);
+    else if (act === 'start-now') uniStart(true);
+    else if (act === 'start-test') uniStart('test');
+    else if (act === 'talent-preset') uniStartSetPreset(b.dataset.preset);
+    else if (act === 'talent-reroll') uniStartSetPreset('random', true);
+    else if (act === 'talent-edit') { uniStartPick().editing = !uniStartPick().editing; uniStartVer++; uniRender(); }
+    else if (act === 'delete') uniDelete();
+    else if (act === 'next-season') uniNextSeason();
+    else if (act === 'team-open') { uniTeamOpen = uniTeamOpen === b.dataset.team ? null : b.dataset.team; uniRender(); }
+    else if (act === 'offseason-all') { uniOffseasonAll = !uniOffseasonAll; uniRender(); }
+    else if (act === 'view') { uniView = b.dataset.view; uniRender(); }
+    else if (act === 'sport') uniSwitchSport(b.dataset.sportKey);
+    else if (act === 'rectab') { uniRecTab = b.dataset.tab; uniRender(); }
+    else if (act === 'ladder-full') { uniLadderFull = !uniLadderFull; uniRender(); }
+    else if (act === 'page') {
+      const season = uniSeason();
+      uniPage = Math.max(0, Math.min(uniPageCount(season) - 1, uniPage + Number(b.dataset.dir)));
+      // Back on the live page counts as following the clock again.
+      uniPageManual = uniPage !== uniDefaultPage(season, uniNow());
+      uniRender();
+    } else if (act === 'mc') { if (b.classList.contains('uni-clickable')) uniOpenGame(b.dataset.key); }
+  }));
+  root.querySelectorAll('.uni-trow-tap').forEach(row => row.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); }
+  }));
+  root.querySelectorAll('[data-talent-team]').forEach(inp => inp.addEventListener(inp.tagName === 'SELECT' ? 'change' : 'input', uniStartEditInput));
+  // Cards act as buttons.
+  root.querySelectorAll('.uni-match').forEach(card => card.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && card.classList.contains('uni-clickable')) {
+      e.preventDefault();
+      uniOpenGame(card.dataset.key);
+    }
+  }));
+}
+
+// A tap on a card: the match centre once the game is on, the pre-match view
+// before it.
+function uniOpenGame(key) {
+  const season = uniSeason();
+  const g = uniGames(season, uniPage, uniNow()).find(x => x.key === key);
+  if (!g || !g.home) return;
+  if (g.status === 'upcoming') uniOpenPreview(g, season);
+  else uniOpenMatchCentre(key);
+}
+
+// Each side's season so far, as of now: ladder spot, record, last five.
+function uniForm(season, team, now) {
+  const U = window.LadderUniverse;
+  const scfg = uniScfg();
+  const results = [];
+  season.rounds.forEach((round, r) => round.forEach((g, i) => {
+    if (g.home !== team && g.away !== team) return;
+    const s = season.scores[window.LadderSim.scoreKey(r, i)];
+    if (!s || now < g.kickoff) return;
+    // Long-finished games skip the timeline; anything recent is checked.
+    if (now < g.kickoff + 4 * 3600000) {
+      const tl = U.timelineFor(uniState, season, r, i);
+      if (U.gameStatusAt(tl, g.kickoff, now, scfg).status !== 'final') return;
+    }
+    const mine = g.home === team ? s.home : s.away, theirs = g.home === team ? s.away : s.home;
+    results.push({ r, opp: g.home === team ? g.away : g.home, res: mine > theirs ? 'W' : mine < theirs ? 'L' : 'D', mine, theirs });
+  }));
+  return results;
+}
+
+function uniOpenPreview(g, season) {
+  closeMatchCentre();
+  const U = window.LadderUniverse;
+  const now = uniNow();
+  const ladder = U.ladderAt(uniState, season, now);
+  const pos = t => ladder.findIndex(x => x.team === t) + 1;
+  const row = t => ladder.find(x => x.team === t);
+  const where = g.finalId ? UNI_FINAL_LABELS[g.finalId] : 'Round ' + (uniPage + 1);
+
+  const teamCol = (team, side) => {
+    const cfg = uniTeamCfg(team);
+    const lr = row(team);
+    return `
+      <div class="mc-team mc-team-${side} mc-won">
+        <img class="mc-logo mc-logo-${uniState.sport}" src="${cfg.logo}" alt="">
+        <div class="mc-abbr">${cfg.abbr}</div>
+        <div class="mc-pts uni-pre-pos">${lr && lr.p ? ordinalSuffix(pos(team)) : '–'}</div>
+        <div class="mc-gb">${lr ? `${lr.w}-${lr.l}${lr.d ? '-' + lr.d : ''}` : ''}</div>
+      </div>`;
+  };
+  const formRow = team => {
+    const form = uniForm(season, team, now).slice(-5);
+    return `<div class="uni-pre-form"><img class="mc-q-logo" src="${uniTeamCfg(team).logo}" alt="${uniTeamCfg(team).abbr}">
+      ${form.length ? form.map(f => `<span class="uni-chip uni-chip-${f.res}" title="R${f.r + 1} v ${uniTeamCfg(f.opp).abbr} ${f.mine}–${f.theirs}">${f.res}</span>`).join('')
+        : '<span class="uni-pre-none">No games yet</span>'}</div>`;
+  };
+  const met = uniForm(season, g.home, now).filter(f => f.opp === g.away);
+  const last = met[met.length - 1];
+
+  const overlay = document.createElement('div');
+  overlay.id = 'mc-overlay';
+  overlay.className = 'mc-overlay';
+  overlay.innerHTML = `
+    <div class="mc-panel" role="dialog" aria-modal="true" aria-label="Pre-match">
+      <button type="button" class="mc-close" aria-label="Close">×</button>
+      <div class="mc-meta">Season ${season.n} · ${where}${g.venue ? ' · ' + g.venue : ''}</div>
+      <div class="mc-scoreline">
+        ${teamCol(g.home, 'home')}
+        <div class="mc-dash"><span class="mc-clock">${uniTime(g.kickoff)}</span><span class="uni-pre-in" data-pre-in></span></div>
+        ${teamCol(g.away, 'away')}
+      </div>
+      <div class="mc-section-title">Form</div>
+      ${formRow(g.home)}${formRow(g.away)}
+      <div class="mc-section-title" style="margin-top:14px;">Head to head</div>
+      <div class="uni-pre-h2h">${last
+        ? `${g.home} ${last.res === 'W' ? 'beat' : last.res === 'L' ? 'lost to' : 'drew with'} ${g.away} ${last.mine}–${last.theirs} in Round ${last.r + 1}`
+        : 'First meeting this season'}</div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeMatchCentre(); });
+  overlay.querySelector('.mc-close').addEventListener('click', closeMatchCentre);
+  document.addEventListener('keydown', mcKeydown);
+
+  // Count down to the bounce; at kick-off, swap to the live match centre.
+  const tick = () => {
+    if (!document.body.contains(overlay)) return;
+    const left = g.kickoff - uniNow();
+    if (left <= 0) {
+      if (U.advance(uniState, uniNow())) uniSave();
+      const fresh = uniGames(uniSeason(), uniPage, uniNow()).find(x => x.key === g.key);
+      if (fresh && fresh.tl) { uniOpenMatchCentre(g.key); return; }
+    }
+    overlay.querySelector('[data-pre-in]').textContent = left > 0 ? 'in ' + uniCountdown(left) : 'Starting';
+    setTimeout(tick, 1000);
+  };
+  tick();
+}
+
+function uniOpenMatchCentre(key) {
+  const U = window.LadderUniverse;
+  const season = uniSeason();
+  const g = uniGames(season, uniPage, uniNow()).find(x => x.key === key);
+  if (!g || !g.tl) return;
+  const scfg = uniScfg();
+  const sport = uniState.sport;
+  const where = g.finalId ? UNI_FINAL_LABELS[g.finalId] : 'Round ' + (uniPage + 1);
+  mcOpen({
+    sport, tl: g.tl, game: { home: g.home, away: g.away },
+    hCfg: uniTeamCfg(g.home), aCfg: uniTeamCfg(g.away),
+    meta: `Season ${season.n} · ${where}${g.venue ? ' · ' + g.venue : ''}`,
+    // Live off the real clock, breaks included.
+    liveState: () => {
+      const st = U.gameStatusAt(g.tl, g.kickoff, uniNow(), scfg);
+      if (st.status === 'final' || st.status === 'upcoming') return null;
+      return { t: st.t, label: st.status === 'break' ? st.label : null };
+    },
+    headline: () => {
+      const s = g.tl.steps[g.tl.steps.length - 1] || { home: 0, away: 0 };
+      if (g.finalId) {
+        if (s.home === s.away) return '';
+        const [w, l] = s.home > s.away ? [g.home, g.away] : [g.away, g.home];
+        return g.finalId === 'GF'
+          ? `${w} win the Season ${season.n} premiership, beating ${l} ${Math.max(s.home, s.away)}–${Math.min(s.home, s.away)}`
+          : `${w} beat ${l} in the ${UNI_FINAL_LABELS[g.finalId].toLowerCase()}`;
+      }
+      const eng = {
+        teams: uniState.teams,
+        rounds: season.rounds.map(r => r.map(x => ({ home: x.home, away: x.away }))),
+      };
+      const hl = window.LadderSim.buildHeadlines({
+        sport, seasonKey: U.seasonKeyOf(uniState, season.n),
+        teams: eng.teams, rounds: eng.rounds, scores: season.scores, seeds: season.seeds || {},
+        config: U.simConfig(uniState), roundIdx: uniPage, onlyGame: g.gameIdx,
+      })[0];
+      return hl ? hl.text : '';
+    },
+  });
+}
+
 function renderPreview(sport) {
   const listEl = document.getElementById(sport + '-preview-list');
   const headerEl = document.getElementById(sport + '-preview-header');
@@ -10225,9 +12787,11 @@ document.addEventListener('focusin', function(e) {
     sel.addRange(range);
   }
 });
-document.querySelectorAll('.sport-btn').forEach(btn => {
+// Only the real tabs (they carry data-sport). The save picker and Sign Out
+// share the .sport-btn look but must not switch — or blank — the page.
+document.querySelectorAll('.sport-btn[data-sport]').forEach(btn => {
   btn.addEventListener('click', function() {
-    document.querySelectorAll('.sport-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.sport-btn[data-sport]').forEach(b => b.classList.remove('active'));
     this.classList.add('active');
     const sport = this.dataset.sport;
 
@@ -10238,6 +12802,8 @@ document.querySelectorAll('.sport-btn').forEach(btn => {
     document.getElementById('records-panel').style.display = 'none';
     document.getElementById('nrl-year-nav').style.display = 'none';
     document.getElementById('afl-year-nav').style.display = 'none';
+    document.getElementById('universe-content').style.display = 'none';
+    uniStop();
 
     // show the right one
     if (sport === 'records') {
@@ -10524,6 +13090,29 @@ function renderAFLRecordsResults(seasonKey) {
   document.getElementById('records-content').innerHTML = tableHTML;
 }
 
+// One source for AFL team colours: the ladder position chart and the match
+// centre's score worm both read it.
+const AFL_TEAM_COLOURS = {
+  'Adelaide': '#002B5C',
+  'Brisbane Lions': '#A30046',
+  'Carlton': '#031A29',
+  'Collingwood': '#000000',
+  'Essendon': '#CC2031',
+  'Fremantle': '#2A0D54',
+  'Geelong Cats': '#002B5C',
+  'Gold Coast Suns': '#D71920',
+  'GWS Giants': '#F47920',
+  'Hawthorn': '#4D2004',
+  'Melbourne': '#0F1131',
+  'North Melbourne': '#003399',
+  'Port Adelaide': '#00A0AF',
+  'Richmond': '#FFD200',
+  'St Kilda': '#ED1B2F',
+  'Sydney': '#E41E31',
+  'West Coast Eagles': '#F2A900',
+  'Western Bulldogs': '#014896'
+};
+
 function renderAFLProgression(seasonKey) {
   const season = aflSeasons[seasonKey];
   const teams = getAFLSeasonLadder(seasonKey).map(t => t.team);
@@ -10573,26 +13162,6 @@ function renderAFLProgression(seasonKey) {
   const xPos = (r) => padL + rounds.indexOf(r) * xStep;
   const yPos = (pos) => padT + (pos - 1) * yStep;
 
-  const AFL_TEAM_COLOURS = {
-    'Adelaide': '#002B5C',
-    'Brisbane Lions': '#A30046',
-    'Carlton': '#031A29',
-    'Collingwood': '#000000',
-    'Essendon': '#CC2031',
-    'Fremantle': '#2A0D54',
-    'Geelong Cats': '#002B5C',
-    'Gold Coast Suns': '#D71920',
-    'GWS Giants': '#F47920',
-    'Hawthorn': '#4D2004',
-    'Melbourne': '#0F1131',
-    'North Melbourne': '#003399',
-    'Port Adelaide': '#00A0AF',
-    'Richmond': '#FFD200',
-    'St Kilda': '#ED1B2F',
-    'Sydney': '#E41E31',
-    'West Coast Eagles': '#F2A900',
-    'Western Bulldogs': '#014896'
-  };
 
   function getTeamColour(team) {
     return AFL_TEAM_COLOURS[team] || '#4CAF50';
@@ -10623,6 +13192,15 @@ function renderAFLProgression(seasonKey) {
   const top8Y = yPos(8.5);
   const top8Line = `<line x1="${padL}" y1="${top8Y}" x2="${padL + innerW}" y2="${top8Y}" stroke="#444" stroke-width="1" stroke-dasharray="4,3"/>`;
 
+  // Key, as the NRL chart has: each club's line colour beside its logo, shown
+  // whole as the wide banner it is.
+  const legendHTML = '<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;">' +
+    teams.map(team => `
+      <div style="display:flex;align-items:center;gap:6px;" title="${team}">
+        <div style="width:24px;height:3px;background:${getTeamColour(team)};border-radius:2px;"></div>
+        <img src="${season.teamConfig[team].logo}" alt="${team}" style="width:36px;height:17px;object-fit:cover;border-radius:3px;display:block;">
+      </div>`).join('') + '</div>';
+
   let tableHTML = `
     <div style="margin-top:24px;overflow-x:auto;">
       <div style="background:#1a1a2e;border-radius:8px;padding:16px;">
@@ -10640,7 +13218,7 @@ function renderAFLProgression(seasonKey) {
     const config = season.teamConfig[team];
     tableHTML += `<tr>
       <td style="padding:4px 8px;position:sticky;left:0;background:#1a1a2e;">
-        <img src="${config.logo}" style="width:20px;height:20px;object-fit:contain;vertical-align:middle;">
+        <img src="${config.logo}" style="width:36px;height:17px;object-fit:cover;border-radius:3px;vertical-align:middle;">
       </td>`;
     allRounds.forEach(r => {
       const pos = positionData[team][r];
@@ -10665,6 +13243,7 @@ function renderAFLProgression(seasonKey) {
       <svg width="100%" viewBox="0 0 ${chartW} ${chartH}" style="overflow:visible;">
         ${top8Line}${linesHTML}${dotsHTML}${xLabels}${yLabels}
       </svg>
+      ${legendHTML}
     </div>
     ${tableHTML}`;
 }
@@ -10856,6 +13435,80 @@ function renderAFLGeneral() {
 
   tableHTML += `</tbody></table></div>`;
   document.getElementById('records-content').innerHTML = tableHTML;
+}
+
+// ============================================================
+// COMEBACK RECORDS
+// ============================================================
+// Comebacks need the inside of a game, so they're read off the same timeline
+// the match centre draws — a record here is exactly what that game's match
+// centre shows. Home-and-away games only: finals have no match centre.
+function comebackRecordsHTML(sport, store, seasonKeys, teamBadge, section) {
+  if (!simEngineReady()) return '';
+  const LS = window.LadderSim;
+  const config = LS.SIM_CONFIG;
+  const isAfl = sport === 'afl';
+
+  // One entry per played game: who, when, and its timeline.
+  const games = [];
+  seasonKeys.forEach(seasonKey => {
+    const season = store[seasonKey];
+    const year = seasonKey.replace(/\D/g, '');
+    season.rounds.forEach((round, r) => round.forEach((game, g) => {
+      const raw = season.scores[LS.scoreKey(r, g)];
+      const s = raw && { home: parseInt(raw.home, 10) || 0, away: parseInt(raw.away, 10) || 0 };
+      if (!s || !(s.home || s.away)) return;
+      const tl = LS.buildMatchTimeline({ sport, seasonKey, roundIdx: r, gameIdx: g, game, score: s, config });
+      games.push({ game, seasonKey, year, round: 'R' + (r + 1), score: s, tl });
+    }));
+  });
+  if (!games.length) return '';
+
+  const other = side => side === 'home' ? 'away' : 'home';
+  const top5 = list => list.sort((a, b) => b.value - a.value).slice(0, 5);
+  const row = (i, left, right, meta) => `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid #2a2a3d;flex-wrap:wrap;">
+      <span style="color:#aaa;font-weight:700;min-width:20px;">#${i + 1}</span>
+      ${left}
+      <span style="color:#aaa;font-size:12px;">vs</span>
+      ${right}
+      <span style="color:#aaa;font-size:11px;margin-left:8px;">${meta}</span>
+    </div>`;
+  const empty = '<p style="color:#aaa;font-size:12px;">None yet.</p>';
+
+  // Comebacks: the biggest deficit the eventual winner overturned — at a break
+  // (periodIdx) or at any point in the game (periodIdx null).
+  function comebackList(periodIdx, label) {
+    const list = [];
+    games.forEach(gm => {
+      const { home, away } = gm.score;
+      if (home === away) return;
+      const w = home > away ? 'home' : 'away', l = other(w);
+      let deficit;
+      if (periodIdx == null) {
+        deficit = 0;
+        gm.tl.steps.forEach(st => { deficit = Math.max(deficit, st[l] - st[w]); });
+      } else {
+        const p = gm.tl.periods[periodIdx];
+        deficit = p.score[l].points - p.score[w].points;
+      }
+      if (deficit > 0) list.push({ value: deficit, gm, w, l });
+    });
+    const out = top5(list);
+    return out.length ? out.map((e, i) => {
+      const ws = e.gm.score[e.w], ls = e.gm.score[e.l];
+      return row(i,
+        `${teamBadge(e.gm.game[e.w], e.gm.seasonKey)}<span style="color:#fff;font-weight:700;font-size:15px;">${ws} — ${ls}</span>`,
+        teamBadge(e.gm.game[e.l], e.gm.seasonKey),
+        `${e.gm.year} · ${e.gm.round} · trailed by ${e.value}${label ? ' ' + label : ''}`);
+    }).join('') : empty;
+  }
+
+  if (isAfl) {
+    return section('Biggest Comebacks from Quarter Time', comebackList(0, 'at QT')) +
+      section('Biggest Comebacks from Half Time', comebackList(1, 'at HT')) +
+      section('Biggest Comebacks from Three-Quarter Time', comebackList(2, 'at 3QT'));
+  }
+  return section('Biggest Comebacks', comebackList(null, ''));
 }
 
 function renderAFLStatRecords() {
@@ -11081,6 +13734,7 @@ function renderAFLStatRecords() {
     section('Lowest Scoring Games', scoringGameHTML(sortedByTotalAsc, 5)) +
     section('Biggest Winning Streak', streakHTML(winStreaks)) +
     section('Biggest Losing Streak', streakHTML(loseStreaks)) +
+    comebackRecordsHTML('afl', aflSeasons, seasonKeys, teamBadge, section) +
     section('By Team Records', teamTableHTML) +
     section(`All Draws (${draws.length})`, drawsHTML);
 }
@@ -11518,6 +14172,7 @@ function renderStatRecords() {
     section('Lowest Scoring Games', scoringGameHTML(sortedByTotalAsc, 5)) +
     section('Biggest Winning Streak', streakHTML(winStreaks)) +
     section('Biggest Losing Streak', streakHTML(loseStreaks)) +
+    comebackRecordsHTML('nrl', seasons, seasonKeys, teamBadge, section) +
     section('By Team Records', teamTableHTML) +
     section(`All Draws (${draws.length})`, drawsHTML);
 }
@@ -14269,6 +16924,12 @@ function wcReset() {
   }
   wcRender();
 }
+
+// Everything is defined now: the save menu can describe the Universe, and the
+// app opens in whichever mode it was left in.
+appBooted = true;
+if (appMode() === 'universe') appApplyMode();
+else renderSaveSlotMenu();
 
 })();
 </script>
