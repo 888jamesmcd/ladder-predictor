@@ -1344,6 +1344,36 @@ function startNextSeason(universe, nowMs) {
   return universe.seasons[universe.seasons.length - 1] !== season;
 }
 
+// A hand edit to a club, mid-season: its strength (attack/defence), stage or
+// consistency. Strength and consistency change this season's seeds, so they
+// apply from the next round that hasn't been decided (games already played
+// stay as they were); the list moves with them, so the change carries into
+// next season too. A new stage starts fresh in it.
+function editClub(universe, season, team, patch) {
+  const common = LS.SIM_CONFIG.common;
+  if (!season.clubs) season.clubs = clubsFromSeeds(universe, season);
+  const club = season.clubs[team];
+  if (!club) return false;
+  const seed = LS.normRating(season.seeds && season.seeds[team], common);
+  if (!season.seeds) season.seeds = {};
+  const next = { att: seed.att, def: seed.def };
+  ['att', 'def'].forEach(k => {
+    if (patch[k] == null || !Number.isFinite(Number(patch[k]))) return;
+    next[k] = roundTalent(Number(patch[k]));
+    club.base[k] = round1(clampTalent(club.base[k] + (next[k] - seed[k])));
+  });
+  season.seeds[team] = next;
+  if (patch.stage && STAGES.indexOf(patch.stage) >= 0 && patch.stage !== club.stage) {
+    club.stage = patch.stage;
+    const rng = LS.makeRng(LS.hashKey(seasonKeyOf(universe, season.n) + '|edit|' + team + '|' + patch.stage));
+    club.stageLeft = stageYears(rng, talentCfg(universe.config), patch.stage);
+  }
+  if (patch.consistency && consistencyLevels().indexOf(patch.consistency) >= 0) {
+    season.consistency = Object.assign({}, season.consistency, { [team]: patch.consistency });
+  }
+  return true;
+}
+
 // ============================================================
 // VIEWS — everything the screen needs about a moment
 // ============================================================
@@ -1377,6 +1407,6 @@ return {
   ladderAt, createUniverse, attach, advance, seasonOver, startNextSeason, currentRoundIdx, roundView,
   startingTalent, startingConsistency, consistencyLevels, volatilityOf,
   STAGES, STAGE_NAMES, startingClubs, coachGrade, simConfig, formConfig,
-  seasonEndRatings, nextTalent, consistencyStats, talentView,
+  seasonEndRatings, nextTalent, consistencyStats, talentView, editClub,
 };
 }));

@@ -1642,6 +1642,12 @@ input[type=number] {
 .uni-tdetail .uni-hist-line .uni-hist-label { width: 72px; }
 .uni-tdetail-head { color: #8888aa; font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; margin: 8px 0 2px; }
 .uni-off { padding-bottom: 10px; }
+.uni-tsource { display: flex; flex-direction: column; gap: 6px; margin: -2px 0 10px; color: #8888aa; font-size: 12px; line-height: 1.4; }
+.uni-tsource-warn span { color: #f0c040; }
+.uni-tsource .uni-tselect { max-width: 220px; }
+.uni-tedit-btn { justify-content: flex-end; margin: 6px 0 0; }
+.uni-tedit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding-top: 10px; }
+.uni-tedit-grid label { display: flex; flex-direction: column; gap: 4px; color: #8888aa; font-size: 11px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; }
 .uni-off-row { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-top: 1px solid #22223a; font-size: 13px; line-height: 1.35; color: #e0e0ee; }
 .uni-off-row:first-of-type { border-top: none; }
 .uni-off-row .uni-crest-xs { flex-shrink: 0; margin-top: 1px; }
@@ -11574,6 +11580,16 @@ function uniStart(startNow) {
   uniRender();
 }
 
+// Save a club edit from the Teams tab.
+function uniSaveClubEdit(team, form) {
+  if (!form) return;
+  const patch = {};
+  form.querySelectorAll('[data-edit-key]').forEach(el => { patch[el.dataset.editKey] = el.value; });
+  if (window.LadderUniverse.editClub(uniState, uniSeason(), team, patch)) uniSave();
+  uniTeamEdit = false;
+  uniRender();
+}
+
 // Off-season skip: the next season starts now instead of after the break.
 function uniNextSeason() {
   if (!uniState || !window.LadderUniverse.startNextSeason(uniState, uniNow())) return;
@@ -11678,7 +11694,7 @@ function uniScreenHTML(season, games, now) {
     </div>
     <div class="uni-next" data-next></div>
     <div class="uni-controls">
-      ${uniNotStarted(season) ? '<button type="button" class="uni-ctl uni-ctl-go" data-act="start-now">Start now</button>' : ''}
+      ${uniNotStarted(season) && !uniState.test ? '<button type="button" class="uni-ctl uni-ctl-go" data-act="start-now">Start now</button>' : ''}
       ${window.LadderUniverse.seasonOver(uniState, season, now) ? `<button type="button" class="uni-ctl uni-ctl-go" data-act="next-season">Start Season ${season.n + 1} now</button>` : ''}
       <button type="button" class="uni-ctl" data-act="delete">Reset</button>
     </div>
@@ -11912,24 +11928,25 @@ const UNI_TALENT_PRESETS = [
   { id: 'real', name: 'Real world', blurb: 'Every club as it stands in the predictor, carried into a new season.' },
   { id: 'level', name: 'Level', blurb: 'Everyone starts dead even. A pecking order sorts itself out within a few seasons.' },
   { id: 'random', name: 'Random', blurb: 'A fresh pecking order, drawn at random.' },
+  { id: 'custom', name: 'Custom', blurb: 'Set every club yourself: attack, defence, stage and consistency. Coaches are still appointed at random.' },
 ];
 let uniStartState = null;     // { sport, preset, seed, seeds, consistency, stages, editing } while on the start screen
 let uniStartVer = 0;          // bumped when the picker needs redrawing
 
 function uniStartPick() {
   if (!uniStartState || uniStartState.sport !== uniSport) {
-    uniStartState = { sport: uniSport, preset: 'real', seed: uniNewSeed(), seeds: null, consistency: null, stages: {}, editing: false };
-    uniStartState.seeds = uniPresetTalent('real', uniStartState.seed);
+    uniStartState = { sport: uniSport, preset: 'real', seed: uniNewSeed(), seeds: null, consistency: null, stages: {}, editing: false, slot: uniDefaultRealSlot() };
+    uniStartState.seeds = uniPresetTalent('real', uniStartState.seed, uniStartState.slot);
     uniStartState.consistency = uniPresetConsistency('real', uniStartState.seed);
   }
   return uniStartState;
 }
 function uniNewSeed() { return String(Math.floor(Math.random() * 1e9)); }
 
-function uniPresetTalent(preset, seed) {
+function uniPresetTalent(preset, seed, slotId) {
   const teams = uniCfg().clubs().teams;
   if (preset === 'real') {
-    const real = uniRealTalent();
+    const real = uniRealTalent(slotId);
     if (real) return real;
   }
   return window.LadderUniverse.startingTalent(teams, preset === 'real' ? 'level' : preset, seed);
@@ -11954,16 +11971,63 @@ function uniPresetConsistency(preset, seed) {
 }
 const UNI_CONSISTENCY_NAMES = { volatile: 'Volatile', streaky: 'Streaky', balanced: 'Balanced', steady: 'Steady', ruthless: 'Ruthless' };
 
+// Real world reads results from a save slot: by default the one with the most
+// results entered for the Universe's season, whichever slot is active.
+function uniSlotGet(slotId, key) {
+  const k = slotId ? 'slot_' + slotId + '__' + key : key;
+  return Object.prototype.hasOwnProperty.call(cloudCache, k) ? cloudCache[k] : null;
+}
+function uniSlotScores(slotId) {
+  try { return JSON.parse(uniSlotGet(slotId, 'lp_' + uniSport + '_scores') || '{}'); } catch (e) { return {}; }
+}
+// How many of the season's home-and-away games a slot has results for.
+function uniSlotResultCount(slotId) {
+  const s = uniCfg().clubs();
+  const scores = uniSlotScores(slotId)[uniCfg().seasonKey] || {};
+  let n = 0, total = 0;
+  s.rounds.forEach((round, r) => round.forEach((g, i) => {
+    total++;
+    if (window.LadderSim.hasScore(scores, r, i)) n++;
+  }));
+  return { n, total };
+}
+function uniRealSlots() {
+  return ((saveRegistry && saveRegistry.slots) || [{ id: '', name: 'Slot 1' }])
+    .map(sl => Object.assign({ id: sl.id, name: sl.name }, uniSlotResultCount(sl.id)));
+}
+function uniDefaultRealSlot() {
+  const list = uniRealSlots();
+  return list.slice().sort((a, b) => b.n - a.n || (a.id === activeSaveSlotId ? -1 : 1))[0].id;
+}
+// The predictor's archive, read from another slot's saved results.
+function uniSlotArchive(slotId) {
+  const data = uniSport === 'afl' ? aflSeasons : seasons;
+  const scores = uniSlotScores(slotId);
+  return {
+    season(key) {
+      const s = data[key];
+      if (!s) return null;
+      return { teams: s.teams, rounds: s.rounds, scores: scores[key] || {} };
+    },
+    historicalLadder(key) { return HISTORICAL_LADDERS[key] || null; },
+    seedInputs(key) {
+      try { return JSON.parse(uniSlotGet(slotId, seedStoreKey(uniSport, key)) || '{}'); } catch (e) { return {}; }
+    },
+  };
+}
+
 // Where each club stands in the predictor: its seeds for the season the
 // Universe takes its clubs from, moved by every result entered so far, then
 // pulled toward the middle as a new season would be.
-function uniRealTalent() {
+function uniRealTalent(slotId) {
   const LS = window.LadderSim, config = LS.SIM_CONFIG;
   const s = uniCfg().clubs();
+  if (slotId == null) slotId = uniDefaultRealSlot();
   try {
-    const seeds = LS.computeSeeds({ sport: uniSport, seasonKey: uniCfg().seasonKey, archive: simArchive(uniSport), config });
+    const archive = uniSlotArchive(slotId);
+    const seeds = LS.computeSeeds({ sport: uniSport, seasonKey: uniCfg().seasonKey, archive, config });
     const end = LS.computeRatings({
-      teams: s.teams, rounds: s.rounds, scores: s.scores || {}, seeds, config, sport: uniSport,
+      teams: s.teams, rounds: s.rounds, scores: archive.season(uniCfg().seasonKey).scores, seeds, config, sport: uniSport,
     }).current;
     const out = {};
     s.teams.forEach(t => {
@@ -11976,9 +12040,17 @@ function uniRealTalent() {
 
 function uniStartSetPreset(preset, reroll) {
   const pick = uniStartPick();
+  // Custom starts from whatever's in the table now, with the editor open.
+  if (preset === 'custom') {
+    pick.preset = 'custom';
+    pick.editing = true;
+    uniStartVer++;
+    uniRender();
+    return;
+  }
   if (reroll || preset === 'random') pick.seed = uniNewSeed();
   pick.preset = preset;
-  pick.seeds = uniPresetTalent(preset, pick.seed);
+  pick.seeds = uniPresetTalent(preset, pick.seed, pick.slot);
   pick.consistency = uniPresetConsistency(preset, pick.seed);
   pick.stages = {};
   uniStartVer++;
@@ -12005,11 +12077,13 @@ function uniStartEditInput(e) {
   if (ovr) ovr.innerHTML = uniTalentNum((pick.seeds[t].att + pick.seeds[t].def) / 2);
   const wrap = inp.closest('.uni-tpick');
   if (wrap) {
-    wrap.querySelectorAll('[data-preset]').forEach(b => b.classList.remove('active'));
+    wrap.querySelectorAll('[data-preset]').forEach(b => b.classList.toggle('active', b.dataset.preset === 'custom'));
     const reroll = wrap.querySelector('[data-act="talent-reroll"]');
     if (reroll) reroll.remove();
     const blurb = wrap.querySelector('[data-tblurb]');
-    if (blurb) blurb.textContent = 'Your own start, edited by hand.';
+    if (blurb) blurb.textContent = UNI_TALENT_PRESETS.find(p => p.id === 'custom').blurb;
+    const source = wrap.querySelector('.uni-tsource');
+    if (source) source.remove();
   }
 }
 
@@ -12023,10 +12097,23 @@ function uniTalentNum(v) {
 function uniStartTalentHTML() {
   const pick = uniStartPick();
   const preset = UNI_TALENT_PRESETS.find(p => p.id === pick.preset);
-  const ovs = Object.values(pick.seeds).map(r => r.att + r.def);
-  const flat = Math.max(...ovs) - Math.min(...ovs) < 2;
-  const blurb = !preset ? 'Your own start, edited by hand.'
-    : preset.blurb + (pick.preset === 'real' && flat ? ' No results in the predictor yet, so everyone comes out level.' : '');
+  const blurb = (preset || UNI_TALENT_PRESETS.find(p => p.id === 'custom')).blurb;
+  // Real world: which save it reads, and whether that's enough to go on.
+  let source = '';
+  if (pick.preset === 'real') {
+    const slots = uniRealSlots();
+    const cur = slots.find(sl => sl.id === pick.slot) || slots[0];
+    const year = uniCfg().seasonKey.replace(uniSport, '');
+    const thin = cur.n < cur.total * 0.25;
+    source = `<div class="uni-tsource${thin ? ' uni-tsource-warn' : ''}">
+      ${slots.length > 1 ? `<select class="uni-tinput uni-tselect" data-act-change="real-slot" aria-label="Save to read results from">
+        ${slots.map(sl => `<option value="${sl.id}"${sl.id === cur.id ? ' selected' : ''}>${sl.name}: ${sl.n} of ${sl.total}</option>`).join('')}
+      </select>` : ''}
+      <span>${thin
+        ? `${cur.name} only has ${cur.n} of ${cur.total} ${year} results entered, so clubs come out close to level. Enter ${year} results in the predictor${slots.length > 1 ? ', pick a fuller save' : ''}, or start from Random.`
+        : `Rated from ${cur.name}'s ${year} results (${cur.n} of ${cur.total} entered) and the seasons before.`}</span>
+    </div>`;
+  }
   const teams = uniCfg().clubs().teams.slice()
     .sort((a, b) => (pick.seeds[b].att + pick.seeds[b].def) - (pick.seeds[a].att + pick.seeds[a].def));
   const U = window.LadderUniverse;
@@ -12061,6 +12148,7 @@ function uniStartTalentHTML() {
           data-act="talent-preset" data-preset="${p.id}">${p.name}</button>`).join('')}
       </div>
       <p class="uni-muted" data-tblurb>${blurb}</p>
+      ${source}
       <div class="uni-controls uni-tctl">
         <button type="button" class="uni-ctl" data-act="talent-edit" aria-pressed="${pick.editing}">${pick.editing ? 'Hide clubs' : 'Edit clubs'}</button>
         ${pick.preset === 'random' ? '<button type="button" class="uni-ctl" data-act="talent-reroll">Re-roll</button>' : ''}
@@ -12073,6 +12161,7 @@ function uniStartTalentHTML() {
 // season, its stage, how its results compare, and its consistency. Tap a club
 // for its coach and its off-season.
 let uniTeamOpen = null;       // the club whose details are showing
+let uniTeamEdit = false;      // that club's details are open for editing
 let uniOffseasonAll = false;  // the whole off-season list, not just the top
 
 function uniOffseasonItems(events, limit) {
@@ -12100,10 +12189,13 @@ function uniRenderTalent(root, season, now) {
   const box = root.querySelector('[data-talent-view]');
   if (!box) return;
   const U = window.LadderUniverse;
+  // Mid-edit, leave the form alone: a game finishing shouldn't wipe it.
+  if (uniTeamEdit && box.querySelector('.uni-tedit-form')) return;
   const view = U.talentView(uniState, season, now);
   const rows = Object.keys(view).map(t => Object.assign({ team: t }, view[t]))
     .sort((a, b) => b.overall - a.overall);
-  const sig = [uniTeamOpen, uniOffseasonAll].concat(rows.map(r => r.team + r.form.toFixed(1) + r.games)).join(',');
+  const sig = [uniTeamOpen, uniTeamEdit, uniOffseasonAll].concat(rows.map(r =>
+    r.team + r.att + r.def + r.stage + r.consistency + r.form.toFixed(1) + r.games)).join(',');
   if (box.dataset.sig === sig) return;
   box.dataset.sig = sig;
   // Form: how far results have this club above or below its true level.
@@ -12128,9 +12220,30 @@ function uniRenderTalent(root, season, now) {
     const ev = r.events.length
       ? r.events.map(e => `<div class="uni-off-row"><span class="uni-off-kind uni-off-${e.kind}"></span><span>${e.text}</span></div>`).join('')
       : '<div class="uni-rec-empty">A quiet off-season.</div>';
+    if (uniTeamEdit) {
+      const num = (k, v) => `<input class="uni-tinput" type="number" inputmode="numeric" min="2" max="98" step="1" value="${Math.round(v)}" data-edit-key="${k}" aria-label="${k === 'att' ? 'Attack' : 'Defence'}">`;
+      return `<div class="uni-tdetail uni-tedit-form">
+        <div class="uni-tedit-grid">
+          <label>Attack${num('att', r.att)}</label>
+          <label>Defence${num('def', r.def)}</label>
+          <label>Stage<select class="uni-tinput uni-tselect" data-edit-key="stage">
+            ${U.STAGES.map(st => `<option value="${st}"${r.stage === st ? ' selected' : ''}>${U.STAGE_NAMES[st]}</option>`).join('')}
+          </select></label>
+          <label>Consistency<select class="uni-tinput uni-tselect" data-edit-key="consistency">
+            ${U.consistencyLevels().map(c => `<option value="${c}"${r.consistency === c ? ' selected' : ''}>${UNI_CONSISTENCY_NAMES[c] || c}</option>`).join('')}
+          </select></label>
+        </div>
+        <p class="uni-muted">Applies from the next round that hasn't kicked off; games already played stay as they were. Attack and defence carry into next season too.</p>
+        <div class="uni-controls uni-tctl">
+          <button type="button" class="uni-ctl uni-ctl-go" data-act="team-save" data-team="${r.team}">Save</button>
+          <button type="button" class="uni-ctl" data-act="team-cancel">Cancel</button>
+        </div>
+      </div>`;
+    }
     return `<div class="uni-tdetail">
+      <div class="uni-controls uni-tctl uni-tedit-btn"><button type="button" class="uni-ctl" data-act="team-edit">Edit club</button></div>
       <div class="uni-hist-line"><span class="uni-hist-label">Coach</span><span>${co.name}</span>
-        <span class="uni-hist-extra">${r.coachGrade} · ${nth(co.years)} season</span></div>
+        <span class="uni-hist-extra">${r.coachGrade} coach · ${nth(co.years)} season in charge</span></div>
       <div class="uni-hist-line"><span class="uni-hist-label">Strength</span><span>List ${Math.round(r.list)}</span>
         <span class="uni-hist-extra">coach ${sign(r.coachEffect)}${Math.abs(r.overall - r.list - r.coachEffect) >= 0.5 ? ` · injuries ${sign(r.overall - r.list - r.coachEffect)}` : ''}</span></div>
       <div class="uni-hist-line"><span class="uni-hist-label">Stage</span><span>${r.stageName}</span></div>
@@ -12383,7 +12496,10 @@ function uniWire(root) {
     else if (act === 'talent-edit') { uniStartPick().editing = !uniStartPick().editing; uniStartVer++; uniRender(); }
     else if (act === 'delete') uniDelete();
     else if (act === 'next-season') uniNextSeason();
-    else if (act === 'team-open') { uniTeamOpen = uniTeamOpen === b.dataset.team ? null : b.dataset.team; uniRender(); }
+    else if (act === 'team-open') { uniTeamOpen = uniTeamOpen === b.dataset.team ? null : b.dataset.team; uniTeamEdit = false; uniRender(); }
+    else if (act === 'team-edit') { uniTeamEdit = true; uniRender(); }
+    else if (act === 'team-cancel') { uniTeamEdit = false; uniRender(); }
+    else if (act === 'team-save') uniSaveClubEdit(b.dataset.team, b.closest('.uni-tedit-form'));
     else if (act === 'offseason-all') { uniOffseasonAll = !uniOffseasonAll; uniRender(); }
     else if (act === 'view') { uniView = b.dataset.view; uniRender(); }
     else if (act === 'sport') uniSwitchSport(b.dataset.sportKey);
@@ -12396,6 +12512,11 @@ function uniWire(root) {
       uniPageManual = uniPage !== uniDefaultPage(season, uniNow());
       uniRender();
     } else if (act === 'mc') { if (b.classList.contains('uni-clickable')) uniOpenGame(b.dataset.key); }
+  }));
+  root.querySelectorAll('[data-act-change="real-slot"]').forEach(sel => sel.addEventListener('change', () => {
+    const pick = uniStartPick();
+    pick.slot = sel.value;
+    uniStartSetPreset('real');
   }));
   root.querySelectorAll('.uni-trow-tap').forEach(row => row.addEventListener('keydown', e => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); }
