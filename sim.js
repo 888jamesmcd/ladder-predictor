@@ -160,13 +160,17 @@ const SIM_CONFIG = {
     nrl: {
       upsetGap: 22,      // pre-game rating gap the underdog had to overcome
       comeback: 14,      // points a side trailed by and still won
-      thrashing: 34,     // winning margin
+      thrashing: 28,     // winning margin
       thriller: 2,       // a win this tight is news on its own, upset or not
       lowScore: 4,       // holding a side to this is a defensive story
       narrowUpset: 6,    // a converted try; an upset this close is a different story to a rout
       streak: 5,         // consecutive wins or losses
       shutout: true,     // nil is a real NRL scoreline; the AFL floor is 20
       bigScore: 46,
+      // Held off a late comeback: the lead fell by `drop` or more over the
+      // last 40% of the game and the win ended up within `within`.
+      lateHold: { drop: 12, within: 8 },
+      pileOn: 40,        // a winning score this big is a story in itself
       // The match centre tells every game's story, so its bars sit lower than
       // the round list's. upsetMargin is what the favourite was expected to
       // win by, in points.
@@ -175,13 +179,15 @@ const SIM_CONFIG = {
     afl: {
       upsetGap: 25,
       comeback: 36,      // six goals
-      thrashing: 85,
+      thrashing: 65,
       thriller: 6,       // under a goal
       lowScore: 35,      // the AFL has no nil, but 35 is a shutout in spirit
       narrowUpset: 15,   // under three goals; an upset this close is a different story to a rout
       streak: 5,
       shutout: false,
       bigScore: 150,
+      lateHold: { drop: 24, within: 18 },   // four goals clawed back, won by three or fewer
+      pileOn: 130,
       matchCentre: { comeback: 24, smashing: 60, upsetMargin: 12 },   // four goals, ten goals, two goals
     },
   },
@@ -197,7 +203,12 @@ const SIM_CONFIG = {
       phasesPerHalf: 4,
       flowSD: 0.30, phaseSD: 0.30,
       penaltyTilt: 0.5,        // penalty goals follow momentum less than tries do
-      gapAfterTry: 150, gapAfterGoal: 60,   // seconds before the next score can land
+      // Seconds before the next score can land: no two tries inside two
+      // minutes, a minute after a goal. A try's conversion is its own play,
+      // kicked conversionDelay seconds after it (it doesn't count as a score
+      // for these gaps).
+      gapAfterTry: 120, gapAfterGoal: 60,
+      conversionDelay: [25, 55],
       goldenPointWidth: 0.08,  // share of the worm's axis golden point takes up
     },
     // AFL is played out in quarters — see buildAflTimeline().
@@ -879,24 +890,42 @@ function buildNrlTimeline(home, away, rng, config) {
   // If that ran a period past its siren, pull scores forward from the end the
   // same way, so nothing ever shares a second.
   const gapAfter = e => e.play === 'convertedTry' || e.play === 'try' ? n.gapAfterTry : n.gapAfterGoal;
+  // A converted try needs room before the siren for its kick.
+  const convRoom = n.conversionDelay[1] + 1;
   periods.forEach((pd, pi) => {
     const pe = events.filter(e => e.period === pi);
     for (let i = 1; i < pe.length; i++) pe[i].clock = Math.max(pe[i].clock, pe[i - 1].clock + gapAfter(pe[i - 1]));
-    if (pe.length) pe[pe.length - 1].clock = Math.min(pe[pe.length - 1].clock, pd.len - 1);
+    if (pe.length) {
+      const last = pe[pe.length - 1];
+      last.clock = Math.min(last.clock, pd.len - 1 - (last.play === 'convertedTry' ? convRoom : 0));
+    }
     for (let i = pe.length - 2; i >= 0; i--) pe[i].clock = Math.min(pe[i].clock, pe[i + 1].clock - gapAfter(pe[i]));
     pe.forEach(e => { e.t = pd.start + (Math.max(0, e.clock) / pd.len) * (pd.end - pd.start); });
+  });
+
+  // A converted try is two plays on the worm: the try (4), then the kick (2)
+  // a little under a minute later. Delays are drawn last, so they never move
+  // anything placed above.
+  const plays = [];
+  events.forEach(e => {
+    if (e.play !== 'convertedTry') { plays.push(e); return; }
+    const pd = periods[e.period];
+    const d = Math.round(n.conversionDelay[0] + rng() * (n.conversionDelay[1] - n.conversionDelay[0]));
+    const kick = Math.min(pd.len - 1, e.clock + d);
+    plays.push(Object.assign({}, e, { play: 'try', points: 4 }));
+    plays.push(Object.assign({}, e, { play: 'conversion', points: 2, clock: kick,
+      t: pd.start + (kick / pd.len) * (pd.end - pd.start) }));
   });
 
   const c = { home: { points: 0, tries: 0, goals: 0, fieldGoals: 0 }, away: { points: 0, tries: 0, goals: 0, fieldGoals: 0 } };
   const snap = () => ({ home: Object.assign({}, c.home), away: Object.assign({}, c.away) });
   let pi = 0;
-  const steps = events.map(e => {
+  const steps = plays.map(e => {
     while (e.period > pi) { periods[pi].score = snap(); pi++; }
     const side = c[e.team];
     side.points += e.points;
-    if (e.play === 'convertedTry') { side.tries++; side.goals++; }
-    else if (e.play === 'try') side.tries++;
-    else if (e.play === 'penaltyGoal') side.goals++;
+    if (e.play === 'try') side.tries++;
+    else if (e.play === 'conversion' || e.play === 'penaltyGoal') side.goals++;
     else if (e.play === 'fieldGoal') side.fieldGoals++;
     return {
       home: c.home.points, away: c.away.points, team: e.team, play: e.play, points: e.points,
@@ -1109,7 +1138,27 @@ function buildHeadlines(opts) {
         cands.push({ kind: 'comeback', weight: 100 + deficit, text: pickVariant(rng, [
           winner + ' overturn ' + articleFor(deficit) + ' ' + deficit + '-point deficit to beat ' + loser + ' ' + ws + '–' + ls,
           winner + ' come from ' + deficit + ' down to beat ' + loser + ' ' + ws + '–' + ls,
+          winner + ' storm back from ' + deficit + ' down to stun ' + loser,
         ], used, 'comeback') });
+      }
+
+      // Held off a late comeback: the winner was well clear late and the
+      // loser clawed most of it back.
+      let lateLead = 0;
+      tl.steps.forEach(step => {
+        if (step.t < 0.6) return;
+        const lead = homeWon ? step.home - step.away : step.away - step.home;
+        if (lead > lateLead) lateLead = lead;
+      });
+      const clawed = lateLead - margin;
+      const hold = th.lateHold;
+      if (hold && clawed >= hold.drop && margin <= hold.within && deficit < th.comeback) {
+        cands.push({ kind: 'holdOff', weight: 90 + clawed / 2, text: pickVariant(rng, [
+          winner + ' hold off a late ' + loser + ' comeback to win by ' + margin,
+          winner + ' survive a late ' + loser + ' surge, ' + ws + '–' + ls,
+          possessive(loser) + ' late charge falls ' + margin + ' short against ' + winner,
+          winner + ' hang on as ' + loser + ' close ' + articleFor(clawed) + ' ' + clawed + '-point gap',
+        ], used, 'holdOff') });
       }
 
       // Upset — the underdog by pre-game rating won.
@@ -1193,6 +1242,13 @@ function buildHeadlines(opts) {
             'Underdogs ' + winner + ' thump ' + loser + ' ' + score,
             winner + ' tear favourites ' + loser + ' apart, ' + score,
           ];
+        } else if (clawed >= hold.drop * 0.75 && margin <= hold.within) {
+          tag = 'mcHoldOff';
+          variants = [
+            winner + ' hold off a late ' + loser + ' comeback to win by ' + margin,
+            winner + ' survive a late surge from ' + loser + ', ' + score,
+            possessive(loser) + ' fightback falls ' + margin + ' short against ' + winner,
+          ];
         } else if (comeback) {
           tag = 'mcComeback';
           variants = [
@@ -1214,10 +1270,11 @@ function buildHeadlines(opts) {
         } else if (smash) {
           tag = 'mcSmash';
           variants = [
-            winner + ' smash ' + loser + ' by ' + margin,
+            winner + ' thrash ' + loser + ' by ' + margin,
             winner + ' put ' + loser + ' to the sword, ' + score,
             winner + ' hammer ' + loser + ' by ' + margin + ' points',
             winner + ' crush ' + loser + ' in a ' + margin + '-point hiding',
+            ws >= th.pileOn * 0.9 ? winner + ' pile on ' + ws + ' points to thrash ' + loser : winner + ' run riot against ' + loser + ', ' + score,
           ];
         }
         if (variants) cands.push({ kind: 'story', minor: true, weight: 300, text: pickVariant(rng, variants, used, tag) });
@@ -1233,9 +1290,20 @@ function buildHeadlines(opts) {
       if (margin >= th.thrashing) {
         cands.push({ kind: 'thrashing', weight: 50 + margin, text: pickVariant(rng, [
           winner + ' thrash ' + loser + ' by ' + margin,
-          winner + ' overwhelm ' + loser + ' ' + ws + '–' + ls,
-          winner + ' run away with it against ' + loser + ', ' + ws + '–' + ls,
+          winner + ' thrash ' + loser + ' ' + ws + '–' + ls,
+          winner + ' run riot against ' + loser + ', winning by ' + margin,
+          winner + ' blow ' + loser + ' away by ' + margin,
+          loser + ' flogged by ' + margin + ' as ' + winner + ' run rampant',
         ], used, 'thrash') });
+      }
+
+      // A big winning score is its own story, whatever the margin.
+      if (th.pileOn && ws >= th.pileOn) {
+        cands.push({ kind: 'pileOn', weight: 58 + (ws - th.pileOn) / 2, text: pickVariant(rng, [
+          winner + ' pile on ' + ws + ' points to beat ' + loser,
+          winner + ' put ' + ws + ' on ' + loser,
+          winner + ' rack up ' + ws + ' in a ' + margin + '-point win over ' + loser,
+        ], used, 'pileOn') });
       }
 
       // A tight finish is a story whether or not the favourite lost. Golden
@@ -1245,6 +1313,8 @@ function buildHeadlines(opts) {
           margin + ' points the difference as ' + winner + ' beat ' + loser + ', ' + ws + '–' + ls,
           winner + ' hold on to beat ' + loser + ' by ' + margin,
           winner + ' survive a tight one against ' + loser + ', ' + ws + '–' + ls,
+          winner + ' sneak home by ' + margin + ' against ' + loser,
+          winner + ' edge ' + loser + ' in a thriller, ' + ws + '–' + ls,
         ], used, 'thriller') });
       }
 
