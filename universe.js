@@ -960,24 +960,31 @@ function consistencyStats(universe, season, nowMs) {
 }
 
 // Each club at a glance, for the Teams tab.
-//   { team: { att, def, overall, form, stage, stageName, coach, coachGrade,
-//             consistency, swing, games, events } }
-// att/def/overall are its true strength this season; form is how far its
-// results have it above (+) or below (−) that.
+//   { team: { att, def, overall, form, formAtt, formDef, formOverall, startRank,
+//             stage, stageName, coach, coachGrade, consistency, swing, games, events } }
+// att/def/overall are its true strength this season; formAtt/formDef/
+// formOverall are that strength moved by its results (the predictor's way of
+// rating it), and form is how far above (+) or below (−) the strength that is.
+// startRank is where its strength ranked it before Round 1.
 function talentView(universe, season, nowMs) {
   const common = LS.SIM_CONFIG.common;
   const tc = talentCfg(universe.config);
   const now = seasonEndRatings(universe, season, nowMs);
   const stats = consistencyStats(universe, season, nowMs);
   const clubs = season.clubs || clubsFromSeeds(universe, season);
+  const seedOf = t => LS.normRating(season.seeds && season.seeds[t], common);
+  const startOrder = universe.teams.slice().sort((a, b) =>
+    (seedOf(b).att + seedOf(b).def) - (seedOf(a).att + seedOf(a).def));
   const out = {};
   universe.teams.forEach(t => {
-    const s = LS.normRating(season.seeds && season.seeds[t], common);
+    const s = seedOf(t);
     const r = now[t] || s;
     const overall = (s.att + s.def) / 2;
     const c = clubs[t];
     out[t] = {
       att: s.att, def: s.def, overall, form: (r.att + r.def) / 2 - overall,
+      formAtt: r.att, formDef: r.def, formOverall: (r.att + r.def) / 2,
+      startRank: startOrder.indexOf(t) + 1,
       stage: c.stage, stageName: STAGE_NAMES[c.stage],
       coach: c.coach, coachGrade: coachGrade(c.coach.q), coachEffect: coachEffect(c.coach, tc),
       list: (c.base.att + c.base.def) / 2,
@@ -1344,6 +1351,41 @@ function startNextSeason(universe, nowMs) {
   return universe.seasons[universe.seasons.length - 1] !== season;
 }
 
+// Round by round through a season so far: each club's form rating, its rank
+// on that rating, and its ladder place, after every round whose games have
+// all finished by nowMs. Point 0 is before Round 1 (its strength, and the
+// rankings it started on).
+//   { rounds, teams: { team: [{ round, att, def, overall, rank, ladder }] } }
+function seasonTrack(universe, season, nowMs) {
+  const common = LS.SIM_CONFIG.common;
+  const maxMs = universe.config[universe.sport].maxGameMins * MIN_MS;
+  const roundOver = round => round.every(g => g.kickoff + maxMs <= nowMs);
+  let done = 0;
+  while (done < season.rounds.length && roundOver(season.rounds[done])) done++;
+  const eng = asEngineSeason(universe, season);
+  const hist = LS.computeRatings({
+    teams: universe.teams, rounds: eng.rounds, scores: eng.scores, seeds: season.seeds || {},
+    config: formConfig(universe), sport: universe.sport, upToRound: done,
+  }).history;
+  const out = {};
+  universe.teams.forEach(t => { out[t] = []; });
+  const push = (round, ratings, ladder) => {
+    const ov = t => { const r = LS.normRating(ratings[t], common); return (r.att + r.def) / 2; };
+    const order = universe.teams.slice().sort((a, b) => ov(b) - ov(a));
+    universe.teams.forEach(t => {
+      const r = LS.normRating(ratings[t], common);
+      out[t].push({ round, att: r.att, def: r.def, overall: (r.att + r.def) / 2,
+        rank: order.indexOf(t) + 1, ladder: ladder ? ladder.indexOf(t) + 1 : null });
+    });
+  };
+  push(0, season.seeds || {}, null);
+  for (let r = 0; r < done; r++) {
+    const end = Math.max(...season.rounds[r].map(g => g.kickoff)) + maxMs;
+    push(r + 1, hist[r].ratings, ladderAt(universe, season, end).map(x => x.team));
+  }
+  return { rounds: done, teams: out };
+}
+
 // A hand edit to a club, mid-season: its strength (attack/defence), stage or
 // consistency. Strength and consistency change this season's seeds, so they
 // apply from the next round that hasn't been decided (games already played
@@ -1407,6 +1449,6 @@ return {
   ladderAt, createUniverse, attach, advance, seasonOver, startNextSeason, currentRoundIdx, roundView,
   startingTalent, startingConsistency, consistencyLevels, volatilityOf,
   STAGES, STAGE_NAMES, startingClubs, coachGrade, simConfig, formConfig,
-  seasonEndRatings, nextTalent, consistencyStats, talentView, editClub,
+  seasonEndRatings, nextTalent, consistencyStats, talentView, seasonTrack, editClub,
 };
 }));

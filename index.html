@@ -1451,6 +1451,8 @@ input[type=number] {
   font-variant-numeric: tabular-nums;
 }
 .uni-score.uni-score-lost { color: #8888aa; }
+/* Before the bounce the score slot holds the side's ladder place. */
+.uni-score.uni-score-pos { font-size: 26px; color: #c8c8dc; padding-top: 8px; }
 .uni-gb {
   margin-top: 3px;
   color: #8888aa;
@@ -1584,7 +1586,9 @@ input[type=number] {
 .uni-h2h-d { margin-top: 34px; color: #c8c8dc; }
 
 /* The NRL ladder has a bye column, and points differential for percentage. */
-.uni-ladder-bar { display: flex; justify-content: flex-end; margin: -4px 0 8px; }
+.uni-ladder-bar { display: flex; justify-content: flex-end; gap: 6px; margin: -4px 0 8px; }
+.uni-ctl-live { border-color: #d61f2c; color: #ffffff; }
+.uni-ctl-live .uni-r-dot { margin-right: 5px; }
 /* The full ladder is wider than a phone: it scrolls sideways inside its card. */
 .uni-ladder-scroll { overflow-x: auto; }
 .uni-ladder-full .uni-lrow { min-width: 470px; }
@@ -1610,6 +1614,44 @@ input[type=number] {
 /* The same round crest as the match cards, small enough to sit inside the
    row, so the cut-off lines run clean underneath. */
 .uni-crest.uni-crest-sm { width: 48px; height: 24px; }
+/* Records: one season. */
+.uni-rec-season-head { margin-bottom: 10px; }
+.uni-rec-season { max-width: 180px; }
+.uni-prog-chart text { font-size: 18px; }
+.uni-prog-legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 8px; }
+.uni-prog-key { display: inline-flex; align-items: center; gap: 5px; color: #c8c8dc; font-size: 11px; font-weight: 700; }
+.uni-prog-key i { width: 14px; height: 3px; border-radius: 2px; }
+.uni-prog-table { margin-bottom: 12px; }
+.uni-prog-table table { border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.uni-prog-table th { color: #8888aa; font-size: 11px; font-weight: 700; padding: 6px 4px; text-align: center; min-width: 28px; }
+.uni-prog-table td { padding: 3px 4px; text-align: center; border-top: 1px solid #22223a; }
+.uni-prog-table .uni-prog-team { position: sticky; left: 0; z-index: 1; background: #16213E; text-align: left; padding-left: 8px; box-shadow: 8px 0 8px -8px rgba(0, 0, 0, 0.7); }
+.uni-prog-table td span { display: inline-block; min-width: 22px; padding: 2px 0; border-radius: 3px; }
+.uni-prog-1 { background: #b8860b; color: #ffffff; }
+.uni-prog-in { background: #1a3a1a; color: #7ee08f; }
+.uni-prog-last { background: #5a2a10; color: #ffffff; }
+.uni-res-table th { min-width: 46px; }
+.uni-res { display: flex !important; flex-direction: column; line-height: 1.15; font-size: 11px; padding: 3px 4px !important; }
+.uni-res b { color: #d0d0e0; font-weight: 700; }
+.uni-res-w { background: #1a4a1a; color: #7ee08f; }
+.uni-res-l { background: #4a1a1a; color: #ff8a8a; }
+.uni-res-d { background: #4a3a00; color: #f0c040; }
+.uni-res-bye { color: #8888aa; font-size: 10px; }
+.uni-bracket { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+.uni-bk-col { display: flex; flex-direction: column; flex: 0 0 138px; }
+.uni-bk-stage { color: #8888aa; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 6px; }
+.uni-bk-games { display: flex; flex-direction: column; justify-content: space-around; flex: 1; gap: 10px; }
+.uni-bk-game { background: #16213E; border: 1px solid #2a2a4a; border-radius: 8px; overflow: hidden; }
+.uni-bk-gf { border-color: #f0c040; }
+.uni-bk-label { padding: 3px 8px; color: #8888aa; font-size: 10px; font-weight: 700; text-transform: uppercase; border-bottom: 1px solid #22223a; }
+.uni-bk-gf .uni-bk-label { color: #f0c040; }
+.uni-bk-side { display: flex; align-items: center; gap: 6px; padding: 5px 8px; color: #8888aa; }
+.uni-bk-side + .uni-bk-side { border-top: 1px solid #22223a; }
+.uni-bk-abbr { font-family: 'AFL Modern', 'DIN Next LT Pro', sans-serif; font-size: 15px; }
+.uni-bk-score { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.uni-bk-won { color: #ffffff; }
+.uni-bk-won .uni-bk-score { color: #7ee08f; }
+.uni-bk-tbc { font-style: italic; color: #55556e; }
 /* Talent: the start-screen picker and the Talent tab. */
 .uni-tpick { margin-top: 16px; }
 .uni-tpick .uni-eyebrow { margin-bottom: 8px; }
@@ -1629,8 +1671,20 @@ input[type=number] {
   font-variant-numeric: tabular-nums;
 }
 .uni-trow.uni-lhead { height: 30px; }
-.uni-trow-view { grid-template-columns: 20px 40px minmax(56px, 1fr) 32px 32px 40px 58px; height: 46px; }
-.uni-trow-view .uni-crest.uni-crest-sm { width: 40px; height: 20px; }
+.uni-trow-view { grid-template-columns: 18px 36px minmax(50px, 1fr) 28px 28px 30px 30px 54px; gap: 3px; height: 46px; }
+.uni-trow-view .uni-crest.uni-crest-sm { width: 36px; height: 18px; }
+.uni-charts { margin: 4px 0 6px; }
+.uni-chart { display: block; width: 100%; height: auto; margin-top: 2px; }
+.uni-chart text { fill: #8888aa; font-size: 10px; font-family: 'DIN Next LT Pro', sans-serif; }
+.uni-chart .uni-chart-end { fill: #e0e0ee; font-size: 11px; font-weight: 700; }
+.uni-chart-grid { stroke: #2a3a63; stroke-width: 1; }
+.uni-chart-grid.uni-chart-mid { stroke-dasharray: 3 3; }
+.uni-chart-cross { stroke: #c8c8dc; stroke-width: 1; }
+.uni-chart-hit { fill: transparent; cursor: pointer; }
+.uni-chart-legend { display: flex; gap: 12px; color: #c8c8dc; font-size: 11px; }
+.uni-chart-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.uni-chart-legend i { display: inline-block; width: 12px; height: 2px; border-radius: 1px; }
+.uni-chart-read { color: #c8c8dc; font-size: 12px; margin-top: 6px; min-height: 1.2em; }
 .uni-tedit .uni-trow { grid-template-columns: 36px minmax(40px, 1fr) 52px 52px 32px; border-top: none; }
 .uni-tedit-club { border-top: 1px solid #22223a; padding-bottom: 8px; }
 .uni-tedit-club:first-of-type { border-top: none; }
@@ -10065,7 +10119,7 @@ const SIM_ANIM = {
   gapMs: 350,      // pause between games
   playWeight: {
     goal: 1, behind: 0.42,
-    convertedTry: 1, try: 1, penaltyGoal: 0.75, fieldGoal: 0.8,
+    try: 1, conversion: 0.45, penaltyGoal: 0.75, fieldGoal: 0.8,
   },
 };
 
@@ -11430,7 +11484,10 @@ const UNI_FINAL_LABELS = {
 let uniState = null;          // the loaded universe, or null if none started
 let uniView = 'games';        // 'games' | 'ladder' | 'records'
 let uniLadderFull = false;    // ladder: the short version, or every column
-let uniRecTab = 'history';    // records section: 'history' | 'records' | 'finals' | 'h2h'
+let uniLadderLive = false;    // ladder: count games in progress as they stand
+let uniRecTab = 'season';     // records section: 'season' | 'history' | 'records' | 'finals' | 'h2h'
+let uniRecSeason = null;      // the season the Season view shows (its n); null = the latest
+let uniRecSeasonTab = 'ladder'; // Season view: 'ladder' | 'progression' | 'results' | 'finals'
 let uniH2H = [null, null];    // the two clubs head to head
 let uniPage = null;           // round index shown; past the last round = a finals stage
 let uniPageSeason = 0;        // the season uniPage belongs to
@@ -11807,6 +11864,11 @@ function uniUpdate(root, season, games, now) {
   if (uniView === 'records') { uniRenderRecords(root, now); return; }
   if (uniView === 'talent') { uniRenderTalent(root, season, now); return; }
 
+  // Before a game: where each side sits. The ladder as it stands (finished
+  // games only); in Round 1, before there is one, the pre-season rankings;
+  // in the finals, where they finished the home-and-away season.
+  const pre = uniPreGamePositions(season, now);
+
   games.forEach(g => {
     const el = root.querySelector(`[data-game="${g.key}"]`);
     if (!el) return;
@@ -11824,9 +11886,13 @@ function uniUpdate(root, season, games, now) {
     ['home', 'away'].forEach(side => {
       const other = side === 'home' ? 'away' : 'home';
       const s = el.querySelector(`[data-score="${side}"]`);
-      s.textContent = on ? sc[side].points : '';
+      const pos = !on && g[side] ? pre.pos[g[side]] : null;
+      s.textContent = on ? sc[side].points : pos ? uniOrdinal(pos) : '';
+      s.classList.toggle('uni-score-pos', !on && !!pos);
       s.classList.toggle('uni-score-lost', g.status === 'final' && sc[side].points < sc[other].points);
-      el.querySelector(`[data-gb="${side}"]`).textContent = on && uniCfg().showGB ? sc[side].goals + '.' + sc[side].behinds : '';
+      el.querySelector(`[data-gb="${side}"]`).textContent = on
+        ? (uniCfg().showGB ? sc[side].goals + '.' + sc[side].behinds : '')
+        : pos ? pre.label : '';
     });
 
     let result = '';
@@ -11850,6 +11916,29 @@ function uniUpdate(root, season, games, now) {
   });
 }
 
+function uniOrdinal(n) {
+  const v = n % 100;
+  return n + (v >= 11 && v <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
+}
+// { pos: { team: 1-based place }, label } for the pre-game cards.
+function uniPreGamePositions(season, now) {
+  const U = window.LadderUniverse;
+  const pos = {};
+  if (uniPage >= season.rounds.length && season.finalLadder) {
+    season.finalLadder.forEach((t, i) => { pos[t] = i + 1; });
+    return { pos, label: 'Finished' };
+  }
+  const rows = U.ladderAt(uniState, season, now);
+  if (rows.some(r => r.p > 0)) {
+    rows.forEach((r, i) => { pos[r.team] = i + 1; });
+    return { pos, label: 'Ladder' };
+  }
+  const seeds = season.seeds || {};
+  const ov = t => { const r = seeds[t] || { att: 50, def: 50 }; return r.att + r.def; };
+  uniState.teams.slice().sort((a, b) => ov(b) - ov(a)).forEach((t, i) => { pos[t] = i + 1; });
+  return { pos, label: 'Ranked' };
+}
+
 // Each side's current run of results, from finished games: 'W3', 'L1', 'D1'.
 function uniStreak(season, team, now) {
   const form = uniForm(season, team, now);
@@ -11864,11 +11953,12 @@ function uniRenderLadder(root, season, now) {
   const box = root.querySelector('[data-ladder]');
   if (!box) return;
   const nrl = uniState.sport === 'nrl';
-  // The live ladder: games in progress count as they stand.
-  const rows = window.LadderUniverse.ladderAt(uniState, season, now, { live: true });
+  // Finished games only, unless Live is on: then games in progress count as
+  // they stand.
+  const rows = window.LadderUniverse.ladderAt(uniState, season, now, { live: uniLadderLive });
   const streaks = {};
   rows.forEach(r => { streaks[r.team] = uniStreak(season, r.team, now); });
-  const sig = uniLadderFull + '|' + rows.map(r => r.team + r.p + r.b + r.pts + r.f + r.a + (r.live ? '*' : '') + streaks[r.team]).join(',');
+  const sig = uniLadderFull + '|' + uniLadderLive + '|' + rows.map(r => r.team + r.p + r.b + r.pts + r.f + r.a + (r.live ? '*' : '') + streaks[r.team]).join(',');
   if (box.dataset.sig === sig) return;
   box.dataset.sig = sig;
 
@@ -11899,6 +11989,7 @@ function uniRenderLadder(root, season, now) {
   const cut = i => nrl ? (i === 7 ? ' uni-cut-top6' : '') : (i === 5 ? ' uni-cut-top6' : i === 9 ? ' uni-cut-wild' : '');
   box.innerHTML = `
     <div class="uni-ladder-bar">
+      <button type="button" class="uni-ctl${uniLadderLive ? ' uni-ctl-live' : ''}" data-act="ladder-live" aria-pressed="${uniLadderLive}">${uniLadderLive ? '<span class="uni-r-dot"></span>Live' : 'Live'}</button>
       <button type="button" class="uni-ctl" data-act="ladder-full" aria-pressed="${uniLadderFull}">${uniLadderFull ? 'Standard' : 'Extended'}</button>
     </div>
     <div class="uni-ladder${uniLadderFull ? ' uni-ladder-full' : ''}">
@@ -11916,7 +12007,7 @@ function uniRenderLadder(root, season, now) {
       <div class="uni-lkey">${nrl
         ? '<span class="uni-key-top6"></span>Top 8 make the finals'
         : '<span class="uni-key-top6"></span>Top 6 straight into finals <span class="uni-key-wild"></span>7–10 wildcard round'}
-        <span class="uni-ldot uni-ldot-key"></span>Live</div>
+        ${uniLadderLive ? '<span class="uni-ldot uni-ldot-key"></span>Playing now, counted as it stands' : ''}</div>
     </div>`;
   uniWire(box);
 }
@@ -12185,6 +12276,84 @@ function uniOffseasonBannerHTML(season) {
   </div>`;
 }
 
+// A club's season in two small charts: ladder place and rating rank (rank 1 at
+// the top), and its attack and defence ratings. Tap or hover a round for the
+// numbers. One axis each — places and ratings never share a scale.
+const UNI_CHART = { blue: '#3987e5', orange: '#d95926' };
+function uniTrackChartsHTML(track, team) {
+  const pts = track.teams[team];
+  if (!track.rounds) return '<div class="uni-rec-empty">Season charts start after Round 1.</div>';
+  const n = uniState.teams.length;
+  const W = 320, H = 116, L = 26, R = 46, T = 10, B = 18;
+  const x = r => L + (r / track.rounds) * (W - L - R);
+  const line = (vals, y) => vals.map((v, i) => v == null ? null : `${x(i)},${y(v)}`).filter(Boolean).join(' ');
+  const hits = pts.map((_, i) => `<rect class="uni-chart-hit" data-r="${i}" x="${x(i) - (W - L - R) / track.rounds / 2}" y="${T}" width="${(W - L - R) / track.rounds}" height="${H - T - B}"></rect>`).join('');
+  const roundTicks = [0, Math.round(track.rounds / 2), track.rounds].filter((v, i, a) => a.indexOf(v) === i)
+    .map(r => `<text x="${x(r)}" y="${H - 4}" text-anchor="middle">${r ? 'R' + r : 'Start'}</text>`).join('');
+  const endLabel = (val, y, colour, text) => `<circle cx="${x(track.rounds)}" cy="${y}" r="4" fill="${colour}" stroke="#1b2748" stroke-width="2"></circle>
+    <text class="uni-chart-end" x="${x(track.rounds) + 8}" y="${y + 4}">${text}</text>`;
+
+  // Places: 1 at the top.
+  const yP = v => T + ((v - 1) / (n - 1)) * (H - T - B);
+  const ladder = pts.map(p => p.ladder), rank = pts.map(p => p.rank);
+  const last = pts[pts.length - 1];
+  const places = `<svg class="uni-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${team}: ladder place and rating rank by round" data-chart="places">
+    ${[1, Math.ceil(n / 2), n].map(v => `<line class="uni-chart-grid" x1="${L}" x2="${W - R}" y1="${yP(v)}" y2="${yP(v)}"></line><text x="${L - 6}" y="${yP(v) + 4}" text-anchor="end">${v}</text>`).join('')}
+    ${roundTicks}
+    <polyline points="${line(rank, yP)}" fill="none" stroke="${UNI_CHART.orange}" stroke-width="2" stroke-linejoin="round"></polyline>
+    <polyline points="${line(ladder, yP)}" fill="none" stroke="${UNI_CHART.blue}" stroke-width="2" stroke-linejoin="round"></polyline>
+    ${endLabel(last.ladder, yP(last.ladder), UNI_CHART.blue, uniOrdinal(last.ladder))}
+    ${Math.abs(yP(last.rank) - yP(last.ladder)) >= 12 ? endLabel(last.rank, yP(last.rank), UNI_CHART.orange, '#' + last.rank) : ''}
+    <line class="uni-chart-cross" x1="0" x2="0" y1="${T}" y2="${H - B}" visibility="hidden"></line>
+    ${hits}
+  </svg>`;
+
+  // Ratings: attack and defence on one rating scale.
+  const all = pts.flatMap(p => [p.att, p.def]);
+  const lo = Math.floor(Math.min(...all, 50) - 2), hi = Math.ceil(Math.max(...all, 50) + 2);
+  const yR = v => T + ((hi - v) / (hi - lo)) * (H - T - B);
+  const ratings = `<svg class="uni-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${team}: attack and defence ratings by round" data-chart="ratings">
+    ${[hi, 50, lo].map(v => `<line class="uni-chart-grid${v === 50 ? ' uni-chart-mid' : ''}" x1="${L}" x2="${W - R}" y1="${yR(v)}" y2="${yR(v)}"></line><text x="${L - 6}" y="${yR(v) + 4}" text-anchor="end">${v}</text>`).join('')}
+    ${roundTicks}
+    <polyline points="${line(pts.map(p => p.def), yR)}" fill="none" stroke="${UNI_CHART.orange}" stroke-width="2" stroke-linejoin="round"></polyline>
+    <polyline points="${line(pts.map(p => p.att), yR)}" fill="none" stroke="${UNI_CHART.blue}" stroke-width="2" stroke-linejoin="round"></polyline>
+    ${endLabel(last.att, yR(last.att), UNI_CHART.blue, Math.round(last.att))}
+    ${Math.abs(yR(last.def) - yR(last.att)) >= 12 ? endLabel(last.def, yR(last.def), UNI_CHART.orange, Math.round(last.def)) : ''}
+    <line class="uni-chart-cross" x1="0" x2="0" y1="${T}" y2="${H - B}" visibility="hidden"></line>
+    ${hits}
+  </svg>`;
+
+  const legend = (a, b) => `<div class="uni-chart-legend"><span><i style="background:${UNI_CHART.blue}"></i>${a}</span><span><i style="background:${UNI_CHART.orange}"></i>${b}</span></div>`;
+  const data = encodeURIComponent(JSON.stringify(pts.map(p => [p.round, p.ladder, p.rank, Math.round(p.att), Math.round(p.def)])));
+  return `<div class="uni-charts" data-track="${data}">
+    <div class="uni-tdetail-head">Ladder and ranking</div>${legend('Ladder place', 'Rating rank')}${places}
+    <div class="uni-tdetail-head">Ratings</div>${legend('Attack', 'Defence')}${ratings}
+    <div class="uni-chart-read" aria-live="polite">Tap a round for the numbers.</div>
+  </div>`;
+}
+// Hover or tap a round: crosshair on both charts, numbers underneath.
+function uniWireCharts(root) {
+  root.querySelectorAll('.uni-charts').forEach(wrap => {
+    const data = JSON.parse(decodeURIComponent(wrap.dataset.track));
+    const read = wrap.querySelector('.uni-chart-read');
+    const show = i => {
+      const [round, ladder, rank, att, def] = data[i];
+      wrap.querySelectorAll('.uni-chart').forEach(svg => {
+        const hit = svg.querySelector(`.uni-chart-hit[data-r="${i}"]`);
+        const cx = Number(hit.getAttribute('x')) + Number(hit.getAttribute('width')) / 2;
+        const cross = svg.querySelector('.uni-chart-cross');
+        cross.setAttribute('x1', cx); cross.setAttribute('x2', cx); cross.setAttribute('visibility', 'visible');
+      });
+      read.textContent = (round ? 'After round ' + round + ': ' + uniOrdinal(ladder) + ' on the ladder, ' : 'Before Round 1: ')
+        + 'rated #' + rank + ' · attack ' + att + ', defence ' + def;
+    };
+    wrap.querySelectorAll('.uni-chart-hit').forEach(h => {
+      h.addEventListener('mouseenter', () => show(Number(h.dataset.r)));
+      h.addEventListener('click', e => { e.stopPropagation(); show(Number(h.dataset.r)); });
+    });
+  });
+}
+
 function uniRenderTalent(root, season, now) {
   const box = root.querySelector('[data-talent-view]');
   if (!box) return;
@@ -12192,16 +12361,19 @@ function uniRenderTalent(root, season, now) {
   // Mid-edit, leave the form alone: a game finishing shouldn't wipe it.
   if (uniTeamEdit && box.querySelector('.uni-tedit-form')) return;
   const view = U.talentView(uniState, season, now);
+  // Ranked on rating as it stands: strength moved by results.
   const rows = Object.keys(view).map(t => Object.assign({ team: t }, view[t]))
-    .sort((a, b) => b.overall - a.overall);
+    .sort((a, b) => b.formOverall - a.formOverall);
   const sig = [uniTeamOpen, uniTeamEdit, uniOffseasonAll].concat(rows.map(r =>
     r.team + r.att + r.def + r.stage + r.consistency + r.form.toFixed(1) + r.games)).join(',');
   if (box.dataset.sig === sig) return;
   box.dataset.sig = sig;
-  // Form: how far results have this club above or below its true level.
-  const form = r => {
-    if (!r.games || Math.abs(r.form) < 0.5) return '<span class="uni-lpos">–</span>';
-    return `<span class="${r.form > 0 ? 'uni-streak-W' : 'uni-streak-L'}">${r.form > 0 ? '▲' : '▼'}${Math.abs(r.form).toFixed(0)}</span>`;
+  // Start: where it ranked before Round 1, and how far it has moved since.
+  const start = (r, now) => {
+    const d = r.startRank - now;
+    const move = !d ? '<span class="uni-lpos">–</span>'
+      : `<span class="${d > 0 ? 'uni-streak-W' : 'uni-streak-L'}">${d > 0 ? '▲' : '▼'}${Math.abs(d)}</span>`;
+    return `<span class="uni-tstack"><span>${r.startRank}</span><span class="uni-tdelta">${move}</span></span>`;
   };
   // Measured swing, against the league's this season: green is a side doing
   // what its strength says week to week, red one that's all over the place.
@@ -12242,10 +12414,13 @@ function uniRenderTalent(root, season, now) {
     }
     return `<div class="uni-tdetail">
       <div class="uni-controls uni-tctl uni-tedit-btn"><button type="button" class="uni-ctl" data-act="team-edit">Edit club</button></div>
+      ${uniTrackChartsHTML(U.seasonTrack(uniState, season, now), r.team)}
       <div class="uni-hist-line"><span class="uni-hist-label">Coach</span><span>${co.name}</span>
         <span class="uni-hist-extra">${r.coachGrade} coach · ${nth(co.years)} season in charge</span></div>
-      <div class="uni-hist-line"><span class="uni-hist-label">Strength</span><span>List ${Math.round(r.list)}</span>
-        <span class="uni-hist-extra">coach ${sign(r.coachEffect)}${Math.abs(r.overall - r.list - r.coachEffect) >= 0.5 ? ` · injuries ${sign(r.overall - r.list - r.coachEffect)}` : ''}</span></div>
+      <div class="uni-hist-line"><span class="uni-hist-label">Strength</span><span>${Math.round(r.overall)} for the season</span>
+        <span class="uni-hist-extra">list ${Math.round(r.list)} · coach ${sign(r.coachEffect)}${Math.abs(r.overall - r.list - r.coachEffect) >= 0.5 ? ` · injuries ${sign(r.overall - r.list - r.coachEffect)}` : ''}</span></div>
+      <div class="uni-hist-line"><span class="uni-hist-label">Consistency</span><span>${UNI_CONSISTENCY_NAMES[r.consistency] || r.consistency}</span>
+        <span class="uni-hist-extra">${r.games ? `margins miss by ±${Math.round(r.swing)}` : 'no games yet'}</span></div>
       <div class="uni-hist-line"><span class="uni-hist-label">Stage</span><span>${r.stageName}</span></div>
       ${season.n > 1 ? `<div class="uni-tdetail-head">Off-season</div>${ev}` : ''}
     </div>`;
@@ -12259,23 +12434,25 @@ function uniRenderTalent(root, season, now) {
   box.innerHTML = `${news}
     <div class="uni-ladder">
       <div class="uni-trow uni-trow-view uni-lhead"><span>#</span><span></span><span class="uni-lteam">Team</span>
-        <span>ATT</span><span>DEF</span><span>OVR</span><span>Consist.</span></div>
+        <span>ATT</span><span>DEF</span><span>OVR</span><span>Start</span><span>Consist.</span></div>
       ${rows.map((r, i) => {
         const cfg = uniTeamCfg(r.team), open = uniTeamOpen === r.team;
         return `<div class="uni-trow uni-trow-view uni-trow-tap${open ? ' open' : ''}" data-act="team-open" data-team="${r.team}" role="button" tabindex="0" aria-expanded="${open}">
           <span class="uni-lpos">${i + 1}</span>
           <span class="uni-llogo"><span class="uni-crest uni-crest-sm"><img src="${cfg.logo}" alt=""></span></span>
           <span class="uni-lteam">${cfg.abbr}<span class="uni-tlabel uni-stage-${r.stage}">${r.stageName}</span></span>
-          <span>${uniTalentNum(r.att)}</span><span>${uniTalentNum(r.def)}</span>
-          <span class="uni-tstack"><span class="uni-lpts">${uniTalentNum(r.overall)}</span><span class="uni-tdelta">${form(r)}</span></span>
+          <span>${uniTalentNum(r.formAtt)}</span><span>${uniTalentNum(r.formDef)}</span>
+          <span class="uni-lpts">${uniTalentNum(r.formOverall)}</span>
+          ${start(r, i + 1)}
           <span class="uni-tstack"><span class="uni-tcons uni-tcons-${r.consistency}">${UNI_CONSISTENCY_NAMES[r.consistency] || r.consistency}</span>${swing(r)}</span></div>
           ${open ? detail(r) : ''}`;
       }).join('')}
     </div>
-    <p class="uni-muted">Ratings are each club's true strength for the season: its list plus its coach, set before Round 1. 50 is league average. Results don't change it; the ▲/▼ under OVR is form, how far results have the club playing above or below that.</p>
+    <p class="uni-muted">Ratings are as clubs stand now: their strength for the season (list plus coach, set before Round 1) moved by their results. 50 is league average. Start is where a club ranked before Round 1, with how far it has climbed (▲) or slid (▼) since. Tap a club for its season charts.</p>
     <p class="uni-muted">Stage is where the list is in its cycle: Rebuilding → Emerging → Contending → Peak → Ageing, and round again. Each off-season it moves clubs up or down, the bottom sides get draft help, coaches are sacked or kept, and trades, free agents, retirements and injuries shake things up.</p>
     <p class="uni-muted">Consistency is how much results wobble around that strength: Volatile sides are all over the place, Ruthless ones do what they should. The ± is how far, on average, its margins have missed expectation this season (green is steadier than the league, red wilder).</p>`;
   uniWire(box);
+  uniWireCharts(box);
 }
 
 // ---------- records ----------
@@ -12335,23 +12512,178 @@ function uniRenderRecords(root, now) {
   const box = root.querySelector('[data-records]');
   if (!box) return;
   const games = uniFinishedGames(now);
-  const sig = [uniSport, uniRecTab, games.length, uniH2H.join('|')].join('/');
+  const sig = [uniSport, uniRecTab, uniRecSeason, uniRecSeasonTab, uniState.seasons.length, games.length, uniH2H.join('|')].join('/');
   if (box.dataset.sig === sig) return;
   box.dataset.sig = sig;
 
-  const tabs = [['history', 'History'], ['records', 'Records'], ['finals', 'Finals'], ['h2h', 'Head to head']];
+  const tabs = [['season', 'Season'], ['history', 'History'], ['records', 'Records'], ['finals', 'Finals'], ['h2h', 'Head to head']];
   const nav = `<div class="uni-subtabs">${tabs.map(([k, label]) =>
     `<button type="button" class="uni-subtab${k === uniRecTab ? ' active' : ''}" data-act="rectab" data-tab="${k}">${label}</button>`).join('')}</div>`;
-  const body = uniRecTab === 'history' ? uniRecHistoryHTML(games, now)
+  const body = uniRecTab === 'season' ? uniRecSeasonHTML(games, now)
+    : uniRecTab === 'history' ? uniRecHistoryHTML(games, now)
     : uniRecTab === 'records' ? uniRecRecordsHTML(games)
     : uniRecTab === 'finals' ? uniRecFinalsHTML(games)
     : uniRecH2HHTML(games);
   box.innerHTML = nav + body;
   uniWire(box);
+  box.querySelectorAll('select[data-rec-season]').forEach(sel => sel.addEventListener('change', () => {
+    uniRecSeason = Number(sel.value);
+    uniRenderRecords(root, uniNow());
+  }));
   box.querySelectorAll('select[data-h2h]').forEach(sel => sel.addEventListener('change', () => {
     uniH2H[Number(sel.dataset.h2h)] = sel.value;
     uniRenderRecords(root, uniNow());
   }));
+}
+
+// ---------- one season ----------
+// The same four views as the predictor's season records: the ladder, how it
+// moved round by round, every result, and the finals — here as a bracket.
+// Finished games only, so nothing is given away early.
+function uniRecSeasonHTML(games, now) {
+  const seasons = uniState.seasons;
+  const season = seasons.find(x => x.n === uniRecSeason) || seasons[seasons.length - 1];
+  const pickSeason = `<select class="uni-select uni-rec-season" data-rec-season aria-label="Season">
+    ${seasons.slice().reverse().map(x => `<option value="${x.n}"${x.n === season.n ? ' selected' : ''}>Season ${x.n}</option>`).join('')}
+  </select>`;
+  const tabs = [['ladder', 'Ladder'], ['progression', 'Progression'], ['results', 'Results'], ['finals', 'Finals']];
+  const nav = `<div class="uni-subtabs uni-rec-season-tabs">${tabs.map(([k, label]) =>
+    `<button type="button" class="uni-subtab${k === uniRecSeasonTab ? ' active' : ''}" data-act="recseasontab" data-tab="${k}">${label}</button>`).join('')}</div>`;
+  const body = uniRecSeasonTab === 'ladder' ? uniRecSeasonLadderHTML(season, now)
+    : uniRecSeasonTab === 'progression' ? uniRecProgressionHTML(season, now)
+    : uniRecSeasonTab === 'results' ? uniRecResultsHTML(season, now)
+    : uniRecBracketHTML(season, games);
+  return `<div class="uni-rec-season-head">${pickSeason}</div>${nav}${body}`;
+}
+
+// The ladder after every round that's fully over: [{ round, order: [team] }].
+function uniRoundLadders(season, now) {
+  const U = window.LadderUniverse;
+  const maxMs = uniScfg().maxGameMins * 60000;
+  const out = [];
+  season.rounds.forEach((round, r) => {
+    const end = Math.max(...round.map(g => g.kickoff)) + maxMs;
+    if (end > now) return;
+    out.push({ round: r, order: U.ladderAt(uniState, season, end).map(x => x.team) });
+  });
+  return out;
+}
+function uniCutClass(i) {
+  const nrl = uniState.sport === 'nrl';
+  return nrl ? (i === 7 ? ' uni-cut-top6' : '') : (i === 5 ? ' uni-cut-top6' : i === 9 ? ' uni-cut-wild' : '');
+}
+
+function uniRecSeasonLadderHTML(season, now) {
+  const nrl = uniState.sport === 'nrl';
+  const rows = window.LadderUniverse.ladderAt(uniState, season, now);
+  if (!rows.some(r => r.p)) return '<div class="uni-rec-empty">No games finished yet this season.</div>';
+  const cols = [['P', r => r.p], ['W', r => r.w], ['L', r => r.l], ['D', r => r.d]];
+  if (nrl) cols.push(['B', r => r.b]);
+  cols.push(['F', r => r.f], ['A', r => r.a]);
+  cols.push(nrl ? ['PD', r => (r.diff > 0 ? '+' : '') + r.diff] : ['%', r => (r.p && isFinite(r.pct) ? r.pct.toFixed(1) : '—')]);
+  cols.push(['Pts', r => r.pts]);
+  const widths = cols.map(([h]) => (h === 'F' || h === 'A' || h === 'PD' ? 38 : h === '%' ? 46 : h === 'Pts' ? 30 : 22) + 'px').join(' ');
+  const grid = `grid-template-columns: 20px 50px minmax(44px, 1fr) ${widths};`;
+  return `<div class="uni-ladder uni-ladder-full"><div class="uni-ladder-scroll">
+    <div class="uni-lrow uni-lhead" style="${grid}"><span>#</span><span></span><span class="uni-lteam">Team</span>${cols.map(([h]) => `<span>${h}</span>`).join('')}</div>
+    ${rows.map((r, i) => {
+      const cfg = uniTeamCfg(r.team);
+      return `<div class="uni-lrow${uniCutClass(i)}" style="${grid}"><span class="uni-lpos">${i + 1}</span>
+        <span class="uni-llogo"><span class="uni-crest uni-crest-sm"><img src="${cfg.logo}" alt=""></span></span>
+        <span class="uni-lteam">${cfg.abbr}</span>${cols.map(([h, v]) => `<span class="${h === 'Pts' ? 'uni-lpts' : ''}">${v(r)}</span>`).join('')}</div>`;
+    }).join('')}
+  </div></div>`;
+}
+
+// Every club's ladder place after each round: a chart in club colours, then
+// the same as a table.
+function uniRecProgressionHTML(season, now) {
+  const ladders = uniRoundLadders(season, now);
+  if (!ladders.length) return '<div class="uni-rec-empty">The chart starts once Round 1 is over.</div>';
+  const teams = ladders[ladders.length - 1].order;
+  const n = teams.length;
+  const W = 620, H = 300, L = 24, R = 12, T = 10, B = 22;
+  const x = i => L + (ladders.length === 1 ? (W - L - R) / 2 : i * (W - L - R) / (ladders.length - 1));
+  const y = p => T + (p - 1) * (H - T - B) / (n - 1);
+  const cut = uniState.sport === 'nrl' ? 8 : 6;
+  const lines = teams.map(t => {
+    const pts = ladders.map((l, i) => `${x(i)},${y(l.order.indexOf(t) + 1)}`).join(' ');
+    return `<polyline points="${pts}" fill="none" stroke="${uniColour(t)}" stroke-width="2" stroke-linejoin="round" opacity="0.9"><title>${t}</title></polyline>`;
+  }).join('');
+  const every = Math.ceil(ladders.length / 8);
+  const xl = ladders.map((l, i) => (i % every === 0 || i === ladders.length - 1)
+    ? `<text x="${x(i)}" y="${H - 6}" text-anchor="middle">R${l.round + 1}</text>` : '').join('');
+  const yl = [1, cut, n].map(p => `<text x="${L - 6}" y="${y(p) + 4}" text-anchor="end">${p}</text>`).join('');
+  const cutY = (y(cut) + y(cut + 1)) / 2;
+  const legend = teams.map(t => `<span class="uni-prog-key" title="${t}"><i style="background:${uniColour(t)}"></i>${uniTeamCfg(t).abbr}</span>`).join('');
+  const table = `<div class="uni-ladder uni-ladder-full uni-prog-table"><div class="uni-ladder-scroll"><table>
+    <thead><tr><th class="uni-prog-team">Team</th>${ladders.map(l => `<th>R${l.round + 1}</th>`).join('')}</tr></thead>
+    <tbody>${teams.map(t => `<tr><td class="uni-prog-team"><span class="uni-rec-team">${uniCrestHTML(t)}${uniTeamCfg(t).abbr}</span></td>
+      ${ladders.map(l => { const p = l.order.indexOf(t) + 1;
+        const cls = p === 1 ? 'uni-prog-1' : p <= cut ? 'uni-prog-in' : p === n ? 'uni-prog-last' : '';
+        return `<td><span class="${cls}">${p}</span></td>`; }).join('')}</tr>`).join('')}</tbody>
+  </table></div></div>`;
+  return `<div class="uni-rec"><div class="uni-rec-title">Ladder place after each round</div>
+    <svg class="uni-chart uni-prog-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Ladder place of every club after each round">
+      <line class="uni-chart-grid" x1="${L}" x2="${W - R}" y1="${cutY}" y2="${cutY}" stroke-dasharray="4 3"></line>
+      ${lines}${xl}${yl}
+    </svg>
+    <div class="uni-prog-legend">${legend}</div></div>${table}`;
+}
+
+// Every result, club by club and round by round: opponent and margin.
+function uniRecResultsHTML(season, now) {
+  const maxMs = uniScfg().maxGameMins * 60000;
+  const ladder = window.LadderUniverse.ladderAt(uniState, season, now).map(r => r.team);
+  const res = {};
+  ladder.forEach(t => { res[t] = {}; });
+  let any = false;
+  season.rounds.forEach((round, r) => round.forEach((g, i) => {
+    const sc = season.scores['R' + (r + 1) + 'G' + i];
+    if (!sc || g.kickoff + maxMs > now) return;
+    any = true;
+    res[g.home][r] = { opp: uniTeamCfg(g.away).abbr, d: sc.home - sc.away, home: true };
+    res[g.away][r] = { opp: uniTeamCfg(g.home).abbr, d: sc.away - sc.home, home: false };
+  }));
+  if (!any) return '<div class="uni-rec-empty">No games finished yet this season.</div>';
+  const byes = season.byes || [];
+  return `<div class="uni-ladder uni-ladder-full uni-prog-table uni-res-table"><div class="uni-ladder-scroll"><table>
+    <thead><tr><th class="uni-prog-team">Team</th>${season.rounds.map((_, r) => `<th>R${r + 1}</th>`).join('')}</tr></thead>
+    <tbody>${ladder.map(t => `<tr><td class="uni-prog-team"><span class="uni-rec-team">${uniCrestHTML(t)}${uniTeamCfg(t).abbr}</span></td>
+      ${season.rounds.map((_, r) => {
+        const x = res[t][r];
+        if (!x) return `<td>${(byes[r] || []).includes(t) ? '<span class="uni-res-bye">BYE</span>' : ''}</td>`;
+        const cls = x.d > 0 ? 'uni-res-w' : x.d < 0 ? 'uni-res-l' : 'uni-res-d';
+        return `<td><span class="uni-res ${cls}"><b>${x.home ? '' : '@'}${x.opp}</b>${x.d > 0 ? '+' : ''}${x.d}</span></td>`;
+      }).join('')}</tr>`).join('')}</tbody>
+  </table></div></div>`;
+}
+
+// The finals as a bracket: one column per finals week, winners through.
+function uniRecBracketHTML(season, games) {
+  const done = {};
+  games.filter(g => g.n === season.n && g.finalId).forEach(g => { done[g.finalId] = g; });
+  const side = (team, score, won) => {
+    const cfg = team ? uniTeamCfg(team) : null;
+    return `<div class="uni-bk-side${won ? ' uni-bk-won' : ''}">
+      ${cfg ? `<span class="uni-crest uni-crest-xs"><img src="${cfg.logo}" alt=""></span><span class="uni-bk-abbr">${cfg.abbr}</span>` : '<span class="uni-bk-tbc">TBC</span>'}
+      <span class="uni-bk-score">${score != null ? score : ''}</span></div>`;
+  };
+  const cols = uniStages().map(stage => `<div class="uni-bk-col">
+    <div class="uni-bk-stage">${UNI_FINALS_NAMES[stage.stage]}</div>
+    <div class="uni-bk-games">${stage.games.map(([id]) => {
+      const f = season.finals[id] || {};
+      const g = done[id];
+      const hw = g && g.hs > g.as, aw = g && g.as > g.hs;
+      return `<div class="uni-bk-game${id === 'GF' ? ' uni-bk-gf' : ''}">
+        <div class="uni-bk-label">${UNI_FINAL_LABELS[id]}</div>
+        ${side(f.home, g ? g.hs : null, hw)}${side(f.away, g ? g.as : null, aw)}
+      </div>`;
+    }).join('')}</div></div>`).join('');
+  const gf = done.GF;
+  const champ = gf ? (gf.hs > gf.as ? gf.home : gf.away) : null;
+  return `${champ ? `<div class="uni-rec uni-hist-premier">${uniCrestHTML(champ, 'uni-crest-sm')}<div><div class="uni-hist-label">Season ${season.n} premiers</div><div class="uni-hist-team">${champ}</div></div></div>` : ''}
+    <div class="uni-bracket">${cols}</div>`;
 }
 
 // Season by season: the premiers and the rest of the honour roll.
@@ -12504,7 +12836,9 @@ function uniWire(root) {
     else if (act === 'view') { uniView = b.dataset.view; uniRender(); }
     else if (act === 'sport') uniSwitchSport(b.dataset.sportKey);
     else if (act === 'rectab') { uniRecTab = b.dataset.tab; uniRender(); }
+    else if (act === 'recseasontab') { uniRecSeasonTab = b.dataset.tab; uniRender(); }
     else if (act === 'ladder-full') { uniLadderFull = !uniLadderFull; uniRender(); }
+    else if (act === 'ladder-live') { uniLadderLive = !uniLadderLive; uniRender(); }
     else if (act === 'page') {
       const season = uniSeason();
       uniPage = Math.max(0, Math.min(uniPageCount(season) - 1, uniPage + Number(b.dataset.dir)));
