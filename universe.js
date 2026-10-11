@@ -61,7 +61,7 @@ const UNIVERSE_CONFIG = {
     // How busy the off-season is: 1 is about one move for every second club.
     moveRate: 1,
     // The 'Random' start: how widely sides are spread around the mean.
-    randomSpread: 12,
+    randomSpread: 10,
     // Consistency: how much a side's results wobble around what its ratings
     // say, from volatile to ruthless (multipliers in SIM_CONFIG.common
     // .consistency). Drawn for each side at the start, by these weights; each
@@ -87,9 +87,15 @@ const UNIVERSE_CONFIG = {
     breaks: [2, 5, 2],
     breakLabels: ['QT', 'HT', '3QT'],
     // Universe-only tweaks laid over SIM_CONFIG.afl (see simConfig). W is
-    // how much a rating point is worth on the scoreboard: 0.7 against the
-    // predictor's 0.55, so a strong side against a weak one shows it.
-    sim: { W: 0.7 },
+    // how much a rating point is worth on the scoreboard: 0.62 against the
+    // predictor's 0.55, so a strong side against a weak one shows it. 0.7 had
+    // the best side winning by 30-40 a game; 0.62 keeps it near a real minor
+    // premier's 25-30.
+    // SWING is the roll that decides margins and upsets (see SIM_CONFIG.afl):
+    // 11 against the predictor's 13.5 keeps games between closely rated sides
+    // close, and lets the better side win more often (about 70% of games, 93%
+    // of top-three v bottom-four) without the margins blowing out.
+    sim: { W: 0.62, SWING: 11 },
     maxGameMins: 4 * 35 + 9,   // the longest a game can run, breaks included
     // Four points a win, two a draw; level on points goes to percentage.
     ladder: { win: 4, draw: 2, bye: 0, sortBy: 'pct' },
@@ -140,7 +146,10 @@ const UNIVERSE_CONFIG = {
     // Half time is five minutes; golden point follows straight on.
     breaks: [5, 0],
     breakLabels: ['HT', 'GP'],
-    sim: { W: 0.38 },      // see afl.sim; the predictor uses 0.30
+    // See afl.sim. W 0.32 (0.38 had the best side winning by 17+ a game,
+    // against a real minor premier's 10-15) and SWING 5 against the
+    // predictor's 6.5: closely rated sides average an 8-point game.
+    sim: { W: 0.32, SWING: 5 },
     maxGameMins: 40 + 5 + 40 + 10,
     // Two points a win, one a draw, two for the bye; then points differential.
     ladder: { win: 2, draw: 1, bye: 2, sortBy: 'diff' },
