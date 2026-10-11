@@ -18,6 +18,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ladder Predictors</title>
+  <!-- Installable: Add to Home Screen opens it full screen, and lets it take
+       kick-off alerts (iPhone only delivers web notifications to an app on the
+       home screen). -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#1A192E">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Ladder">
   <style>
     * {
       margin: 0;
@@ -1276,7 +1286,7 @@ input[type=number] {
 }
 .uni-next { color: #c8c8dc; font-size: 13px; margin: 8px 0 14px; min-height: 1em; }
 .uni-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
-.uni-controls { display: flex; gap: 6px; margin: -4px 0 14px; }
+.uni-controls { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 14px; }
 .uni-ctl {
   padding: 5px 12px;
   border: 1px solid #2a2a4a;
@@ -1291,6 +1301,7 @@ input[type=number] {
 .uni-ctl:hover { background: #22223a; color: #ffffff; }
 .uni-ctl-go { border-color: #1f5c2e; background: #1f5c2e; color: #c8f5c8; }
 .uni-ctl-go:hover { background: #28753b; color: #ffffff; }
+.uni-ctl-on { border-color: #28753b; color: #c8f5c8; }
 .uni-tabs .panel-toggle-btn { flex: 1; padding: 8px 14px; }
 
 .uni-stepper {
@@ -1697,7 +1708,6 @@ input[type=number] {
 .uni-tdetail-head { color: #8888aa; font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; margin: 8px 0 2px; }
 .uni-off { padding-bottom: 10px; }
 .uni-tsource { display: flex; flex-direction: column; gap: 6px; margin: -2px 0 10px; color: #8888aa; font-size: 12px; line-height: 1.4; }
-.uni-tsource-warn span { color: #f0c040; }
 .uni-tsource .uni-tselect { max-width: 220px; }
 .uni-tedit-btn { justify-content: flex-end; margin: 6px 0 0; }
 .uni-tedit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding-top: 10px; }
@@ -3535,6 +3545,12 @@ transform-origin: left center;
   <script>document.write('<script src="sim.js?v=' + Date.now() + '"><\/script>');</script>
   <!-- Universe mode's calendar and catch-up, on top of sim.js. Same cache-bust. -->
   <script>document.write('<script src="universe.js?v=' + Date.now() + '"><\/script>');</script>
+  <!-- The service worker only shows kick-off alerts; it caches nothing. -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(e => console.warn('service worker not registered', e));
+    }
+  </script>
   <script>
 (async function() {
 
@@ -3570,7 +3586,7 @@ let activeSaveSlotId = '';
 
 // Keys that belong to the account, not to a save: the registry itself, and
 // the Universe, which sits alongside the saves rather than inside one.
-const UNSLOTTED_KEYS = new Set([SAVE_REGISTRY_KEY, 'lp_universe_afl', 'lp_universe_nrl']);
+const UNSLOTTED_KEYS = new Set([SAVE_REGISTRY_KEY, 'lp_universe_afl', 'lp_universe_nrl', 'lp_kickoffs_afl', 'lp_kickoffs_nrl']);
 function slotPrefixedKey(key) {
   if (UNSLOTTED_KEYS.has(key)) return key;
   return activeSaveSlotId ? ('slot_' + activeSaveSlotId + '__' + key) : key;
@@ -11448,7 +11464,8 @@ const UNI_SPORTS = {
     name: 'AFL',
     key: 'lp_universe_afl',
     // The club identities a Universe uses: names, abbreviations and logos.
-    // It's also the season a 'Real world' start takes its ratings from.
+    // A 'Real world' start also keeps any consistency set for a club in this
+    // season's Season Preview (its ratings come from REAL_WORLD in universe.js).
     seasonKey: 'afl2026',
     clubs: () => aflSeasons.afl2026,
     colour: t => AFL_TEAM_COLOURS[t],
@@ -11506,7 +11523,111 @@ function uniTeamCfg(team) {
 }
 function uniColour(team) { return (team && uniCfg().colour(team)) || '#22223a'; }
 function uniSave() {
-  if (uniState) cloudStorage.setItem(uniCfg().key, JSON.stringify(uniState));
+  if (!uniState) return;
+  cloudStorage.setItem(uniCfg().key, JSON.stringify(uniState));
+  uniSaveKickoffs(uniState);
+}
+
+// ---------- kick-off alerts ----------
+// Alerts are sent by the kickoff-push Supabase function (supabase/functions).
+// It knows nothing about Universe: every time a Universe is saved, the app
+// saves a worded list of its upcoming kick-offs next to it, and the function
+// just sends whatever has come due. One alert per kick-off time, with every
+// game starting then in it.
+const UNI_VAPID_PUBLIC = 'BOMMpIpV7_7vt8Oto9X35OG1ss_eE_NaA1Aggcd8GH_DBtVUnIfLOx2VXdW5D8FaUivIKndIyUOeSyXBn9nbJVE';
+function uniKickoffItems(universe) {
+  const U = window.LadderUniverse;
+  const sport = universe.sport, sc = UNI_SPORTS[sport];
+  const season = universe.seasons[universe.seasons.length - 1];
+  const from = uniNow() - 10 * 60000;
+  const slots = new Map();
+  const add = (t, label, line) => {
+    if (t < from) return;
+    if (!slots.has(t)) slots.set(t, { label, lines: [] });
+    slots.get(t).lines.push(line);
+  };
+  season.rounds.forEach((round, r) => round.forEach(g =>
+    add(g.kickoff, 'Round ' + (r + 1), { home: g.home, away: g.away })));
+  universe.config[sport].finals.forEach((stage, si) => stage.games.forEach(([id, time]) => {
+    const f = season.finals[id];
+    const t = f ? f.kickoff : U.finalKickoff(universe, season, si, time);
+    add(t, UNI_FINALS_NAMES[stage.stage], f ? { home: f.home, away: f.away, tag: UNI_FINAL_LABELS[id] } : { tag: UNI_FINAL_LABELS[id] });
+  }));
+  return [...slots.entries()].sort((a, b) => a[0] - b[0]).map(([t, x]) => {
+    const name = l => l.home ? `${l.home} v ${l.away}` : `The ${l.tag.toLowerCase()}`;
+    let body;
+    if (x.lines.length === 1) {
+      const l = x.lines[0];
+      body = l.home ? `${name(l)} is under way at ${sc.venue(l.home)}` : `${name(l)} is under way`;
+    } else {
+      const shown = x.lines.slice(0, 4).map(name);
+      body = `${x.lines.length} games under way: ${shown.join(', ')}${x.lines.length > 4 ? ` and ${x.lines.length - 4} more` : ''}`;
+    }
+    return { t, title: `${sc.name} Universe · Season ${season.n} · ${x.label}`, body, tag: `${sport}-${t}` };
+  });
+}
+function uniSaveKickoffs(universe) {
+  try {
+    cloudStorage.setItem('lp_kickoffs_' + universe.sport, JSON.stringify({ items: uniKickoffItems(universe), savedAt: Date.now() }));
+  } catch (e) { console.warn('kick-off list not saved', e); }
+}
+
+let uniAlertsOn = null;       // null until checked; then whether this device has alerts on
+function uniPushSupported() {
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+async function uniCheckAlerts() {
+  if (!uniPushSupported()) { uniAlertsOn = false; return; }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    uniAlertsOn = !!(await reg.pushManager.getSubscription());
+  } catch (e) { uniAlertsOn = false; }
+  uniSig = '';
+  uniRender();
+}
+function uniB64ToBytes(b64) {
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(raw, c => c.charCodeAt(0));
+}
+async function uniToggleAlerts() {
+  if (!uniPushSupported()) {
+    alert('Kick-off alerts need the app on your home screen.\n\nOn iPhone: open this page in Safari, tap Share, then Add to Home Screen, and open it from there.');
+    return;
+  }
+  const reg = await navigator.serviceWorker.ready;
+  const existing = await reg.pushManager.getSubscription();
+  try {
+    if (existing) {
+      await supabaseClient.from('push_subscriptions').delete().eq('endpoint', existing.endpoint);
+      await existing.unsubscribe();
+      uniAlertsOn = false;
+    } else {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') {
+        alert('Notifications are blocked for this app. Turn them on in your phone\'s Settings (Notifications), then try again.');
+        return;
+      }
+      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: uniB64ToBytes(UNI_VAPID_PUBLIC) });
+      const j = sub.toJSON();
+      const { error } = await supabaseClient.from('push_subscriptions').upsert({
+        endpoint: j.endpoint, user_id: currentUserId, p256dh: j.keys.p256dh, auth: j.keys.auth,
+      });
+      if (error) throw error;
+      // Make sure both sports' kick-offs are on file now, not just at the next save.
+      Object.keys(UNI_SPORTS).forEach(sp => {
+        const u = uniStates[sp] !== undefined ? uniStates[sp] : uniLoad(sp);
+        if (u) uniSaveKickoffs(u);
+      });
+      uniAlertsOn = true;
+      reg.showNotification('Kick-off alerts on', { body: 'You\'ll get a notification as every Universe game starts.', icon: 'icons/icon-192.png' });
+    }
+  } catch (e) {
+    console.warn('alerts toggle failed', e);
+    alert('Couldn\'t change kick-off alerts: ' + (e.message || e));
+  }
+  uniSig = '';
+  uniRender();
 }
 function uniLoad(sport) {
   const raw = cloudStorage.getItem(UNI_SPORTS[sport || uniSport].key);
@@ -11588,6 +11709,7 @@ function uniShow() {
   uniPageManual = false;
   uniSig = '';
   uniRender();
+  if (uniAlertsOn === null) uniCheckAlerts();
   uniStop();
   uniTimer = setInterval(uniTick, 1000);
 }
@@ -11753,6 +11875,7 @@ function uniScreenHTML(season, games, now) {
     <div class="uni-controls">
       ${uniNotStarted(season) && !uniState.test ? '<button type="button" class="uni-ctl uni-ctl-go" data-act="start-now">Start now</button>' : ''}
       ${window.LadderUniverse.seasonOver(uniState, season, now) ? `<button type="button" class="uni-ctl uni-ctl-go" data-act="next-season">Start Season ${season.n + 1} now</button>` : ''}
+      <button type="button" class="uni-ctl${uniAlertsOn ? ' uni-ctl-on' : ''}" data-act="alerts" aria-pressed="${!!uniAlertsOn}">Kick-off alerts: ${uniAlertsOn ? 'On' : 'Off'}</button>
       <button type="button" class="uni-ctl" data-act="delete">Reset</button>
     </div>
     <div class="uni-tabs">
@@ -12016,7 +12139,7 @@ function uniRenderLadder(root, season, now) {
 // Season 1's talent is picked on the start screen; every season after that
 // works its own out (see talent in universe.js).
 const UNI_TALENT_PRESETS = [
-  { id: 'real', name: 'Real world', blurb: 'Every club as it stands in the predictor, carried into a new season.' },
+  { id: 'real', name: 'Real world', blurb: 'Every club as it really finished the last season, carried into a new one.' },
   { id: 'level', name: 'Level', blurb: 'Everyone starts dead even. A pecking order sorts itself out within a few seasons.' },
   { id: 'random', name: 'Random', blurb: 'A fresh pecking order, drawn at random.' },
   { id: 'custom', name: 'Custom', blurb: 'Set every club yourself: attack, defence, stage and consistency. Coaches are still appointed at random.' },
@@ -12026,18 +12149,20 @@ let uniStartVer = 0;          // bumped when the picker needs redrawing
 
 function uniStartPick() {
   if (!uniStartState || uniStartState.sport !== uniSport) {
-    uniStartState = { sport: uniSport, preset: 'real', seed: uniNewSeed(), seeds: null, consistency: null, stages: {}, editing: false, slot: uniDefaultRealSlot() };
-    uniStartState.seeds = uniPresetTalent('real', uniStartState.seed, uniStartState.slot);
+    uniStartState = { sport: uniSport, preset: 'real', seed: uniNewSeed(), seeds: null, consistency: null, stages: {}, editing: false };
+    uniStartState.seeds = uniPresetTalent('real', uniStartState.seed);
     uniStartState.consistency = uniPresetConsistency('real', uniStartState.seed);
   }
   return uniStartState;
 }
 function uniNewSeed() { return String(Math.floor(Math.random() * 1e9)); }
 
-function uniPresetTalent(preset, seed, slotId) {
+function uniPresetTalent(preset, seed) {
   const teams = uniCfg().clubs().teams;
   if (preset === 'real') {
-    const real = uniRealTalent(slotId);
+    // The real final ladder of the last completed season (see REAL_WORLD in
+    // universe.js).
+    const real = window.LadderUniverse.realWorldTalent(uniSport, teams);
     if (real) return real;
   }
   return window.LadderUniverse.startingTalent(teams, preset === 'real' ? 'level' : preset, seed);
@@ -12062,73 +12187,6 @@ function uniPresetConsistency(preset, seed) {
 }
 const UNI_CONSISTENCY_NAMES = { volatile: 'Volatile', streaky: 'Streaky', balanced: 'Balanced', steady: 'Steady', ruthless: 'Ruthless' };
 
-// Real world reads results from a save slot: by default the one with the most
-// results entered for the Universe's season, whichever slot is active.
-function uniSlotGet(slotId, key) {
-  const k = slotId ? 'slot_' + slotId + '__' + key : key;
-  return Object.prototype.hasOwnProperty.call(cloudCache, k) ? cloudCache[k] : null;
-}
-function uniSlotScores(slotId) {
-  try { return JSON.parse(uniSlotGet(slotId, 'lp_' + uniSport + '_scores') || '{}'); } catch (e) { return {}; }
-}
-// How many of the season's home-and-away games a slot has results for.
-function uniSlotResultCount(slotId) {
-  const s = uniCfg().clubs();
-  const scores = uniSlotScores(slotId)[uniCfg().seasonKey] || {};
-  let n = 0, total = 0;
-  s.rounds.forEach((round, r) => round.forEach((g, i) => {
-    total++;
-    if (window.LadderSim.hasScore(scores, r, i)) n++;
-  }));
-  return { n, total };
-}
-function uniRealSlots() {
-  return ((saveRegistry && saveRegistry.slots) || [{ id: '', name: 'Slot 1' }])
-    .map(sl => Object.assign({ id: sl.id, name: sl.name }, uniSlotResultCount(sl.id)));
-}
-function uniDefaultRealSlot() {
-  const list = uniRealSlots();
-  return list.slice().sort((a, b) => b.n - a.n || (a.id === activeSaveSlotId ? -1 : 1))[0].id;
-}
-// The predictor's archive, read from another slot's saved results.
-function uniSlotArchive(slotId) {
-  const data = uniSport === 'afl' ? aflSeasons : seasons;
-  const scores = uniSlotScores(slotId);
-  return {
-    season(key) {
-      const s = data[key];
-      if (!s) return null;
-      return { teams: s.teams, rounds: s.rounds, scores: scores[key] || {} };
-    },
-    historicalLadder(key) { return HISTORICAL_LADDERS[key] || null; },
-    seedInputs(key) {
-      try { return JSON.parse(uniSlotGet(slotId, seedStoreKey(uniSport, key)) || '{}'); } catch (e) { return {}; }
-    },
-  };
-}
-
-// Where each club stands in the predictor: its seeds for the season the
-// Universe takes its clubs from, moved by every result entered so far, then
-// pulled toward the middle as a new season would be.
-function uniRealTalent(slotId) {
-  const LS = window.LadderSim, config = LS.SIM_CONFIG;
-  const s = uniCfg().clubs();
-  if (slotId == null) slotId = uniDefaultRealSlot();
-  try {
-    const archive = uniSlotArchive(slotId);
-    const seeds = LS.computeSeeds({ sport: uniSport, seasonKey: uniCfg().seasonKey, archive, config });
-    const end = LS.computeRatings({
-      teams: s.teams, rounds: s.rounds, scores: archive.season(uniCfg().seasonKey).scores, seeds, config, sport: uniSport,
-    }).current;
-    const out = {};
-    s.teams.forEach(t => {
-      const r = LS.regressToMean(end[t], config.common);
-      out[t] = { att: Math.round(r.att * 10) / 10, def: Math.round(r.def * 10) / 10 };
-    });
-    return out;
-  } catch (e) { console.warn('Real-world talent unavailable', e); return null; }
-}
-
 function uniStartSetPreset(preset, reroll) {
   const pick = uniStartPick();
   // Custom starts from whatever's in the table now, with the editor open.
@@ -12141,7 +12199,7 @@ function uniStartSetPreset(preset, reroll) {
   }
   if (reroll || preset === 'random') pick.seed = uniNewSeed();
   pick.preset = preset;
-  pick.seeds = uniPresetTalent(preset, pick.seed, pick.slot);
+  pick.seeds = uniPresetTalent(preset, pick.seed);
   pick.consistency = uniPresetConsistency(preset, pick.seed);
   pick.stages = {};
   uniStartVer++;
@@ -12189,21 +12247,11 @@ function uniStartTalentHTML() {
   const pick = uniStartPick();
   const preset = UNI_TALENT_PRESETS.find(p => p.id === pick.preset);
   const blurb = (preset || UNI_TALENT_PRESETS.find(p => p.id === 'custom')).blurb;
-  // Real world: which save it reads, and whether that's enough to go on.
+  // Real world: where the ratings come from.
   let source = '';
-  if (pick.preset === 'real') {
-    const slots = uniRealSlots();
-    const cur = slots.find(sl => sl.id === pick.slot) || slots[0];
-    const year = uniCfg().seasonKey.replace(uniSport, '');
-    const thin = cur.n < cur.total * 0.25;
-    source = `<div class="uni-tsource${thin ? ' uni-tsource-warn' : ''}">
-      ${slots.length > 1 ? `<select class="uni-tinput uni-tselect" data-act-change="real-slot" aria-label="Save to read results from">
-        ${slots.map(sl => `<option value="${sl.id}"${sl.id === cur.id ? ' selected' : ''}>${sl.name}: ${sl.n} of ${sl.total}</option>`).join('')}
-      </select>` : ''}
-      <span>${thin
-        ? `${cur.name} only has ${cur.n} of ${cur.total} ${year} results entered, so clubs come out close to level. Enter ${year} results in the predictor${slots.length > 1 ? ', pick a fuller save' : ''}, or start from Random.`
-        : `Rated from ${cur.name}'s ${year} results (${cur.n} of ${cur.total} entered) and the seasons before.`}</span>
-    </div>`;
+  const rw = window.LadderUniverse.REAL_WORLD[uniSport];
+  if (pick.preset === 'real' && rw) {
+    source = `<div class="uni-tsource"><span>Rated from the real ${rw.season} ${uniCfg().name} ladder: each club's points for and against a game, eased a little toward the pack for a new season. ${rw.season} premiers: ${rw.premiers}.</span></div>`;
   }
   const teams = uniCfg().clubs().teams.slice()
     .sort((a, b) => (pick.seeds[b].att + pick.seeds[b].def) - (pick.seeds[a].att + pick.seeds[a].def));
@@ -12827,6 +12875,7 @@ function uniWire(root) {
     else if (act === 'talent-reroll') uniStartSetPreset('random', true);
     else if (act === 'talent-edit') { uniStartPick().editing = !uniStartPick().editing; uniStartVer++; uniRender(); }
     else if (act === 'delete') uniDelete();
+    else if (act === 'alerts') uniToggleAlerts();
     else if (act === 'next-season') uniNextSeason();
     else if (act === 'team-open') { uniTeamOpen = uniTeamOpen === b.dataset.team ? null : b.dataset.team; uniTeamEdit = false; uniRender(); }
     else if (act === 'team-edit') { uniTeamEdit = true; uniRender(); }
@@ -12846,11 +12895,6 @@ function uniWire(root) {
       uniPageManual = uniPage !== uniDefaultPage(season, uniNow());
       uniRender();
     } else if (act === 'mc') { if (b.classList.contains('uni-clickable')) uniOpenGame(b.dataset.key); }
-  }));
-  root.querySelectorAll('[data-act-change="real-slot"]').forEach(sel => sel.addEventListener('change', () => {
-    const pick = uniStartPick();
-    pick.slot = sel.value;
-    uniStartSetPreset('real');
   }));
   root.querySelectorAll('.uni-trow-tap').forEach(row => row.addEventListener('keydown', e => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); }

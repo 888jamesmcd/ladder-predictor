@@ -62,6 +62,9 @@ const UNIVERSE_CONFIG = {
     moveRate: 1,
     // The 'Random' start: how widely sides are spread around the mean.
     randomSpread: 10,
+    // The 'Real world' start: how much of last real season's gap to the pack
+    // each club keeps going in (see realWorldTalent).
+    realRegression: 0.75,
     // Consistency: how much a side's results wobble around what its ratings
     // say, from volatile to ruthless (multipliers in SIM_CONFIG.common
     // .consistency). Drawn for each side at the start, by these weights; each
@@ -637,6 +640,60 @@ function startingTalent(teams, preset, seed, cfg) {
     } else {
       out[t] = { att: mean, def: mean };
     }
+  });
+  return out;
+}
+
+// ---------- the real world ----------
+// The 2026 final home-and-away ladders (Wikipedia, 2026 AFL season and 2026
+// NRL season pages, read October 2026): games, points for, points against.
+// realWorldTalent() turns them into a 'Real world' start.
+const REAL_WORLD = {
+  afl: {
+    season: 2026, premiers: 'Brisbane Lions',
+    ladder: [
+      ['Fremantle', 23, 2286, 1666], ['Sydney', 23, 2543, 1869], ['Brisbane Lions', 23, 2499, 2054],
+      ['Hawthorn', 23, 2260, 1881], ['Geelong Cats', 23, 2355, 1925], ['Adelaide', 23, 2169, 1849],
+      ['Melbourne', 23, 2301, 2099], ['Western Bulldogs', 23, 1901, 1992], ['Collingwood', 23, 2021, 1974],
+      ['Carlton', 23, 2007, 1978], ['St Kilda', 23, 2030, 1974], ['GWS Giants', 23, 2073, 2095],
+      ['Gold Coast Suns', 23, 2011, 2128], ['North Melbourne', 23, 1932, 2175], ['Port Adelaide', 23, 1804, 2048],
+      ['West Coast Eagles', 23, 1615, 2333], ['Richmond', 23, 1483, 2373], ['Essendon', 23, 1601, 2478],
+    ],
+  },
+  nrl: {
+    season: 2026, premiers: 'Roosters',
+    ladder: [
+      ['Panthers', 24, 683, 347], ['Warriors', 24, 728, 418], ['Dolphins', 24, 662, 506],
+      ['Roosters', 24, 619, 501], ['Sharks', 24, 672, 523], ['Rabbitohs', 24, 694, 581],
+      ['Knights', 24, 633, 591], ['Cowboys', 24, 568, 652], ['Sea Eagles', 24, 623, 524],
+      ['Storm', 24, 594, 576], ['Raiders', 24, 581, 626], ['Bulldogs', 24, 476, 536],
+      ['Eels', 24, 497, 678], ['Broncos', 24, 471, 677], ['Wests Tigers', 24, 445, 699],
+      ['Titans', 24, 477, 663], ['Dragons', 24, 392, 717],
+    ],
+  },
+};
+// Attack from points scored a game, defence from points conceded, each
+// against the league average and turned into rating points at the scoreboard
+// rate Universe plays at (so a club rated this way would score and concede
+// what it really did), then pulled part of the way back to the pack, as a
+// new season does. Clubs missing from the table start on the mean.
+//   -> { team: { att, def } } or null if there's no table for the sport
+function realWorldTalent(sport, teams, cfg) {
+  const rw = REAL_WORLD[sport];
+  if (!rw) return null;
+  const c = cfg || UNIVERSE_CONFIG;
+  const W = (c[sport].sim && c[sport].sim.W) || LS.SIM_CONFIG[sport].W;
+  const keep = talentCfg(c).realRegression;
+  const mean = LS.SIM_CONFIG.common.MEAN;
+  const rows = rw.ladder.map(([team, p, pf, pa]) => ({ team, f: pf / p, a: pa / p }));
+  const avg = rows.reduce((x, r) => x + r.f, 0) / rows.length;
+  const out = {};
+  teams.forEach(t => {
+    const r = rows.find(x => x.team === t);
+    out[t] = r ? {
+      att: roundTalent(mean + keep * (r.f - avg) / W),
+      def: roundTalent(mean + keep * (avg - r.a) / W),
+    } : { att: mean, def: mean };
   });
   return out;
 }
@@ -1457,7 +1514,7 @@ return {
   seasonKeyOf, timelineFor, finalTimeline, decideRounds, decideFinals, finalsMatchup,
   ladderAt, createUniverse, attach, advance, seasonOver, startNextSeason, currentRoundIdx, roundView,
   startingTalent, startingConsistency, consistencyLevels, volatilityOf,
-  STAGES, STAGE_NAMES, startingClubs, coachGrade, simConfig, formConfig,
+  STAGES, STAGE_NAMES, startingClubs, coachGrade, simConfig, formConfig, REAL_WORLD, realWorldTalent,
   seasonEndRatings, nextTalent, consistencyStats, talentView, seasonTrack, editClub,
 };
 }));
