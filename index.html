@@ -12236,6 +12236,28 @@ function uniStartEditInput(e) {
   }
 }
 
+// Once a typed rating is committed (Enter, or leaving the field), the clubs
+// re-sort by overall. Wait a tick so focus has landed wherever it was going —
+// another rating field, usually — then put it back on that field in its new
+// row, with the list scrolled where it was.
+function uniStartResort() {
+  setTimeout(() => {
+    const root = document.getElementById('universe-content');
+    const was = document.activeElement;
+    const next = was && was.dataset && was.dataset.talentTeam ? { t: was.dataset.talentTeam, k: was.dataset.talentKey } : null;
+    const list = root.querySelector('.uni-tedit');
+    const scroll = list ? list.scrollTop : 0;
+    uniStartVer++;
+    uniRender();
+    const fresh = root.querySelector('.uni-tedit');
+    if (fresh) fresh.scrollTop = scroll;
+    if (next) {
+      const el = [...root.querySelectorAll('[data-talent-team]')].find(x => x.dataset.talentTeam === next.t && x.dataset.talentKey === next.k);
+      if (el) { el.focus({ preventScroll: true }); if (el.select) el.select(); }
+    }
+  }, 0);
+}
+
 // A rating, coloured by how far it sits from the league average.
 function uniTalentNum(v) {
   const d = v - window.LadderSim.SIM_CONFIG.common.MEAN;
@@ -12899,7 +12921,13 @@ function uniWire(root) {
   root.querySelectorAll('.uni-trow-tap').forEach(row => row.addEventListener('keydown', e => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); }
   }));
-  root.querySelectorAll('[data-talent-team]').forEach(inp => inp.addEventListener(inp.tagName === 'SELECT' ? 'change' : 'input', uniStartEditInput));
+  root.querySelectorAll('[data-talent-team]').forEach(inp => {
+    inp.addEventListener(inp.tagName === 'SELECT' ? 'change' : 'input', uniStartEditInput);
+    if (inp.tagName === 'INPUT') {
+      inp.addEventListener('change', uniStartResort);
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); });
+    }
+  });
   // Cards act as buttons.
   root.querySelectorAll('.uni-match').forEach(card => card.addEventListener('keydown', e => {
     if ((e.key === 'Enter' || e.key === ' ') && card.classList.contains('uni-clickable')) {
