@@ -1194,6 +1194,14 @@ input[type=number] {
 .mc-w-cursor { stroke: #1A192E; stroke-width: 1; }
 .mc-w-head { fill: #d61f2c; stroke: #ffffff; stroke-width: 1.5; }
 .mc-w-hit { fill: transparent; cursor: crosshair; }
+.mc-feed-title { margin-top: 14px; }
+.mc-feed { max-height: 240px; overflow-y: auto; font-size: 13px; line-height: 1.35; }
+.mc-feed-min { color: #8888aa; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin: 8px 0 2px; }
+.mc-feed-min:first-child { margin-top: 0; }
+.mc-feed-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; color: #c8c8dc; }
+.mc-feed-big { color: #ffffff; font-weight: 700; }
+.mc-feed-dot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35); }
+.mc-feed-empty { color: #8888aa; font-size: 13px; }
 .mc-readout {
   margin-top: 6px;
   min-height: 1.2em;
@@ -11237,13 +11245,15 @@ function mcOpen(opts) {
       <div class="mc-section-title">Score worm</div>
       <div class="mc-worm-wrap"></div>
       <div class="mc-readout" aria-live="polite">&nbsp;</div>
+      <div class="mc-section-title mc-feed-title">Scoring</div>
+      <div class="mc-feed"></div>
     </div>`;
   document.body.appendChild(overlay);
 
   const c = mcCtx = {
     sport, game, tl, hCfg, aCfg, overlay,
     liveState: opts.liveState || null, stillThere: opts.stillThere || null, headline: opts.headline || null,
-    raf: 0, hoverT: null, frozenT: null, axisEnd: 1,
+    raf: 0, hoverT: null, frozenT: null, axisEnd: 1, feedCount: -1,
   };
 
   overlay.addEventListener('click', e => { if (e.target === overlay) closeMatchCentre(); });
@@ -11339,6 +11349,7 @@ function mcRender(c, t, live, label) {
   overlay.querySelector('.mc-quarters tbody').innerHTML = row(hCfg, 'home') + row(aCfg, 'away');
 
   overlay.querySelector('.mc-worm-wrap').innerHTML = mcWormSVG(c, t, live, periods);
+  mcRenderFeed(c, t, live);
 
   const readout = overlay.querySelector('.mc-readout');
   if (c.hoverT == null) { readout.innerHTML = '&nbsp;'; return; }
@@ -11347,6 +11358,47 @@ function mcRender(c, t, live, label) {
   const { p, clock } = mcClockAt(tl, ht);
   const side = (cfg, sc) => cfg.abbr + ' ' + (sport === 'afl' ? S.detail(sc) + ' (' + sc.points + ')' : sc.points);
   readout.textContent = S.clock(p, clock) + '  ·  ' + side(hCfg, at.home) + '  –  ' + side(aCfg, at.away);
+}
+
+// The scoring feed under the worm: every score so far, in order, under the
+// minute it came in. Only rebuilt when a new score lands, so a live game
+// isn't redrawing it every frame.
+const MC_PLAY_NAMES = {
+  goal: 'Goal', behind: 'Behind',
+  try: 'Try', conversion: 'Conversion', penaltyGoal: 'Penalty goal', fieldGoal: 'Field goal',
+};
+function mcOrdinal(n) {
+  const v = n % 100;
+  return n + (v >= 11 && v <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
+}
+function mcFeedMinute(sport, tl, step) {
+  const p = tl.periods[step.period] || tl.periods[0];
+  if (sport === 'afl') return p.label + ' · ' + mcOrdinal(Math.floor(step.clock / 60) + 1) + ' minute';
+  const min = mcOrdinal(Math.floor((p.offset + step.clock) / 60) + 1) + ' minute';
+  return p.label === 'GP' ? 'Golden point · ' + min : min;
+}
+function mcRenderFeed(c, t, live) {
+  const { sport, tl, game, overlay } = c;
+  const steps = tl.steps.filter(st => !live || st.t <= t);
+  if (steps.length === c.feedCount) return;
+  const grew = steps.length > c.feedCount;
+  c.feedCount = steps.length;
+  const feed = overlay.querySelector('.mc-feed');
+  if (!steps.length) { feed.innerHTML = '<div class="mc-feed-empty">No scores yet.</div>'; return; }
+  const colours = mcWormColours(sport, game.home, game.away);
+  let html = '', heading = null;
+  steps.forEach(st => {
+    const h = mcFeedMinute(sport, tl, st);
+    if (h !== heading) { heading = h; html += `<div class="mc-feed-min">${h}</div>`; }
+    const team = st.team === 'home' ? game.home : game.away;
+    const colour = st.team === 'home' ? colours.home : colours.away;
+    const big = st.play === 'goal' || st.play === 'try';
+    html += `<div class="mc-feed-row${big ? ' mc-feed-big' : ''}"><span class="mc-feed-dot" style="background:${colour}"></span>
+      <span>${team} ${MC_PLAY_NAMES[st.play] || st.play} - ${st.home}-${st.away}</span></div>`;
+  });
+  feed.innerHTML = html;
+  // Live: keep the latest score in view as they come in.
+  if (live && grew) feed.scrollTop = feed.scrollHeight;
 }
 
 // Worm geometry, shared by the drawing and the hover readout.
