@@ -1181,6 +1181,7 @@ input[type=number] {
 }
 .mc-worm-wrap { border-radius: 6px; overflow: hidden; background: #f4f5f8; }
 .mc-worm { display: block; width: 100%; height: auto; touch-action: pan-y; }
+.mc-worm * { pointer-events: none; }
 .mc-w-bg { fill: #f4f5f8; }
 .mc-w-grid { stroke: #dde0e8; stroke-width: 1; }
 .mc-w-zero { stroke: #9a9eb0; stroke-width: 1; }
@@ -1195,7 +1196,7 @@ input[type=number] {
 .mc-w-head { fill: #d61f2c; stroke: #ffffff; stroke-width: 1.5; }
 .mc-w-hit { fill: transparent; cursor: crosshair; }
 .mc-feed-title { margin-top: 14px; }
-.mc-feed { max-height: 240px; overflow-y: auto; font-size: 13px; line-height: 1.35; }
+.mc-feed { max-height: 240px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; font-size: 13px; line-height: 1.35; }
 .mc-feed-min { color: #8888aa; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin: 8px 0 2px; }
 .mc-feed-min:first-child { margin-top: 0; }
 .mc-feed-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; color: #c8c8dc; }
@@ -11305,6 +11306,30 @@ function mcFinish(c) {
   el.hidden = !text;
 }
 
+// A live game redraws many times a second. Rebuilding a part of the panel
+// that hasn't changed would throw away the element under a finger and cancel
+// a scroll that started on it, so each part is only touched when its markup
+// actually changes.
+function mcSetHTML(el, html) {
+  if (el._mcHTML === html) return;
+  el._mcHTML = html;
+  el.innerHTML = html;
+}
+// The worm changes every frame while live (its head moves along). Its <svg>
+// stays put and only its insides are swapped, so a touch that started on it
+// keeps going (its children ignore the pointer, see .mc-worm *).
+function mcSetWorm(wrap, html) {
+  if (wrap._mcHTML === html) return;
+  wrap._mcHTML = html;
+  const svg = wrap.querySelector('svg');
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  const fresh = tmp.querySelector('svg');
+  if (!svg || !fresh) { wrap.innerHTML = html; return; }
+  svg.setAttribute('aria-label', fresh.getAttribute('aria-label') || '');
+  svg.innerHTML = fresh.innerHTML;
+}
+
 // Draw the match centre as it stood at match time t.
 // label, when given, replaces the clock: 'QT', 'HT' and '3QT' during breaks.
 function mcRender(c, t, live, label) {
@@ -11315,8 +11340,8 @@ function mcRender(c, t, live, label) {
 
   ['home', 'away'].forEach(side => {
     const el = overlay.querySelector('.mc-team-' + side);
-    el.querySelector('.mc-pts').textContent = now[side].points;
-    el.querySelector('.mc-gb').textContent = S.detail(now[side]);
+    mcSetHTML(el.querySelector('.mc-pts'), String(now[side].points));
+    mcSetHTML(el.querySelector('.mc-gb'), S.detail(now[side]));
     const other = side === 'home' ? 'away' : 'home';
     // Mid-game nobody has won yet, so neither side is dimmed.
     el.classList.toggle('mc-won', live || now[side].points >= now[other].points);
@@ -11325,17 +11350,17 @@ function mcRender(c, t, live, label) {
   const dash = overlay.querySelector('.mc-dash');
   if (live) {
     const { p, clock } = mcClockAt(tl, t);
-    dash.innerHTML = '<span class="mc-live">LIVE</span><span class="mc-clock">' + (label || S.clock(p, clock)) + '</span>';
+    mcSetHTML(dash, '<span class="mc-live">LIVE</span><span class="mc-clock">' + (label || S.clock(p, clock)) + '</span>');
   } else {
     const gp = tl.periods.some(p => p.label === 'GP');
-    dash.innerHTML = (now.home.points === now.away.points ? 'DRAW' : 'FT') +
-      (gp ? '<span class="mc-gp">Golden point</span>' : '');
+    mcSetHTML(dash, (now.home.points === now.away.points ? 'DRAW' : 'FT') +
+      (gp ? '<span class="mc-gp">Golden point</span>' : ''));
   }
 
   // Finished periods from the timeline, the current one as it stands, the
   // rest blank.
-  overlay.querySelector('.mc-quarters thead').innerHTML =
-    '<tr><th></th>' + periods.map(p => '<th>' + S.periodName(p) + '</th>').join('') + '</tr>';
+  mcSetHTML(overlay.querySelector('.mc-quarters thead'),
+    '<tr><th></th>' + periods.map(p => '<th>' + S.periodName(p) + '</th>').join('') + '</tr>');
   const cell = (sc, side, cls) =>
     `<td class="${cls}">${S.cellDetail(sc[side]) ? `<span class="mc-q-gb">${S.cellDetail(sc[side])}</span> ` : ''}<b>${sc[side].points}</b></td>`;
   const row = (cfg, side) => {
@@ -11346,23 +11371,24 @@ function mcRender(c, t, live, label) {
     });
     return `<tr><th scope="row"><img class="mc-q-logo" src="${cfg.logo || ''}" alt="${cfg.abbr || ''}" title="${cfg.abbr || ''}"></th>${cells.join('')}</tr>`;
   };
-  overlay.querySelector('.mc-quarters tbody').innerHTML = row(hCfg, 'home') + row(aCfg, 'away');
+  mcSetHTML(overlay.querySelector('.mc-quarters tbody'), row(hCfg, 'home') + row(aCfg, 'away'));
 
-  overlay.querySelector('.mc-worm-wrap').innerHTML = mcWormSVG(c, t, live, periods);
+  mcSetWorm(overlay.querySelector('.mc-worm-wrap'), mcWormSVG(c, t, live, periods));
   mcRenderFeed(c, t, live);
 
   const readout = overlay.querySelector('.mc-readout');
-  if (c.hoverT == null) { readout.innerHTML = '&nbsp;'; return; }
+  if (c.hoverT == null) { mcSetHTML(readout, '&nbsp;'); return; }
   const ht = Math.min(c.hoverT, t);
   const at = mcStateAt(sport, tl, ht);
   const { p, clock } = mcClockAt(tl, ht);
   const side = (cfg, sc) => cfg.abbr + ' ' + (sport === 'afl' ? S.detail(sc) + ' (' + sc.points + ')' : sc.points);
+  readout._mcHTML = null;
   readout.textContent = S.clock(p, clock) + '  ·  ' + side(hCfg, at.home) + '  –  ' + side(aCfg, at.away);
 }
 
-// The scoring feed under the worm: every score so far, in order, under the
-// minute it came in. Only rebuilt when a new score lands, so a live game
-// isn't redrawing it every frame.
+// The scoring feed under the worm: every score so far, latest first, under
+// the minute it came in. Only rebuilt when a new score lands, so a live game
+// isn't redrawing it every frame (and a scroll through it isn't cut short).
 const MC_PLAY_NAMES = {
   goal: 'Goal', behind: 'Behind',
   try: 'Try', conversion: 'Conversion', penaltyGoal: 'Penalty goal', fieldGoal: 'Field goal',
@@ -11387,7 +11413,7 @@ function mcRenderFeed(c, t, live) {
   if (!steps.length) { feed.innerHTML = '<div class="mc-feed-empty">No scores yet.</div>'; return; }
   const colours = mcWormColours(sport, game.home, game.away);
   let html = '', heading = null;
-  steps.forEach(st => {
+  steps.slice().reverse().forEach(st => {
     const h = mcFeedMinute(sport, tl, st);
     if (h !== heading) { heading = h; html += `<div class="mc-feed-min">${h}</div>`; }
     const team = st.team === 'home' ? game.home : game.away;
@@ -11396,9 +11422,12 @@ function mcRenderFeed(c, t, live) {
     html += `<div class="mc-feed-row${big ? ' mc-feed-big' : ''}"><span class="mc-feed-dot" style="background:${colour}"></span>
       <span>${team} ${MC_PLAY_NAMES[st.play] || st.play} - ${st.home}-${st.away}</span></div>`;
   });
+  // Someone reading further down keeps their place when a new score lands on
+  // top; anyone at the top sees it arrive.
+  const fromBottom = feed.scrollHeight - feed.scrollTop;
+  const atTop = feed.scrollTop < 4;
   feed.innerHTML = html;
-  // Live: keep the latest score in view as they come in.
-  if (live && grew) feed.scrollTop = feed.scrollHeight;
+  if (grew && !atTop) feed.scrollTop = feed.scrollHeight - fromBottom;
 }
 
 // Worm geometry, shared by the drawing and the hover readout.
