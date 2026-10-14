@@ -98,7 +98,9 @@ const UNIVERSE_CONFIG = {
     // 11 against the predictor's 13.5 keeps games between closely rated sides
     // close, and lets the better side win more often (about 70% of games, 93%
     // of top-three v bottom-four) without the margins blowing out.
-    sim: { W: 0.62, SWING: 11 },
+    // AVG 80 against the predictor's 85: a side averages about 84 a game (a
+    // game about 168), a little under 2026's 89.
+    sim: { W: 0.62, SWING: 11, AVG: 80 },
     maxGameMins: 4 * 35 + 9,   // the longest a game can run, breaks included
     // Four points a win, two a draw; level on points goes to percentage.
     ladder: { win: 4, draw: 2, bye: 0, sortBy: 'pct' },
@@ -152,7 +154,8 @@ const UNIVERSE_CONFIG = {
     // See afl.sim. W 0.32 (0.38 had the best side winning by 17+ a game,
     // against a real minor premier's 10-15) and SWING 5 against the
     // predictor's 6.5: closely rated sides average an 8-point game.
-    sim: { W: 0.32, SWING: 5 },
+    // AVG 19.5 against the predictor's 21: about 21 a side, 42 a game.
+    sim: { W: 0.32, SWING: 5, AVG: 19.5 },
     maxGameMins: 40 + 5 + 40 + 10,
     // Two points a win, one a draw, two for the bye; then points differential.
     ladder: { win: 2, draw: 1, bye: 2, sortBy: 'diff' },
