@@ -106,7 +106,10 @@ const SIM_CONFIG = {
     // or nine of each a season) and a game-total spread of ±31 — a touch
     // wilder than the real ±28, on purpose.
     TEMPO: 15, SWING: 13.5, IND: 8,
-    DRAW_BAND: 0.35,           // no golden point in the AFL — a level game just draws
+    // No golden point in the AFL, so a level game just draws. 0.04 makes that
+    // about one game in 1,000, a draw every five seasons or so (0.35 had nearly
+    // two a season).
+    DRAW_BAND: 0.04,
     // Plain bounds on a team's own score, which is NOT the old SCORE_FLOOR —
     // that one clamped a margin so subtraction couldn't drag the loser to nil.
     // Nothing is subtracted here; this is just the realistic range of an AFL
@@ -140,7 +143,9 @@ const SIM_CONFIG = {
     // goal is the ONLY thing that makes an NRL score odd — and they get kicked
     // where the game is tight, not at random. See nrlFieldGoals().
     fieldGoal: {
-      goldenPoint: 0.85,    // chance a level game is settled by a golden-point FG
+      // Chance a level game is settled in golden point. 0.985 leaves a draw
+      // about once in eight seasons (0.85 had one or two a season).
+      goldenPoint: 0.985,
       closeMargin: 12,      // "close" = a converted try or two; anything more is a blowout
       winnerClose: 0.130,   // the winning side kicks one to break a tight game open
       winnerBlowout: 0.035, // the cheeky one with the game already won: 31-10
@@ -243,6 +248,10 @@ const SIM_CONFIG = {
       { upTo: 1.00, min: 1.05, max: 1.70 }, // wayward in front of goal
     ],
     sanityRatio: 2.5,          // walk goals up while behinds exceed goals * this
+    // Hard limits on a full-time G.B: at least this many behinds, and goals as a
+    // share of scoring shots between minAccuracy and maxAccuracy (2.8 to 9.1
+    // for ten shots). Nobody kicks 10.0.
+    minBehinds: 4, minAccuracy: 0.2, maxAccuracy: 0.9,
   },
 };
 
@@ -586,9 +595,22 @@ function generateGoalsBehinds(total, rng, config) {
 
   // Rounding at the extremes can still throw up a freak split (e.g. 3.14) —
   // walk goals up until the scoreline looks sane.
-  while (behinds > goals * gb.sanityRatio && goals < maxGoals) {
+  const minB = gb.minBehinds || 0;
+  while (behinds > goals * gb.sanityRatio && goals < maxGoals && behinds - 6 >= minB) {
     goals++;
     behinds = points - goals * 6;
+  }
+  // Then the hard limits. Too few behinds or too accurate (10.0, 9.0): trade a
+  // goal for six behinds. Too wayward (1.14): the other way.
+  const acc = () => goals / (goals + behinds);
+  const maxA = gb.maxAccuracy || 1, minA = gb.minAccuracy || 0;
+  while (goals > 0 && (behinds < minB || acc() > maxA)) {
+    goals--;
+    behinds += 6;
+  }
+  while (acc() < minA && goals < maxGoals && behinds - 6 >= minB) {
+    goals++;
+    behinds -= 6;
   }
   return { points, goals, behinds };
 }
