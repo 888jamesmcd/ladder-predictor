@@ -147,10 +147,18 @@ const SIM_CONFIG = {
       // about once in eight seasons (0.85 had one or two a season).
       goldenPoint: 0.985,
       closeMargin: 12,      // "close" = a converted try or two; anything more is a blowout
-      winnerClose: 0.130,   // the winning side kicks one to break a tight game open
-      winnerBlowout: 0.035, // the cheeky one with the game already won: 31-10
-      loserClose: 0.014,    // kicked to level or lead, then beaten by a late try: 19-24
-      loserBlowout: 0.0035, // rarest of all
+      // Field goals outside golden point are rare, and a side never kicks one
+      // while behind (buildNrlTimeline puts it where the kicker is level or
+      // ahead: almost always the last score, else to go 7 or 13 up).
+      winnerClose: 0.10,    // the winning side kicks one to put a tight game away
+      winnerBlowout: 0.012, // the cheeky one with the game already won: 31-10
+      // The losing side kicked one while level or ahead, then the other side
+      // scored a try to win it: 19-24. Only in games settled by a try or less.
+      loserClose: 0.008,    // extremely rare: about one a season
+      loserBlowout: 0,
+      // A side whose only points are a penalty goal (2) is very rare: a 2
+      // usually comes out as nil or a try. This share are left alone.
+      keepTwo: 0.05,
     },
   },
   // Round headlines — see buildHeadlines(). A game only gets a headline if it
@@ -208,11 +216,11 @@ const SIM_CONFIG = {
       phasesPerHalf: 4,
       flowSD: 0.30, phaseSD: 0.30,
       penaltyTilt: 0.5,        // penalty goals follow momentum less than tries do
-      // Seconds before the next score can land: no two tries inside two
-      // minutes, a minute after a goal. A try's conversion is its own play,
+      // Seconds before the next score can land: nothing inside three minutes
+      // of a try (so no two tries are), a minute after a goal. A try's conversion is its own play,
       // kicked conversionDelay seconds after it (it doesn't count as a score
       // for these gaps).
-      gapAfterTry: 120, gapAfterGoal: 60,
+      gapAfterTry: 180, gapAfterGoal: 60,
       conversionDelay: [25, 55],
       goldenPointWidth: 0.08,  // share of the worm's axis golden point takes up
     },
@@ -221,6 +229,8 @@ const SIM_CONFIG = {
       quarterMins: 31, quarterSD: 2,         // 20 minutes plus time on
       quarterMin: 28, quarterMax: 35,
       minGapSecs: 20,                        // no two scores closer than this, either side
+      gapAfterGoal: 60,                      // a goal means a centre bounce: nothing else for a minute,
+                                             // so no two goals ever share a minute
       phasesPerQuarter: 3,
       // Who's on top. FLOW is a quarter-long tilt shared by every phase in it;
       // PHASE is a shorter burst on top of that. Scoring plays are dealt out in
@@ -633,7 +643,9 @@ function nrlFieldGoals(winner, loser, rng, cfg) {
   const fg = cfg.fieldGoal;
   const close = (winner - loser) <= fg.closeMargin;
   if (rng() < (close ? fg.winnerClose : fg.winnerBlowout)) winner++;
-  if (rng() < (close ? fg.loserClose : fg.loserBlowout)) loser++;
+  // A loser's field goal needs a try after it to lose: only in a game decided
+  // by a converted try or less, that the winner scored a try in.
+  if (winner - loser <= 6 && winner >= 4 && rng() < fg.loserClose) loser++;
   winner = clamp(winner, 0, cfg.SCORE_CEIL);
   loser = clamp(loser, 0, cfg.SCORE_CEIL);
   if (loser >= winner) loser = Math.max(0, winner - 1);
@@ -692,6 +704,9 @@ function nrlPlayList(total, rng, config) {
 
   const units = points / 2;
   let pens = Math.min(pickCount(rng, p.penaltyGoals), units);
+  // A side that scores at all scores a try if it can: penalty goals alone
+  // (4 = two of them) are very rare.
+  if (units >= 2 && units - pens < 2) pens = units - 2;
   let u = units - pens;
   if (u === 1) { pens++; u = 0; } // a lone unit can only be a goal, never a try
 
@@ -792,10 +807,11 @@ function buildAflTimeline(home, away, homeSplit, awaySplit, rng, config) {
   for (let q = 1; q <= 4; q++) {
     const qe = events.filter(e => e.quarter === q);
     const len = quarterLengths[q - 1];
-    for (let i = 1; i < qe.length; i++) qe[i].clock = Math.max(qe[i].clock, qe[i - 1].clock + p.minGapSecs);
+    const gap = e => (e.play === 'goal' ? p.gapAfterGoal : p.minGapSecs);
+    for (let i = 1; i < qe.length; i++) qe[i].clock = Math.max(qe[i].clock, qe[i - 1].clock + gap(qe[i - 1]));
     if (qe.length) qe[qe.length - 1].clock = Math.min(qe[qe.length - 1].clock, len - 1);
-    for (let i = qe.length - 2; i >= 0; i--) qe[i].clock = Math.min(qe[i].clock, qe[i + 1].clock - p.minGapSecs);
-    qe.forEach(e => { e.t = (q - 1 + e.clock / len) / 4; });
+    for (let i = qe.length - 2; i >= 0; i--) qe[i].clock = Math.min(qe[i].clock, qe[i + 1].clock - gap(qe[i]));
+    qe.forEach(e => { e.clock = Math.max(0, e.clock); e.t = (q - 1 + e.clock / len) / 4; });
   }
 
   let h = 0, a = 0, hg = 0, hb = 0, ag = 0, ab = 0;
@@ -876,37 +892,25 @@ function buildNrlTimeline(home, away, rng, config) {
   };
 
   const events = [];
+  const fieldGoals = [];
   const place = (list, team) => {
     const sign = team === 'home' ? 1 : -1;
     const tryW = weights(sign, 1), penW = weights(sign, n.penaltyTilt);
     list.forEach(pl => {
-      let period, clock;
-      if (pl.play === 'fieldGoal') {
-        const isWinner = (team === 'home') === (margin > 0);
-        if (golden && isWinner) {
-          period = 2;
-          clock = Math.round(10 + rng() * (gpLen - 10));
-        } else {
-          // Late in the second half: the last (1 - lateWindow) of the match.
-          period = 1;
-          const lo = (p.lateWindow * 2 - 1) * half;
-          clock = Math.round(lo + rng() * (half - 1 - lo));
-        }
-      } else {
-        const ph = pickCount(rng, pl.play === 'penaltyGoal' ? penW : tryW);
-        period = Math.floor(ph / P);
-        const k = ph % P;
-        const lo = Math.max(30, half * k / P), hi = Math.min(half - 1, half * (k + 1) / P);
-        clock = Math.round(lo + rng() * (hi - lo));
-      }
-      const pd = periods[period];
-      events.push({ team, play: pl.play, points: pl.points, period, clock,
-        t: pd.start + (clock / pd.len) * (pd.end - pd.start) });
+      // Field goals go in last, once the rest of the game is laid out, so they
+      // can only land where the kicker isn't behind.
+      if (pl.play === 'fieldGoal') { fieldGoals.push({ team, play: pl.play, points: pl.points }); return; }
+      const ph = pickCount(rng, pl.play === 'penaltyGoal' ? penW : tryW);
+      const period = Math.floor(ph / P);
+      const k = ph % P;
+      const lo = Math.max(30, half * k / P), hi = Math.min(half - 1, half * (k + 1) / P);
+      const clock = Math.round(lo + rng() * (hi - lo));
+      events.push({ team, play: pl.play, points: pl.points, period, clock });
     });
   };
   place(homePlays, 'home');
   place(awayPlays, 'away');
-  events.sort((a, b) => a.t - b.t);
+
   // There's a restart after every score, so nothing lands on top of the last
   // one: push a play back until the gap is long enough.
   // If that ran a period past its siren, pull scores forward from the end the
@@ -914,16 +918,114 @@ function buildNrlTimeline(home, away, rng, config) {
   const gapAfter = e => e.play === 'convertedTry' || e.play === 'try' ? n.gapAfterTry : n.gapAfterGoal;
   // A converted try needs room before the siren for its kick.
   const convRoom = n.conversionDelay[1] + 1;
-  periods.forEach((pd, pi) => {
-    const pe = events.filter(e => e.period === pi);
-    for (let i = 1; i < pe.length; i++) pe[i].clock = Math.max(pe[i].clock, pe[i - 1].clock + gapAfter(pe[i - 1]));
-    if (pe.length) {
-      const last = pe[pe.length - 1];
-      last.clock = Math.min(last.clock, pd.len - 1 - (last.play === 'convertedTry' ? convRoom : 0));
+  const abs = e => e.period * half + e.clock;
+  const order = () => events.sort((a, b) => abs(a) - abs(b));
+  const space = () => {
+    order();
+    periods.forEach((pd, pi) => {
+      const pe = events.filter(e => e.period === pi);
+      for (let i = 1; i < pe.length; i++) pe[i].clock = Math.max(pe[i].clock, pe[i - 1].clock + gapAfter(pe[i - 1]));
+      if (pe.length) {
+        const last = pe[pe.length - 1];
+        last.clock = Math.min(last.clock, pd.len - 1 - (last.play === 'convertedTry' ? convRoom : 0));
+      }
+      for (let i = pe.length - 2; i >= 0; i--) pe[i].clock = Math.min(pe[i].clock, pe[i + 1].clock - gapAfter(pe[i]));
+      pe.forEach(e => { e.clock = Math.max(0, e.clock); });
+    });
+    order();
+  };
+  // A side's lead (negative: how far behind) just before events[i].
+  const leadBefore = (i, team) => {
+    let m = 0;
+    for (let j = 0; j < i; j++) m += (events[j].team === team ? 1 : -1) * events[j].points;
+    return m;
+  };
+  space();
+
+  // Nobody takes the two points when they're more than a converted try down.
+  // A penalty goal that lands there moves back to the latest earlier moment
+  // the side was within six (kick-off always is), which only ever helps its
+  // own later kicks; a few passes settle the other side's.
+  for (let pass = 0; pass < 12; pass++) {
+    const i = events.findIndex((e, idx) => e.play === 'penaltyGoal' && leadBefore(idx, e.team) < -6);
+    if (i < 0) break;
+    const pen = events.splice(i, 1)[0];
+    // The latest earlier gap it's allowed in and that has room for it (the
+    // start of the game always qualifies).
+    const fromOf = k => (k > 0 ? abs(events[k - 1]) + gapAfter(events[k - 1]) : 30);
+    const toOf = k => (events[k] ? abs(events[k]) - n.gapAfterGoal : fromOf(k) + 60);
+    let k = i;
+    while (k > 0 && (leadBefore(k, pen.team) < -6 || toOf(k) < fromOf(k))) k--;
+    const from = fromOf(k), to = toOf(k);
+    const at = Math.max(0, Math.round(from + rng() * Math.max(0, to - from)));
+    pen.period = Math.min(1, Math.floor(at / half));
+    pen.clock = at - pen.period * half;
+    events.splice(k, 0, pen);
+    space();
+  }
+
+  // Field goals. A side only kicks one when it's level or ahead: nearly always
+  // as the last score of the game, otherwise to go seven or thirteen points up
+  // late in the second half. A golden-point winner's is the golden point.
+  const lateFrom = (p.lateWindow * 2 - 1) * half;   // seconds into the 2nd half
+  fieldGoals.forEach(fg => {
+    const isWinner = (fg.team === 'home') === (margin > 0);
+    if (golden && isWinner) {
+      events.push(Object.assign(fg, { period: 2, clock: Math.round(10 + rng() * (gpLen - 10)) }));
+      return;
     }
-    for (let i = pe.length - 2; i >= 0; i--) pe[i].clock = Math.min(pe[i].clock, pe[i + 1].clock - gapAfter(pe[i]));
-    pe.forEach(e => { e.t = pd.start + (Math.max(0, e.clock) / pd.len) * (pd.end - pd.start); });
+    const n2 = events.length;
+    const lastLead = leadBefore(n2, fg.team);
+    // Moments late in the 2nd half when a field goal would put the kicker 7 or 13 up.
+    const sevens = [];
+    for (let k = 1; k <= n2; k++) {
+      const prev = events[k - 1];
+      if (prev.period !== 1 || prev.clock < lateFrom) continue;
+      const lead = leadBefore(k, fg.team);
+      const next = events[k];
+      const room = (next && next.period === 1 ? next.clock : half - 1) - (prev.clock + gapAfter(prev));
+      // ...and not where it would leave the other side more than six down for
+      // a penalty goal it kicks later.
+      const breaksPen = events.slice(k).some((e, j) => e.play === 'penaltyGoal' && e.team !== fg.team &&
+        leadBefore(k + j, e.team) - 1 < -6);
+      if ((lead === 6 || lead === 12) && room >= n.gapAfterGoal && !breaksPen) sevens.push(k);
+    }
+    let k;
+    // The losing side's: the latest moment it was level or ahead with a try
+    // from the other side still to come, so that try is what beats it.
+    if (!isWinner) {
+      for (let j = n2 - 1; j >= 0 && k == null; j--) {
+        if (leadBefore(j, fg.team) < 0) continue;
+        const after = events.slice(j);
+        if (!after.some(e => e.team !== fg.team && (e.play === 'try' || e.play === 'convertedTry'))) continue;
+        const breaksPen = after.some((e, i2) => e.play === 'penaltyGoal' && e.team !== fg.team && leadBefore(j + i2, e.team) - 1 < -6);
+        if (!breaksPen) k = j;
+      }
+    }
+    if (k != null) { /* placed above */ }
+    else if (sevens.length && (lastLead < 0 || rng() < 0.25)) k = sevens[Math.floor(rng() * sevens.length)];
+    else if (lastLead >= 0) k = n2;
+    else {
+      // Only an old, stored scoreline gets here: kick it wherever the side was
+      // furthest in front.
+      let best = -Infinity;
+      for (let j = 0; j <= n2; j++) { const l = leadBefore(j, fg.team); if (l > best) { best = l; k = j; } }
+    }
+    const prev = events[k - 1], next = events[k];
+    // In the gap between prev and next: late in the second half for a winner's
+    // kick; anywhere it fits for a loser's (it needs that try still to come).
+    const earliest = isWinner ? half + lateFrom : 30;
+    const from = Math.max(earliest, prev ? abs(prev) + gapAfter(prev) : 0);
+    const to = next ? abs(next) - n.gapAfterGoal : 2 * half - 1;
+    const at = Math.round(Math.min(2 * half - 1, from + rng() * Math.max(0, to - from)));
+    const period = at >= half ? 1 : 0;
+    events.splice(k, 0, Object.assign(fg, { period, clock: at - period * half }));
   });
+  events.forEach(e => {
+    const pd = periods[e.period];
+    e.t = pd.start + (Math.max(0, e.clock) / pd.len) * (pd.end - pd.start);
+  });
+  events.sort((a, b) => a.t - b.t);
 
   // A converted try is two plays on the worm: the try (4), then the kick (2)
   // a little under a minute later. Delays are drawn last, so they never move
@@ -1575,6 +1677,11 @@ function simulateGame(opts) {
       winner = nrlEvenScore(winner, cfg);
       loser = nrlEvenScore(loser, cfg);
       // A decided game must stay decided; separating by 2 keeps both even.
+      if (winner <= loser) winner = loser + 2;
+      // Two points is a lone penalty goal. Nudge it to nil or a try, keeping
+      // the result the same.
+      if (loser === 2 && rng() >= cfg.fieldGoal.keepTwo) loser = winner >= 6 && rng() < 0.5 ? 4 : 0;
+      if (winner === 2 && rng() >= cfg.fieldGoal.keepTwo) winner = 4;
       if (winner <= loser) winner = loser + 2;
       const fg = nrlFieldGoals(winner, loser, rng, cfg);
       winner = fg.winner; loser = fg.loser;

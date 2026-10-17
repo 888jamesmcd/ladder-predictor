@@ -1196,7 +1196,7 @@ input[type=number] {
 .mc-w-head { fill: #d61f2c; stroke: #ffffff; stroke-width: 1.5; }
 .mc-w-hit { fill: transparent; cursor: crosshair; }
 .mc-feed-title { margin-top: 14px; }
-.mc-feed { max-height: 240px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; font-size: 13px; line-height: 1.35; }
+.mc-feed { position: relative; max-height: 240px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; font-size: 13px; line-height: 1.35; }
 .mc-feed-min { color: #8888aa; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin: 8px 0 2px; }
 .mc-feed-min:first-child { margin-top: 0; }
 .mc-feed-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; color: #c8c8dc; }
@@ -11254,7 +11254,7 @@ function mcOpen(opts) {
   const c = mcCtx = {
     sport, game, tl, hCfg, aCfg, overlay,
     liveState: opts.liveState || null, stillThere: opts.stillThere || null, headline: opts.headline || null,
-    raf: 0, hoverT: null, frozenT: null, axisEnd: 1, feedCount: -1,
+    raf: 0, hoverT: null, frozenT: null, axisEnd: 1, feedCount: -1, feedT: null,
   };
 
   overlay.addEventListener('click', e => { if (e.target === overlay) closeMatchCentre(); });
@@ -11274,6 +11274,11 @@ function mcOpen(opts) {
   wrap.addEventListener('pointermove', track);
   wrap.addEventListener('pointerdown', track);
   wrap.addEventListener('pointerleave', () => { c.hoverT = null; if (!c.raf) mcRender(c, 1, false); });
+  // Scrolling back through the scoring list puts a line on the worm at the
+  // score at the top of the list (gone again back at the top).
+  overlay.querySelector('.mc-feed').addEventListener('scroll', () => {
+    if (mcFeedCursor(c) && !c.raf) mcRender(c, 1, false);
+  }, { passive: true });
 
   if (c.liveState && c.liveState()) mcTick();
   else mcFinish(c);
@@ -11377,8 +11382,9 @@ function mcRender(c, t, live, label) {
   mcRenderFeed(c, t, live);
 
   const readout = overlay.querySelector('.mc-readout');
-  if (c.hoverT == null) { mcSetHTML(readout, '&nbsp;'); return; }
-  const ht = Math.min(c.hoverT, t);
+  const ct = mcCursorT(c);
+  if (ct == null) { mcSetHTML(readout, '&nbsp;'); return; }
+  const ht = Math.min(ct, t);
   const at = mcStateAt(sport, tl, ht);
   const { p, clock } = mcClockAt(tl, ht);
   const side = (cfg, sc) => cfg.abbr + ' ' + (sport === 'afl' ? S.detail(sc) + ' (' + sc.points + ')' : sc.points);
@@ -11419,7 +11425,7 @@ function mcRenderFeed(c, t, live) {
     const team = st.team === 'home' ? game.home : game.away;
     const colour = st.team === 'home' ? colours.home : colours.away;
     const big = st.play === 'goal' || st.play === 'try';
-    html += `<div class="mc-feed-row${big ? ' mc-feed-big' : ''}"><span class="mc-feed-dot" style="background:${colour}"></span>
+    html += `<div class="mc-feed-row${big ? ' mc-feed-big' : ''}" data-t="${st.t}"><span class="mc-feed-dot" style="background:${colour}"></span>
       <span>${team} ${MC_PLAY_NAMES[st.play] || st.play} - ${st.home}-${st.away}</span></div>`;
   });
   // Someone reading further down keeps their place when a new score lands on
@@ -11428,6 +11434,22 @@ function mcRenderFeed(c, t, live) {
   const atTop = feed.scrollTop < 4;
   feed.innerHTML = html;
   if (grew && !atTop) feed.scrollTop = feed.scrollHeight - fromBottom;
+  mcFeedCursor(c);
+}
+// Where the worm's line sits: under a finger on the worm, else at the score
+// the scoring list has been scrolled back to, else nowhere.
+function mcCursorT(c) { return c.hoverT != null ? c.hoverT : c.feedT; }
+// The score at the top of the scrolled list. Returns true if that changed.
+function mcFeedCursor(c) {
+  const feed = c.overlay.querySelector('.mc-feed');
+  let t = null;
+  if (feed.scrollTop > 4) {
+    const row = [...feed.querySelectorAll('.mc-feed-row')].find(r => r.offsetTop + r.offsetHeight > feed.scrollTop + 2);
+    if (row) t = Number(row.dataset.t);
+  }
+  if (t === c.feedT) return false;
+  c.feedT = t;
+  return true;
 }
 
 // Worm geometry, shared by the drawing and the hover readout.
@@ -11499,13 +11521,14 @@ function mcWormSVG(c, upTo, live, periods) {
     bands.push(`<text x="${(x0 + x1) / 2}" y="${small ? padT + 12 : sc.mid}" class="mc-w-qmark${small ? ' mc-w-qmark-sm' : ''}">${p.label}</text>`);
   });
   const head = live ? `<circle cx="${sc.x(endT).toFixed(1)}" cy="${sc.y(prev).toFixed(1)}" r="3.5" class="mc-w-head"/>` : '';
-  const cx = c.hoverT != null ? sc.x(Math.min(c.hoverT, endT)) : 0;
+  const ct = mcCursorT(c);
+  const cx = ct != null ? sc.x(Math.min(ct, endT)) : 0;
   // A club's crest in the gutter at height y (the middle of its half), sitting
   // just off the scale's numbers.
   const gutter = padL - MC_WORM.labelW;
   const crest = (cfg, y) => `<image href="${cfg.logo || ''}" x="${(gutter - S.logoW - 2).toFixed(1)}"
     y="${(y - S.logoH / 2).toFixed(1)}" width="${S.logoW}" height="${S.logoH}" preserveAspectRatio="xMidYMid meet"><title>${cfg.abbr || ''}</title></image>`;
-  const cursor = c.hoverT != null
+  const cursor = ct != null
     ? `<line class="mc-w-cursor" x1="${cx}" x2="${cx}" y1="${padT}" y2="${h - padB}"/>`
     : '';
 
