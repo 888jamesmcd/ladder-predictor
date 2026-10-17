@@ -1197,11 +1197,23 @@ input[type=number] {
 .mc-w-hit { fill: transparent; cursor: crosshair; }
 .mc-feed-title { margin-top: 14px; }
 .mc-feed { position: relative; max-height: 240px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; font-size: 13px; line-height: 1.35; }
-.mc-feed-min { color: #8888aa; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin: 8px 0 2px; }
+.mc-feed-min { color: #8888aa; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin: 10px 0 2px; }
 .mc-feed-min:first-child { margin-top: 0; }
-.mc-feed-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; color: #c8c8dc; }
-.mc-feed-big { color: #ffffff; font-weight: 700; }
-.mc-feed-dot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35); }
+.mc-feed-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0;
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #c8c8dc;
+}
+.mc-feed-big { color: #ffffff; font-weight: 700; background: rgba(255, 255, 255, 0.08); }
+.mc-feed-logo { flex-shrink: 0; height: 18px; object-fit: contain; }
+.mc-feed-logo-afl { width: 38px; object-fit: cover; border-radius: 2px; }   /* AFL logos are wide banners */
+.mc-feed-logo-nrl { width: 24px; }
 .mc-feed-empty { color: #8888aa; font-size: 13px; }
 .mc-readout {
   margin-top: 6px;
@@ -11417,15 +11429,15 @@ function mcRenderFeed(c, t, live) {
   c.feedCount = steps.length;
   const feed = overlay.querySelector('.mc-feed');
   if (!steps.length) { feed.innerHTML = '<div class="mc-feed-empty">No scores yet.</div>'; return; }
-  const colours = mcWormColours(sport, game.home, game.away);
   let html = '', heading = null;
   steps.slice().reverse().forEach(st => {
     const h = mcFeedMinute(sport, tl, st);
     if (h !== heading) { heading = h; html += `<div class="mc-feed-min">${h}</div>`; }
     const team = st.team === 'home' ? game.home : game.away;
-    const colour = st.team === 'home' ? colours.home : colours.away;
+    const cfg = st.team === 'home' ? c.hCfg : c.aCfg;
     const big = st.play === 'goal' || st.play === 'try';
-    html += `<div class="mc-feed-row${big ? ' mc-feed-big' : ''}" data-t="${st.t}"><span class="mc-feed-dot" style="background:${colour}"></span>
+    html += `<div class="mc-feed-row${big ? ' mc-feed-big' : ''}" data-t="${st.t}">
+      <img class="mc-feed-logo mc-feed-logo-${sport}" src="${cfg.logo || ''}" alt="">
       <span>${team} ${MC_PLAY_NAMES[st.play] || st.play} - ${st.home}-${st.away}</span></div>`;
   });
   // Someone reading further down keeps their place when a new score lands on
