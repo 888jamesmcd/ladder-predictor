@@ -87,7 +87,7 @@ const UNIVERSE_CONFIG = {
     rematchGap: 8,        // a rematch is at least 8 rounds after the first meeting
     byeRounds: [],        // 18 sides: everyone plays every round
     // Real minutes between periods: quarter time, half time, three-quarter time.
-    breaks: [2, 5, 2],
+    breaks: [4, 10, 4],
     breakLabels: ['QT', 'HT', '3QT'],
     // Universe-only tweaks laid over SIM_CONFIG.afl (see simConfig). W is
     // how much a rating point is worth on the scoreboard: 0.62 against the
@@ -101,7 +101,7 @@ const UNIVERSE_CONFIG = {
     // AVG 80 against the predictor's 85: a side averages about 84 a game (a
     // game about 168), a little under 2026's 89.
     sim: { W: 0.62, SWING: 11, AVG: 80 },
-    maxGameMins: 4 * 35 + 9,   // the longest a game can run, breaks included
+    maxGameMins: 4 * 35 + 18,  // the longest a game can run, breaks included
     // Four points a win, two a draw; level on points goes to percentage.
     ladder: { win: 4, draw: 2, bye: 0, sortBy: 'pct' },
     wildcard: true,
