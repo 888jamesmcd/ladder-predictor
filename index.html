@@ -2121,6 +2121,36 @@ grid-template-columns: 32px 150px 40px 40px 40px 40px 40px 50px 50px 60px 65px 5
   border-radius: 6px;
   overflow: hidden;
 }
+.finals-mc-btn {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  padding: 1px 6px;
+  border: 1px solid #3a4a6e;
+  border-radius: 4px;
+  background: #16213E;
+  color: #c8c8dc;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-weight: 700;
+  font-size: 9px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.finals-mc-btn:hover { background: #22223a; color: #ffffff; }
+.mc-q-input {
+  width: 46px;
+  padding: 2px 4px;
+  border: 1px solid #3a4a6e;
+  border-radius: 4px;
+  background: #1A192E;
+  color: #ffffff;
+  font-family: 'DIN Next LT Pro', sans-serif;
+  font-size: 13px;
+  text-align: center;
+}
+.mc-q-input:focus { outline: none; border-color: #7ab8ff; }
+.mc-q-note { margin: -6px 0 10px; color: #f0c040; font-size: 12px; }
+.finals-mc-btn[hidden] { display: none; }
 #qf1 { top: 0px; }
 #ef1 { top: 107.6px; }
 #ef2 { top: 215.3px; }
@@ -2131,6 +2161,7 @@ grid-template-columns: 32px 150px 40px 40px 40px 40px 40px 50px 50px 60px 65px 5
 #pf2 { top: 215.3px; }
 #gf  { top: 161.4px; }
 .finals-card-label {
+  position: relative;
   color: #8888aa;
   font-family: 'DIN Next LT Pro', sans-serif;
   font-weight: 700;
@@ -8893,6 +8924,7 @@ function renderFinals() {
   ['qf1', 'qf2', 'ef1', 'ef2', 'sf1', 'sf2', 'pf1', 'pf2', 'gf'].forEach(id => {
     renderFinalsCard(id, seasons[currentSeason].finalsData[id]);
   });
+  finalsMcSync('nrl');
 }
 function renderFinalsCard(id, game) {
   const homeAbbr = document.getElementById(`${id}-home-abbr`);
@@ -8944,6 +8976,7 @@ function renderFinals() {
   ['qf1', 'qf2', 'ef1', 'ef2', 'sf1', 'sf2', 'pf1', 'pf2', 'gf'].forEach(id => {
     renderFinalsCard(id, seasons[currentSeason].finalsData[id]);
   });
+  finalsMcSync('nrl');
 }
 
 function populateFinals() {
@@ -9090,6 +9123,7 @@ function renderAFLFinals() {
   ['qf1', 'qf2', 'ef1', 'ef2', 'sf1', 'sf2', 'pf1', 'pf2', 'gf'].forEach(id => {
     renderAFLFinalsCard(id, aflSeasons[currentSeason].finalsData[id]);
   });
+  finalsMcSync('afl');
 }
 
 function renderRoundNav(containerId, totalRounds) {
@@ -11220,6 +11254,123 @@ function openMatchCentre(sport, roundIdx, gameIdx) {
   });
 }
 
+// Finals in the predictor: an MC button on every finals card once it has a
+// score, opening the same match centre the home-and-away games use.
+const FINALS_IDS = ['qf1', 'qf2', 'ef1', 'ef2', 'sf1', 'sf2', 'pf1', 'pf2', 'gf'];
+const FINALS_NAMES = {
+  qf1: 'Qualifying final', qf2: 'Qualifying final', ef1: 'Elimination final', ef2: 'Elimination final',
+  sf1: 'Semi final', sf2: 'Semi final', pf1: 'Preliminary final', pf2: 'Preliminary final', gf: 'Grand final',
+};
+function finalsMcScore(f) {
+  const home = parseInt(f && f.homeScore, 10) || 0, away = parseInt(f && f.awayScore, 10) || 0;
+  return f && f.home && f.away && (home || away) ? { home, away } : null;
+}
+function finalsMcSync(sport) {
+  const season = MC_SPORT[sport].seasons()[currentSeason];
+  if (!season || !season.finalsData) return;
+  FINALS_IDS.forEach(id => {
+    const card = document.getElementById((sport === 'afl' ? 'afl-' : '') + id);
+    const label = card && card.querySelector('.finals-card-label');
+    if (!label) return;
+    let btn = label.querySelector('.finals-mc-btn');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'finals-mc-btn';
+      btn.textContent = 'MC';
+      btn.title = 'Match centre';
+      btn.setAttribute('aria-label', 'Match centre');
+      btn.addEventListener('mousedown', e => e.preventDefault());   // don't steal focus from a score
+      btn.addEventListener('click', e => { e.stopPropagation(); openFinalMatchCentre(sport, id); });
+      label.appendChild(btn);
+    }
+    btn.hidden = !finalsMcScore(season.finalsData[id]);
+  });
+}
+// A break score typed into a finals match centre: AFL as goals.behinds
+// ("3.4"), NRL as points. The other breaks are kept as they're shown, so
+// editing one cell locks in the rest. Breaks that can't fit the final score
+// are turned back.
+function finalsSaveBreak(sport, id, makeTl, side, q, raw) {
+  const c = mcCtx;
+  if (!c) return;
+  const season = MC_SPORT[sport].seasons()[currentSeason];
+  const f = season.finalsData[id];
+  const count = sport === 'afl' ? 3 : 1;
+  const current = s => sport === 'afl' ? { goals: s.goals, behinds: s.behinds } : s.points;
+  const breaks = {
+    home: c.tl.periods.slice(0, count).map(p => current(p.score.home)),
+    away: c.tl.periods.slice(0, count).map(p => current(p.score.away)),
+  };
+  let value;
+  if (sport === 'afl') {
+    const m = String(raw).trim().match(/^(\d+)\.(\d+)$/);
+    if (!m) { mcNote(c, 'Type AFL scores as goals.behinds, like 3.4'); c.overlay.querySelector('.mc-quarters tbody')._mcHTML = null; mcRender(c, 1, false); return; }
+    value = { goals: Number(m[1]), behinds: Number(m[2]) };
+  } else {
+    if (!/^\s*\d+\s*$/.test(String(raw))) { mcNote(c, 'Type the half-time score in points, like 12'); c.overlay.querySelector('.mc-quarters tbody')._mcHTML = null; mcRender(c, 1, false); return; }
+    value = Number(raw);
+  }
+  breaks[side][q] = value;
+  // Each break can't be lower than the one before it.
+  const ordered = sport !== 'afl' || ['home', 'away'].every(sd => breaks[sd].every((x, i) =>
+    !i || (x.goals >= breaks[sd][i - 1].goals && x.behinds >= breaks[sd][i - 1].behinds)));
+  const before = f.breaks;
+  f.breaks = breaks;
+  const tl = ordered ? makeTl() : null;
+  if (!tl || tl.breaksIgnored) {
+    f.breaks = before;
+    mcNote(c, ordered ? 'That doesn\'t fit the final score.' : 'A break can\'t be lower than the one before it.');
+  } else {
+    c.tl = tl;
+    mcNote(c, '');
+    (sport === 'afl' ? lsSaveAFL : lsSaveNRL)();
+  }
+  c.feedCount = -1;
+  c.overlay.querySelector('.mc-quarters tbody')._mcHTML = null;
+  mcFinish(c);
+}
+
+function openFinalMatchCentre(sport, id) {
+  if (!simEngineReady()) return;
+  const season = MC_SPORT[sport].seasons()[currentSeason];
+  const f = season && season.finalsData && season.finalsData[id];
+  const score = finalsMcScore(f);
+  if (!score) return;
+  const game = { home: f.home, away: f.away };
+  // Finals sit past the last round in the timeline's seed space, so a final
+  // never replays a home-and-away game's play-by-play. Break scores typed in
+  // the match centre (f.breaks) pin the quarter or half-time scores.
+  const makeTl = () => window.LadderSim.buildMatchTimeline({
+    sport, seasonKey: currentSeason + ':F', roundIdx: 900, gameIdx: FINALS_IDS.indexOf(id),
+    game, score: finalsMcScore(f), config: window.LadderSim.SIM_CONFIG, breaks: f.breaks || null,
+  });
+  const tl = makeTl();
+  const year = currentSeason.replace(sport, '');
+  const [w, l, ws, ls] = score.home >= score.away
+    ? [f.home, f.away, score.home, score.away] : [f.away, f.home, score.away, score.home];
+  mcOpen({
+    sport, tl, game,
+    hCfg: season.teamConfig[f.home] || {}, aCfg: season.teamConfig[f.away] || {},
+    meta: year + ' · ' + FINALS_NAMES[id],
+    note: tl.breaksIgnored ? 'The break scores saved for this final no longer fit its score, so they aren\'t used. Type new ones in.' : '',
+    editBreaks: {
+      count: sport === 'afl' ? 3 : 1,
+      save: (side, q, raw) => finalsSaveBreak(sport, id, makeTl, side, q, raw),
+    },
+    stillThere: () => !!finalsMcScore(season.finalsData[id]),
+    headline: () => ws === ls ? `${w} and ${l} can't be separated, ${ws}–${ls}`
+      : id === 'gf' ? `${w} win the ${year} premiership, beating ${l} ${ws}–${ls}`
+      : `${w} beat ${l} ${ws}–${ls} in the ${FINALS_NAMES[id].toLowerCase()}`,
+  });
+}
+
+function mcNote(c, text) {
+  const el = c.overlay.querySelector('.mc-q-note');
+  el.textContent = text || '';
+  el.hidden = !text;
+}
+
 // The match centre itself, for any game from any source.
 //   opts: { sport, tl, game, hCfg, aCfg, meta,
 //           liveState()  -> { t, paused?, label? } while live, null at full time
@@ -11255,6 +11406,7 @@ function mcOpen(opts) {
         <thead></thead>
         <tbody></tbody>
       </table>
+      <div class="mc-q-note" hidden></div>
       <div class="mc-section-title">Score worm</div>
       <div class="mc-worm-wrap"></div>
       <div class="mc-readout" aria-live="polite">&nbsp;</div>
@@ -11267,7 +11419,9 @@ function mcOpen(opts) {
     sport, game, tl, hCfg, aCfg, overlay,
     liveState: opts.liveState || null, stillThere: opts.stillThere || null, headline: opts.headline || null,
     raf: 0, hoverT: null, frozenT: null, axisEnd: 1, feedCount: -1, feedT: null,
+    editBreaks: opts.editBreaks || null,
   };
+  if (opts.note) mcNote(c, opts.note);
 
   overlay.addEventListener('click', e => { if (e.target === overlay) closeMatchCentre(); });
   overlay.querySelector('.mc-close').addEventListener('click', closeMatchCentre);
@@ -11328,9 +11482,10 @@ function mcFinish(c) {
 // a scroll that started on it, so each part is only touched when its markup
 // actually changes.
 function mcSetHTML(el, html) {
-  if (el._mcHTML === html) return;
+  if (el._mcHTML === html) return false;
   el._mcHTML = html;
   el.innerHTML = html;
+  return true;
 }
 // The worm changes every frame while live (its head moves along). Its <svg>
 // stays put and only its insides are swapped, so a touch that started on it
@@ -11380,15 +11535,29 @@ function mcRender(c, t, live, label) {
     '<tr><th></th>' + periods.map(p => '<th>' + S.periodName(p) + '</th>').join('') + '</tr>');
   const cell = (sc, side, cls) =>
     `<td class="${cls}">${S.cellDetail(sc[side]) ? `<span class="mc-q-gb">${S.cellDetail(sc[side])}</span> ` : ''}<b>${sc[side].points}</b></td>`;
+  // A finals match centre in the predictor lets the break scores be typed in.
+  const eb = !live && c.editBreaks;
+  const editCell = (sc, side, q) => {
+    const v = sport === 'afl' ? sc[side].goals + '.' + sc[side].behinds : String(sc[side].points);
+    return `<td class="mc-q-edit"><input class="mc-q-input" type="text" inputmode="decimal" value="${v}"
+      data-side="${side}" data-q="${q}" aria-label="${side} ${S.periodName(periods[q])} score" autocomplete="off">${sport === 'afl' ? ` <b>${sc[side].points}</b>` : ''}</td>`;
+  };
   const row = (cfg, side) => {
-    const cells = periods.map(p => {
+    const cells = periods.map((p, i) => {
+      if (eb && i < eb.count) return editCell(p.score, side, i);
       if (t >= p.end || (!live && t >= 1)) return cell(p.score, side, '');
       if (t >= p.start) return cell(now, side, 'mc-q-live');
       return '<td class="mc-q-empty">–</td>';
     });
     return `<tr><th scope="row"><img class="mc-q-logo" src="${cfg.logo || ''}" alt="${cfg.abbr || ''}" title="${cfg.abbr || ''}"></th>${cells.join('')}</tr>`;
   };
-  mcSetHTML(overlay.querySelector('.mc-quarters tbody'), row(hCfg, 'home') + row(aCfg, 'away'));
+  const tbody = overlay.querySelector('.mc-quarters tbody');
+  if (mcSetHTML(tbody, row(hCfg, 'home') + row(aCfg, 'away')) && eb) {
+    tbody.querySelectorAll('.mc-q-input').forEach(inp => {
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); });
+      inp.addEventListener('change', () => eb.save(inp.dataset.side, Number(inp.dataset.q), inp.value));
+    });
+  }
 
   mcSetWorm(overlay.querySelector('.mc-worm-wrap'), mcWormSVG(c, t, live, periods));
   mcRenderFeed(c, t, live);

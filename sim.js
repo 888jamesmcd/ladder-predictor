@@ -746,7 +746,10 @@ function aflPlayList(split) {
 //   quarters       — running G.B at the end of each quarter, for both sides
 //   periods        — the sport-neutral view the match centre draws from; see
 //                    buildNrlTimeline()
-function buildAflTimeline(home, away, homeSplit, awaySplit, rng, config) {
+// fixed (optional): { home: [{goals, behinds}] x4, away: [...] } — what each
+// side scored IN each quarter. Every score is then dealt inside its own
+// quarter, so the breaks come out exactly as given.
+function buildAflTimeline(home, away, homeSplit, awaySplit, rng, config, fixed) {
   const p = config.progression.afl;
   const P = p.phasesPerQuarter;
 
@@ -761,7 +764,14 @@ function buildAflTimeline(home, away, homeSplit, awaySplit, rng, config) {
   // final change) is thrown out and dealt again with fresh momentum; the last
   // attempt stands, so this always finishes.
   let events;
-  for (let attempt = 0; attempt < p.maxRedeals; attempt++) {
+  if (fixed) {
+    events = [];
+    ['home', 'away'].forEach(team => fixed[team].forEach((qs, q) => {
+      for (let i = 0; i < qs.goals; i++) events.push({ team, play: 'goal', points: 6, ph: q * P + Math.floor(rng() * P) });
+      for (let i = 0; i < qs.behinds; i++) events.push({ team, play: 'behind', points: 1, ph: q * P + Math.floor(rng() * P) });
+    }));
+  }
+  for (let attempt = 0; !fixed && attempt < p.maxRedeals; attempt++) {
     const tilts = [];
     for (let q = 0; q < 4; q++) {
       const flow = gaussian(rng, 0, p.flowSD);
@@ -855,12 +865,19 @@ function buildAflTimeline(home, away, homeSplit, awaySplit, rng, config) {
 //   periods — [{ label, start, end, len, offset, score }]: where each period
 //             sits on the 0-1 axis, its length and match-clock offset in
 //             seconds, and the running score at its end
-function buildNrlTimeline(home, away, rng, config) {
+// halves (optional): { home: [1st half, rest], away: [...] } in points. Each
+// half's points are scored in that half (golden point counts as the rest), so
+// the half-time score comes out exactly as given.
+function buildNrlTimeline(home, away, rng, config, halves) {
   const p = config.progression;
   const n = p.nrl;
   const P = n.phasesPerHalf;
-  const homePlays = nrlPlayList(home, rng, config);
-  const awayPlays = nrlPlayList(away, rng, config);
+  const playsFor = (total, team) => halves
+    ? nrlPlayList(halves[team][0], rng, config).map(pl => Object.assign(pl, { half: 0 }))
+        .concat(nrlPlayList(halves[team][1], rng, config).map(pl => Object.assign(pl, { half: 1 })))
+    : nrlPlayList(total, rng, config);
+  const homePlays = playsFor(home, 'home');
+  const awayPlays = playsFor(away, 'away');
 
   // A 1-point margin with the winner odd and the loser even is a golden-point
   // finish, so that field goal belongs after the siren rather than late in the
@@ -868,7 +885,10 @@ function buildNrlTimeline(home, away, rng, config) {
   const margin = home - away;
   const winnerOdd = (margin > 0 ? home : away) % 2 === 1;
   const loserEven = (margin > 0 ? away : home) % 2 === 0;
-  const golden = Math.abs(margin) === 1 && winnerOdd && loserEven;
+  // With fixed halves, golden point also needs the winner's odd point to be
+  // in the second half (a first-half one is its siren field goal instead).
+  const golden = Math.abs(margin) === 1 && winnerOdd && loserEven &&
+    (!halves || halves[margin > 0 ? 'home' : 'away'][1] % 2 === 1);
 
   const half = n.halfMins * 60;
   const gpLen = p.goldenPointWindow * 60;
@@ -899,8 +919,10 @@ function buildNrlTimeline(home, away, rng, config) {
     list.forEach(pl => {
       // Field goals go in last, once the rest of the game is laid out, so they
       // can only land where the kicker isn't behind.
-      if (pl.play === 'fieldGoal') { fieldGoals.push({ team, play: pl.play, points: pl.points }); return; }
-      const ph = pickCount(rng, pl.play === 'penaltyGoal' ? penW : tryW);
+      if (pl.play === 'fieldGoal') { fieldGoals.push({ team, play: pl.play, points: pl.points, half: pl.half }); return; }
+      let ph = pickCount(rng, pl.play === 'penaltyGoal' ? penW : tryW);
+      // A fixed half keeps the play in its half, in the matching phase.
+      if (pl.half != null) ph = pl.half * P + (ph % P);
       const period = Math.floor(ph / P);
       const k = ph % P;
       const lo = Math.max(30, half * k / P), hi = Math.min(half - 1, half * (k + 1) / P);
@@ -947,17 +969,23 @@ function buildNrlTimeline(home, away, rng, config) {
   // the side was within six (kick-off always is), which only ever helps its
   // own later kicks; a few passes settle the other side's.
   for (let pass = 0; pass < 12; pass++) {
-    const i = events.findIndex((e, idx) => e.play === 'penaltyGoal' && leadBefore(idx, e.team) < -6);
+    const i = events.findIndex((e, idx) => e.play === 'penaltyGoal' && !e.stuck && leadBefore(idx, e.team) < -6);
     if (i < 0) break;
     const pen = events.splice(i, 1)[0];
+    // With fixed halves it can't leave its half; with nowhere valid there it
+    // stays put.
+    const floor = halves ? events.findIndex(e => e.period === pen.period) : 0;
+    const lowest = halves ? (floor < 0 ? i : Math.min(floor, i)) : 0;
     // The latest earlier gap it's allowed in and that has room for it (the
     // start of the game always qualifies).
     const fromOf = k => (k > 0 ? abs(events[k - 1]) + gapAfter(events[k - 1]) : 30);
     const toOf = k => (events[k] ? abs(events[k]) - n.gapAfterGoal : fromOf(k) + 60);
     let k = i;
-    while (k > 0 && (leadBefore(k, pen.team) < -6 || toOf(k) < fromOf(k))) k--;
+    while (k > lowest && (leadBefore(k, pen.team) < -6 || toOf(k) < fromOf(k))) k--;
+    if (halves && (leadBefore(k, pen.team) < -6)) { pen.stuck = true; events.splice(i, 0, pen); continue; }
     const from = fromOf(k), to = toOf(k);
-    const at = Math.max(0, Math.round(from + rng() * Math.max(0, to - from)));
+    let at = Math.max(0, Math.round(from + rng() * Math.max(0, to - from)));
+    if (halves) at = Math.min(pen.period * half + half - 1, Math.max(pen.period * half, at));
     pen.period = Math.min(1, Math.floor(at / half));
     pen.clock = at - pen.period * half;
     events.splice(k, 0, pen);
@@ -970,6 +998,15 @@ function buildNrlTimeline(home, away, rng, config) {
   const lateFrom = (p.lateWindow * 2 - 1) * half;   // seconds into the 2nd half
   fieldGoals.forEach(fg => {
     const isWinner = (fg.team === 'home') === (margin > 0);
+    if (fg.half === 0) {
+      // A first-half point with fixed halves: the siren field goal.
+      const firstHalf = events.filter(e => e.period === 0);
+      const last = firstHalf[firstHalf.length - 1];
+      const from = last ? last.clock + gapAfter(last) : half - 120;
+      const clock = Math.round(Math.min(half - 1, from + rng() * Math.max(0, half - 1 - from)));
+      events.splice(firstHalf.length, 0, Object.assign(fg, { period: 0, clock }));
+      return;
+    }
     if (golden && isWinner) {
       events.push(Object.assign(fg, { period: 2, clock: Math.round(10 + rng() * (gpLen - 10)) }));
       return;
@@ -993,13 +1030,44 @@ function buildNrlTimeline(home, away, rng, config) {
     let k;
     // The losing side's: the latest moment it was level or ahead with a try
     // from the other side still to come, so that try is what beats it.
+    // Fixed halves: a second-half kick stays in the second half.
+    const minK = halves ? Math.max(0, events.findIndex(e => e.period >= 1)) : 0;
+    const firstTwo = halves && events.findIndex(e => e.period >= 1) < 0 ? n2 : minK;
+    // The gap a kick at position k would sit in, and whether it fits there
+    // (it can't land between a try and its conversion, or on top of a score).
+    const earliest = isWinner ? half + lateFrom : halves ? half + 30 : 30;
+    // A field goal isn't a try, so it only waits for the conversion (or a
+    // minute after any other score), not the three minutes a try does.
+    // `tight` squeezes it in closer (20 seconds either side), for a kick that
+    // has nowhere roomier to go without breaking a rule.
+    let tight = false;
+    const fgGap = e => (e.play === 'convertedTry' ? n.conversionDelay[1] + 15 : tight ? 20 : n.gapAfterGoal);
+    const fgFrom = j => Math.max(earliest, events[j - 1] ? abs(events[j - 1]) + fgGap(events[j - 1]) : 0);
+    const fgTo = j => (events[j] ? abs(events[j]) - (tight ? 20 : n.gapAfterGoal) : 2 * half - 1);
+    const fits = j => j === n2 || fgTo(j) >= fgFrom(j);
     if (!isWinner) {
-      for (let j = n2 - 1; j >= 0 && k == null; j--) {
-        if (leadBefore(j, fg.team) < 0) continue;
-        const after = events.slice(j);
-        if (!after.some(e => e.team !== fg.team && (e.play === 'try' || e.play === 'convertedTry'))) continue;
-        const breaksPen = after.some((e, i2) => e.play === 'penaltyGoal' && e.team !== fg.team && leadBefore(j + i2, e.team) - 1 < -6);
-        if (!breaksPen) k = j;
+      for (const squeeze of [false, true]) {
+        tight = squeeze;
+        for (let j = n2 - 1; j >= firstTwo && k == null; j--) {
+          if (leadBefore(j, fg.team) < 0 || !fits(j)) continue;
+          const after = events.slice(j);
+          if (!after.some(e => e.team !== fg.team && (e.play === 'try' || e.play === 'convertedTry'))) continue;
+          const breaksPen = after.some((e, i2) => e.play === 'penaltyGoal' && e.team !== fg.team && leadBefore(j + i2, e.team) - 1 < -6);
+          if (!breaksPen) k = j;
+        }
+        if (k != null) break;
+      }
+      if (k == null) tight = false;
+      // Last resort: never ahead late with a try still to come, but 0-0 at
+      // the start always is. Kick it early and push the next scores back to
+      // make room. (Not with fixed halves: there it belongs to the 2nd half.)
+      if (k == null && !halves) {
+        // Before the first score of the game, whenever that was.
+        const first = events.length ? abs(events[0]) : half;
+        const clock = Math.max(0, Math.min(30 + Math.floor(rng() * 90), first - 1));
+        events.unshift(Object.assign(fg, { period: 0, clock }));
+        space();
+        return;
       }
     }
     if (k != null) { /* placed above */ }
@@ -1009,14 +1077,13 @@ function buildNrlTimeline(home, away, rng, config) {
       // Only an old, stored scoreline gets here: kick it wherever the side was
       // furthest in front.
       let best = -Infinity;
-      for (let j = 0; j <= n2; j++) { const l = leadBefore(j, fg.team); if (l > best) { best = l; k = j; } }
+      for (let j = firstTwo; j <= n2; j++) { if (!fits(j)) continue; const l = leadBefore(j, fg.team); if (l > best) { best = l; k = j; } }
+      if (k == null) k = n2;
     }
-    const prev = events[k - 1], next = events[k];
-    // In the gap between prev and next: late in the second half for a winner's
-    // kick; anywhere it fits for a loser's (it needs that try still to come).
-    const earliest = isWinner ? half + lateFrom : 30;
-    const from = Math.max(earliest, prev ? abs(prev) + gapAfter(prev) : 0);
-    const to = next ? abs(next) - n.gapAfterGoal : 2 * half - 1;
+    // In the gap between the scores either side: late in the second half for
+    // a winner's kick; anywhere it fits for a loser's (it needs that try
+    // still to come).
+    const from = fgFrom(k), to = fgTo(k);
     const at = Math.round(Math.min(2 * half - 1, from + rng() * Math.max(0, to - from)));
     const period = at >= half ? 1 : 0;
     events.splice(k, 0, Object.assign(fg, { period, clock: at - period * half }));
@@ -1098,18 +1165,58 @@ function aflSplitFor(team, side, points, config) {
 // buildMatchTimeline({sport, seasonKey, roundIdx, gameIdx, game, score, config})
 //   AFL -> { steps, periods, quarterLengths, quarters, homeSplit, awaySplit }
 //   NRL -> { steps, periods }
+// opts.breaks (optional) pins the scores at the breaks, for a game whose real
+// breakdown is known:
+//   AFL: { home: [QT, HT, 3QT], away: [...] }, each { goals, behinds }, running
+//   NRL: { home: [HT], away: [HT] }, points
+// Breaks that can't fit the final score are ignored (tl.breaksIgnored).
 function buildMatchTimeline(opts) {
   const config = opts.config || SIM_CONFIG;
   const s = opts.score;
   const home = Math.max(0, Math.round(num(s.home, 0)));
   const away = Math.max(0, Math.round(num(s.away, 0)));
   const rng = makeRng(hashKey((opts.seasonKey || '') + scoreKey(opts.roundIdx, opts.gameIdx) + home + ':' + away));
+  const br = opts.breaks;
   if (opts.sport === 'afl') {
-    const homeSplit = aflSplitFor(opts.game.home, 'H', home, config);
-    const awaySplit = aflSplitFor(opts.game.away, 'A', away, config);
-    const tl = buildAflTimeline(home, away, homeSplit, awaySplit, rng, config);
+    let homeSplit = aflSplitFor(opts.game.home, 'H', home, config);
+    let awaySplit = aflSplitFor(opts.game.away, 'A', away, config);
+    let fixed = null, ignored = false;
+    if (br) {
+      const fit = (pts, split, q3) => {
+        // The full-time G.B: the usual split if it covers 3QT, else the
+        // nearest one for the same points that does.
+        if (split.goals >= q3.goals && split.behinds >= q3.behinds) return split;
+        let best = null;
+        for (let g = q3.goals; g * 6 <= pts; g++) {
+          const b = pts - 6 * g;
+          if (b < q3.behinds) continue;
+          if (!best || Math.abs(g - split.goals) < Math.abs(best.goals - split.goals)) best = { points: pts, goals: g, behinds: b };
+        }
+        return best;
+      };
+      const perQuarter = (q, ft) => {
+        const run = q.concat([ft]);
+        const out = run.map((x, i) => ({ goals: x.goals - (i ? run[i - 1].goals : 0), behinds: x.behinds - (i ? run[i - 1].behinds : 0) }));
+        return out.every(x => x.goals >= 0 && x.behinds >= 0) ? out : null;
+      };
+      const hs = fit(home, homeSplit, br.home[2]), as = fit(away, awaySplit, br.away[2]);
+      const hq = hs && perQuarter(br.home, hs), aq = as && perQuarter(br.away, as);
+      if (hq && aq) { homeSplit = hs; awaySplit = as; fixed = { home: hq, away: aq }; }
+      else ignored = true;
+    }
+    const tl = buildAflTimeline(home, away, homeSplit, awaySplit, rng, config, fixed);
     tl.homeSplit = homeSplit;
     tl.awaySplit = awaySplit;
+    if (ignored) tl.breaksIgnored = true;
+    return tl;
+  }
+  if (br) {
+    const h = br.home[0], a = br.away[0];
+    if (h >= 0 && a >= 0 && h <= home && a <= away) {
+      return buildNrlTimeline(home, away, rng, config, { home: [h, home - h], away: [a, away - a] });
+    }
+    const tl = buildNrlTimeline(home, away, rng, config);
+    tl.breaksIgnored = true;
     return tl;
   }
   return buildNrlTimeline(home, away, rng, config);
