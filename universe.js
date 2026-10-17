@@ -1356,18 +1356,26 @@ function createUniverse(opts) {
   universe.seasons.push(planSeason({
     sport: opts.sport, teams: universe.teams, n: 1, seed, seeds, consistency, clubs,
     day0: opts.test ? opts.nowMs + MIN_MS
-      : opts.startNow ? startNowDay0(opts.nowMs, cfg[opts.sport]) : firstDay0(opts.nowMs, cfg[opts.sport], cfg),
+      : opts.startNow ? brisbaneMidnight(opts.nowMs, cfg) : firstDay0(opts.nowMs, cfg[opts.sport], cfg),
     config: cfg, test: !!opts.test,
   }));
+  if (opts.startNow && !opts.test) delayMissedKickoffs(universe.seasons[0], opts.nowMs);
   return universe;
 }
 
-// "Start now": the whole calendar slides so the first game bounces a minute
-// from now. Every gap between games stays as it was, so the clock times read
-// oddly (Round 1 might kick off at 9:47pm), but it plays out exactly like a
-// real season.
-function startNowDay0(nowMs, sportCfg) {
-  return nowMs + MIN_MS - (slotMs(0, sportCfg.slots[0][0]));
+// "Start now": the season is on the real calendar from today, and any of
+// today's games whose kick-off has already gone are played late instead: the
+// first a minute from now, the rest after it with the same gaps between them.
+// Today's games still to come keep their times, and from tomorrow it's all on
+// schedule.
+function delayMissedKickoffs(season, nowMs) {
+  const missed = season.rounds[0].filter(g => g.kickoff < nowMs + MIN_MS);
+  if (!missed.length) return;
+  const base = Math.min(...missed.map(g => g.kickoff));
+  missed.forEach(g => {
+    g.kickoff = nowMs + MIN_MS + (g.kickoff - base);
+    g.delayed = true;
+  });
 }
 
 // A stored universe comes back as plain JSON; give it its config again.
@@ -1379,7 +1387,9 @@ function attach(universe, cfg) {
 // Bring the universe up to nowMs: decide rounds and finals that have kicked
 // off, and start the next season once the off-season is over. Returns true
 // if anything changed (so the caller knows to save).
-function advance(universe, nowMs) {
+// opts.delayFrom: the next season starts today, with any of today's games
+// already gone played late from then (see delayMissedKickoffs).
+function advance(universe, nowMs, opts) {
   let changed = false;
   for (;;) {
     const season = universe.seasons[universe.seasons.length - 1];
@@ -1395,6 +1405,7 @@ function advance(universe, nowMs) {
       seeds: talent.seeds, clubs: talent.clubs, consistency: talent.consistency, offseason: talent.offseason,
       test: !!universe.test,
     }));
+    if (opts && opts.delayFrom != null) delayMissedKickoffs(universe.seasons[universe.seasons.length - 1], opts.delayFrom);
     changed = true;
   }
   return changed;
@@ -1408,15 +1419,19 @@ function seasonOver(universe, season, nowMs) {
   return gameStatusAt(tl, gf.kickoff, nowMs, universe.config[universe.sport]).status === 'final';
 }
 
-// Skip the rest of the off-season: the next season starts now, its first
-// game bouncing a minute from now (the same slide as "Start now"). Only once
-// the grand final is over. Returns true if it started one.
+// Skip the rest of the off-season: the next season starts today, the same way
+// "Start now" does (today's games already gone are played late, from a minute
+// from now). Only once the grand final is over. Returns true if it started one.
 function startNextSeason(universe, nowMs) {
   const season = universe.seasons[universe.seasons.length - 1];
   if (!seasonOver(universe, season, nowMs) || nowMs >= season.nextDay0) return false;
-  season.nextDay0 = Math.min(season.nextDay0,
-    universe.test ? nowMs + MIN_MS : startNowDay0(nowMs, universe.config[universe.sport]));
-  advance(universe, nowMs);
+  if (universe.test) {
+    season.nextDay0 = Math.min(season.nextDay0, nowMs + MIN_MS);
+    advance(universe, nowMs);
+  } else {
+    season.nextDay0 = Math.min(season.nextDay0, brisbaneMidnight(nowMs, universe.config));
+    advance(universe, nowMs, { delayFrom: nowMs });
+  }
   return universe.seasons[universe.seasons.length - 1] !== season;
 }
 

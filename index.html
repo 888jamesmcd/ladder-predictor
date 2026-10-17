@@ -11963,7 +11963,8 @@ function uniGames(season, page, now) {
     return U.roundView(uniState, season, page, now).map(g => Object.assign(g, {
       key: 'R' + page + 'G' + g.gameIdx,
       venue: uniCfg().venue(g.home),
-      tag: '',
+      // A game that missed its slot on a "Start now" day says so.
+      tag: g.delayed ? 'Delayed start' : '',
     }));
   }
   const si = page - season.rounds.length;

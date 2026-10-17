@@ -159,6 +159,11 @@ const SIM_CONFIG = {
       // A side whose only points are a penalty goal (2) is very rare: a 2
       // usually comes out as nil or a try. This share are left alone.
       keepTwo: 0.05,
+      // A game with under 12 points between the two sides is very rare:
+      // most get topped up with tries (the result stays the same). This share
+      // are left alone.
+      minGameTotal: 12, keepLowTotal: 0.02,
+      convertRate: 0.78,    // share of those top-up tries that are converted
     },
   },
   // Round headlines — see buildHeadlines(). A game only gets a headline if it
@@ -243,6 +248,9 @@ const SIM_CONFIG = {
       // quarterGoalFloor, for low scores where a share means little). A deal
       // that breaks it is re-dealt, up to maxRedeals times.
       maxQuarterShare: 0.45, quarterGoalFloor: 6, maxRedeals: 12,
+      // Every quarter has at least this many scores, the two sides together:
+      // a quarter with one behind in it doesn't happen.
+      minScoresPerQuarter: 4,
       // Behinds follow momentum less than goals do — a side under the pump
       // still sprays a few. Their tilt is scaled by this.
       behindTilt: 0.5,
@@ -798,6 +806,23 @@ function buildAflTimeline(home, away, homeSplit, awaySplit, rng, config, fixed) 
       return perQ.some(g => g > cap);
     });
     if (!tooLopsided) break;
+  }
+
+  // No quarter goes by with almost nothing scored: move scores across from
+  // the busiest quarter until each has its minimum. (Fixed quarters are a real
+  // breakdown, so they're left as given.)
+  if (!fixed && p.minScoresPerQuarter && events.length >= 4 * p.minScoresPerQuarter) {
+    const count = () => [0, 1, 2, 3].map(q => events.filter(e => Math.floor(e.ph / P) === q).length);
+    for (let guard = 0; guard < 40; guard++) {
+      const c = count();
+      const thin = c.findIndex(n => n < p.minScoresPerQuarter);
+      if (thin < 0) break;
+      const busy = c.indexOf(Math.max(...c));
+      const from = events.filter(e => Math.floor(e.ph / P) === busy);
+      // Prefer a behind, so a quarter's goals barely move.
+      const pick = from.find(e => e.play === 'behind') || from[0];
+      pick.ph = thin * P + Math.floor(rng() * P);
+    }
   }
 
   events.forEach(e => {
@@ -1798,6 +1823,21 @@ function simulateGame(opts) {
     }
     if (actualMargin >= 0) { hs = winner; as = loser; }
     else { hs = loser; as = winner; }
+  }
+
+  // NRL: hardly any game finishes with under minGameTotal between the two
+  // sides. Top it up with tries, keeping the result: the loser gets one if it
+  // still loses, otherwise the winner does; a draw gets one each.
+  if (sport === 'nrl' && hs + as < cfg.fieldGoal.minGameTotal && rng() >= cfg.fieldGoal.keepLowTotal) {
+    const tryPts = () => (rng() < cfg.fieldGoal.convertRate ? 6 : 4);
+    for (let guard = 0; guard < 6 && hs + as < cfg.fieldGoal.minGameTotal; guard++) {
+      if (hs === as) { const t = tryPts(); hs += t; as += t; continue; }
+      const homeWon = hs > as;
+      const w = homeWon ? hs : as, l = homeWon ? as : hs;
+      const t = tryPts();
+      if (l + t < w) { if (homeWon) as += t; else hs += t; }
+      else if (homeWon) hs += t; else as += t;
+    }
   }
 
   // Last guard: 0-0 would read as "not played" everywhere downstream.
