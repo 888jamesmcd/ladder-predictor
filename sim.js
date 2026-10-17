@@ -212,7 +212,9 @@ const SIM_CONFIG = {
   // Play-by-play reconstruction — see buildProgression().
   progression: {
     conversionRate: 0.78,                    // NRL: share of tries converted
-    penaltyGoals: [0.55, 0.30, 0.12, 0.03],  // NRL: weights for 0/1/2/3 penalty goals
+    // NRL: weights for 0/1/2/3 penalty goals per side. Most games have none:
+    // about one game in three has one at all.
+    penaltyGoals: [0.82, 0.15, 0.03, 0],
     lateWindow: 0.70,                        // field goals land in the last 30% of the game
     goldenPointWindow: 10,                   // extra-time minutes for a golden-point kick
     // NRL halves — see buildNrlTimeline(). Same momentum model as the AFL's.
@@ -228,6 +230,9 @@ const SIM_CONFIG = {
       gapAfterTry: 180, gapAfterGoal: 60,
       conversionDelay: [25, 55],
       goldenPointWidth: 0.08,  // share of the worm's axis golden point takes up
+      // Field goals come only from this minute of the match (the last ten
+      // minutes of the second half), or in golden point.
+      fieldGoalFrom: 70,
     },
     // AFL is played out in quarters — see buildAflTimeline().
     afl: {
@@ -651,9 +656,9 @@ function nrlFieldGoals(winner, loser, rng, cfg) {
   const fg = cfg.fieldGoal;
   const close = (winner - loser) <= fg.closeMargin;
   if (rng() < (close ? fg.winnerClose : fg.winnerBlowout)) winner++;
-  // A loser's field goal needs a try after it to lose: only in a game decided
-  // by a converted try or less, that the winner scored a try in.
-  if (winner - loser <= 6 && winner >= 4 && rng() < fg.loserClose) loser++;
+  // A loser's field goal needs a try after it to lose: only in a game within
+  // a try (four points) before the kick, that the winner scored a try in.
+  if (winner - loser <= 4 && winner >= 4 && rng() < fg.loserClose) loser++;
   winner = clamp(winner, 0, cfg.SCORE_CEIL);
   loser = clamp(loser, 0, cfg.SCORE_CEIL);
   if (loser >= winner) loser = Math.max(0, winner - 1);
@@ -1020,7 +1025,10 @@ function buildNrlTimeline(home, away, rng, config, halves) {
   // Field goals. A side only kicks one when it's level or ahead: nearly always
   // as the last score of the game, otherwise to go seven or thirteen points up
   // late in the second half. A golden-point winner's is the golden point.
-  const lateFrom = (p.lateWindow * 2 - 1) * half;   // seconds into the 2nd half
+  const lateFrom = (n.fieldGoalFrom - n.halfMins) * 60;   // seconds into the 2nd half
+  // The losing side's kick first: placing it can move one of the winner's
+  // tries, and the winner's kick is then placed around the finished picture.
+  fieldGoals.sort((x, y) => ((x.team === 'home') === (margin > 0) ? 1 : 0) - ((y.team === 'home') === (margin > 0) ? 1 : 0));
   fieldGoals.forEach(fg => {
     const isWinner = (fg.team === 'home') === (margin > 0);
     if (fg.half === 0) {
@@ -1060,7 +1068,7 @@ function buildNrlTimeline(home, away, rng, config, halves) {
     const firstTwo = halves && events.findIndex(e => e.period >= 1) < 0 ? n2 : minK;
     // The gap a kick at position k would sit in, and whether it fits there
     // (it can't land between a try and its conversion, or on top of a score).
-    const earliest = isWinner ? half + lateFrom : halves ? half + 30 : 30;
+    const earliest = half + lateFrom;
     // A field goal isn't a try, so it only waits for the conversion (or a
     // minute after any other score), not the three minutes a try does.
     // `tight` squeezes it in closer (20 seconds either side), for a kick that
@@ -1083,16 +1091,42 @@ function buildNrlTimeline(home, away, rng, config, halves) {
         if (k != null) break;
       }
       if (k == null) tight = false;
-      // Last resort: never ahead late with a try still to come, but 0-0 at
-      // the start always is. Kick it early and push the next scores back to
-      // make room. (Not with fixed halves: there it belongs to the 2nd half.)
-      if (k == null && !halves) {
-        // Before the first score of the game, whenever that was.
-        const first = events.length ? abs(events[0]) : half;
-        const clock = Math.max(0, Math.min(30 + Math.floor(rng() * 90), first - 1));
-        events.unshift(Object.assign(fg, { period: 0, clock }));
-        space();
-        return;
+      // Nowhere late with a try still to come: make one. The winner's last
+      // try moves to the closing minutes, and the kick goes in just before it,
+      // where the losing side is level or ahead (it only kicks in games
+      // decided by a try or less, so taking a try off always gets it there).
+      if (k == null) {
+        let ti = -1;
+        for (let j = events.length - 1; j >= 0 && ti < 0; j--) {
+          const e = events[j];
+          // (With fixed halves, only a second-half try can move.)
+          if (e.team !== fg.team && (e.play === 'convertedTry' || e.play === 'try') && (!halves || e.period === 1)) ti = j;
+        }
+        if (ti >= 0) {
+          const tr = events.splice(ti, 1)[0];
+          const m = events.length;
+          // The latest spot from the 70th minute where the kicker is now level
+          // or ahead (taking that try away always makes one).
+          tight = true;
+          let at = null, j = m;
+          for (; j >= 0; j--) {
+            if (leadBefore(j, fg.team) < 0) continue;
+            const from = fgFrom(j), to = j === m ? 2 * half - 1 - convRoom - n.gapAfterGoal : fgTo(j);
+            if (to >= from) { at = Math.round(from + rng() * Math.min(60, to - from)); break; }
+          }
+          tight = false;
+          // No room anywhere: straight after the last score. The spacing below
+          // pulls the closing minutes back to fit, keeping the order.
+          if (at == null) { j = m; const lastE = events[m - 1]; at = Math.max(half + lateFrom, lastE ? abs(lastE) + fgGap(lastE) : 0); }
+          events.splice(j, 0, Object.assign(fg, { period: 1, clock: at - half }));
+          // The try that beats it goes at the very end (after everything, so it
+          // stays last when the spacing tidies up).
+          const lastE = events[events.length - 1];
+          const tryAt = Math.max(at + n.gapAfterGoal, abs(lastE) + gapAfter(lastE)) + Math.floor(rng() * 60);
+          events.push(Object.assign(tr, { period: 1, clock: tryAt - half }));
+          space();
+          return;
+        }
       }
     }
     if (k != null) { /* placed above */ }
@@ -1504,6 +1538,9 @@ function buildHeadlines(opts) {
             winner + ' hold off a late ' + loser + ' comeback to win by ' + margin,
             winner + ' survive a late surge from ' + loser + ', ' + score,
             possessive(loser) + ' fightback falls ' + margin + ' short against ' + winner,
+            winner + ' hang on to beat ' + loser + ' after a nervy finish',
+            loser + ' leave their run too late against ' + winner,
+            winner + ' weather a late storm to beat ' + loser,
           ];
         } else if (comeback) {
           tag = 'mcComeback';
@@ -1511,6 +1548,8 @@ function buildHeadlines(opts) {
             winner + ' come from ' + deficit + ' down to beat ' + loser + ' ' + score,
             winner + ' fight back from ' + articleFor(deficit) + ' ' + deficit + '-point hole to beat ' + loser,
             winner + ' overturn ' + articleFor(deficit) + ' ' + deficit + '-point deficit against ' + loser,
+            winner + ' recover from a slow start to beat ' + loser,
+            loser + ' let ' + articleFor(deficit) + ' ' + deficit + '-point lead slip against ' + winner,
           ];
         } else if (upset) {
           tag = 'mcUpset';
@@ -1617,18 +1656,24 @@ function buildHeadlines(opts) {
           cands.push({ kind: 'secondHalf', minor: true, weight: 36 + -htLead / 2, text: pickVariant(rng, [
             winner + ' turn around ' + articleFor(-htLead) + ' ' + (-htLead) + '-point half-time deficit to beat ' + loser,
             winner + ' trail at the break but beat ' + loser + ' ' + ws + '–' + ls,
+            winner + ' come out firing after half-time to topple ' + loser,
+            loser + ' lead at the break but fade against ' + winner,
           ], used, 'nrlTurn') });
         }
         if (tries2 >= 3 && tries2 - oTries2 >= 2) {
           cands.push({ kind: 'secondHalfTries', minor: true, weight: 33 + tries2, text: pickVariant(rng, [
-            winner + ' run in ' + tries2 + ' second-half tries to beat ' + loser,
-            winner + ' pull away after the break, scoring ' + tries2 + ' tries to ' + oTries2 + ' against ' + loser,
+            winner + ' pull away after the break to beat ' + loser,
+            'A big second half lifts ' + winner + ' past ' + loser,
+            winner + ' turn up the heat after half-time to down ' + loser,
           ], used, 'nrl2H') });
         }
         if (htLead >= 6) {
           cands.push({ kind: 'wireToWire', minor: true, weight: 30, text: pickVariant(rng, [
             winner + ' lead at the break and never look back against ' + loser,
             winner + ' build an early lead to beat ' + loser + ' ' + ws + '–' + ls,
+            winner + ' jump out of the blocks to beat ' + loser,
+            winner + ' set the tone early to account for ' + loser,
+            winner + ' lead from start to finish against ' + loser,
           ], used, 'nrlWire') });
         }
       }
@@ -1654,35 +1699,53 @@ function buildHeadlines(opts) {
           cands.push({ kind: 'wireToWire', minor: true, weight: 30, text: pickVariant(rng, [
             winner + ' lead at every change to beat ' + loser + ' ' + ws + '–' + ls,
             winner + ' never headed in a ' + margin + '-point win over ' + loser,
+            winner + ' in control from the first bounce against ' + loser,
+            winner + ' lead all day to beat ' + loser,
           ], used, 'wire') });
         }
         if (lead(2) <= 0) {
           cands.push({ kind: 'lastQuarter', minor: true, weight: 36, text: pickVariant(rng, [
             winner + ' storm home in the last to beat ' + loser + ' ' + ws + '–' + ls,
             'Final-quarter surge lifts ' + winner + ' past ' + loser,
+            winner + ' finish over the top of ' + loser,
+            winner + ' kick away late to beat ' + loser,
           ], used, 'lastQ') });
         }
         if (bestDiff >= 4) {
           cands.push({ kind: 'bigQuarter', minor: true, weight: 33 + bestDiff, text: pickVariant(rng, [
             possessive(winner) + ' ' + qGoals + '-goal ' + qtrName[best] + ' quarter sinks ' + loser,
-            winner + ' kick ' + qGoals + '.' + qBehinds + ' to ' + oGoals + '.' + oBehinds +
-              ' in the ' + qtrName[best] + ' to account for ' + loser,
+            winner + ' blow the game open in the ' + qtrName[best] + ' quarter against ' + loser,
+            'A dominant ' + qtrName[best] + ' term sets up ' + possessive(winner) + ' win over ' + loser,
           ], used, 'bigQ') });
         }
       }
       if (!drawn) {
-        const split = tl && (homeWon ? tl.homeSplit : tl.awaySplit);
-        const fin = tl && tl.periods && tl.periods[tl.periods.length - 1].score;
-        const wTries = fin ? (homeWon ? fin.home : fin.away).tries : null;
-        const lTries = fin ? (homeWon ? fin.away : fin.home).tries : null;
-        let third = winner + ' see off ' + loser + ' ' + ws + '–' + ls;
-        if (split) third = winner + ' kick ' + fmt(split) + ' to see off ' + loser;
-        else if (wTries != null) third = winner + ' score ' + wTries + ' tries to ' + lTries + ' to beat ' + loser;
-        cands.push({ kind: 'result', minor: true, weight: 1, text: pickVariant(rng, [
-          winner + ' too good for ' + loser + ', ' + ws + '–' + ls,
-          winner + ' beat ' + loser + ' by ' + margin,
-          third,
-        ], used, 'result') });
+        // Plain results, worded to suit how the game went: a scrap, a
+        // comfortable win or a one-sided one.
+        const score = ws + '–' + ls;
+        const close = margin <= (sport === 'afl' ? 12 : 6);
+        const big = margin >= (sport === 'afl' ? 40 : 18);
+        const variants = close ? [
+          winner + ' edge past ' + loser + ', ' + score,
+          winner + ' grind out a win over ' + loser,
+          winner + ' hang tough to beat ' + loser + ' ' + score,
+          loser + ' fall just short against ' + winner,
+          winner + ' scrape home against ' + loser,
+        ] : big ? [
+          winner + ' make light work of ' + loser + ', ' + score,
+          winner + ' cruise past ' + loser,
+          winner + ' far too strong for ' + loser,
+          loser + ' outclassed by ' + winner + ', ' + score,
+          winner + ' stroll to a ' + margin + '-point win over ' + loser,
+        ] : [
+          winner + ' too good for ' + loser + ', ' + score,
+          winner + ' account for ' + loser + ' ' + score,
+          winner + ' get the job done against ' + loser,
+          winner + ' down ' + loser + ' ' + score,
+          winner + ' prove too strong for ' + loser,
+          loser + ' go down to ' + winner + ', ' + score,
+        ];
+        cands.push({ kind: 'result', minor: true, weight: 1, text: pickVariant(rng, variants, used, 'result' + (close ? 'C' : big ? 'B' : 'M')) });
       }
     }
 
