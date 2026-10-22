@@ -1170,16 +1170,96 @@ function decideRounds(universe, season, nowMs) {
     const round = season.rounds[r];
     if (nowMs < round[0].kickoff) break;
     if (LS.hasScore(season.scores, r, 0)) continue;
-    const eng = asEngineSeason(universe, season);
-    const written = LS.simulateRound({
-      sport: universe.sport, teams: eng.teams, rounds: eng.rounds, scores: eng.scores,
-      seeds: season.seeds || {}, config: simConfig(universe), roundIdx: r, volatility: volatilityOf(season),
-      rng: LS.makeRng(LS.hashKey(seasonKeyOf(universe, season.n) + '|round' + r)),
-    });
-    Object.assign(season.scores, written);
+    Object.assign(season.scores, roundResults(universe, season, r));
     changed = true;
   }
   return changed;
+}
+// One round's results. A club's strength is set for the season and its own
+// rng stream is keyed on the round, so these come out the same whenever
+// they're worked out: at the round's kick-off (decideRounds) or ahead of it
+// (predictedSeason).
+function roundResults(universe, season, r) {
+  const eng = asEngineSeason(universe, season);
+  return LS.simulateRound({
+    sport: universe.sport, teams: eng.teams, rounds: eng.rounds, scores: eng.scores,
+    seeds: season.seeds || {}, config: simConfig(universe), roundIdx: r, volatility: volatilityOf(season),
+    rng: LS.makeRng(LS.hashKey(seasonKeyOf(universe, season.n) + '|round' + r)),
+  });
+}
+// The season with every home-and-away round filled in: what's been decided,
+// plus what the rest will be. Never stored. It lets the round recaps be
+// written ahead of time and sent the moment each round ends (a club edit or
+// an engine change before then just rewrites them at the next save).
+function predictedSeason(universe, season) {
+  const copy = Object.assign({}, season, { scores: Object.assign({}, season.scores) });
+  copy.rounds.forEach((round, r) => {
+    if (!LS.hasScore(copy.scores, r, 0)) Object.assign(copy.scores, roundResults(universe, copy, r));
+  });
+  return copy;
+}
+
+// ============================================================
+// ROUND RECAP — the wrap at the end of each round
+// ============================================================
+// When round r is over: the moment its last game's siren goes (needs the
+// round's scores, for the timelines).
+function roundEndMs(universe, season, r) {
+  const scfg = universe.config[universe.sport];
+  return Math.max(...season.rounds[r].map((g, i) => {
+    const tl = timelineFor(universe, season, r, i);
+    return g.kickoff + (tl ? realDurationMs(tl, scfg) : scfg.maxGameMins * MIN_MS);
+  }));
+}
+// The story of round r, from the season's scores:
+//   { round, leader: {team, pts, gap, changed}, second, movers: [{team, from, to}],
+//     win: {team, n}, loss: {team, n}, biggest: {w, l, ws, ls}, high: {team, opp, pts} }
+// Movers are clubs that moved two or more places, biggest first; streaks are
+// the longest current run of wins (and of losses) after the round, three or more.
+function roundRecap(universe, season, r) {
+  const end = rr => roundEndMs(universe, season, rr);
+  const after = ladderAt(universe, season, end(r));
+  const before = r > 0 ? ladderAt(universe, season, end(r - 1)) : null;
+  const posBefore = {};
+  if (before) before.forEach((x, i) => { posBefore[x.team] = i + 1; });
+  const movers = before ? after.map((x, i) => ({ team: x.team, from: posBefore[x.team], to: i + 1 }))
+    .filter(m => Math.abs(m.from - m.to) >= 2)
+    .sort((a, b) => Math.abs(b.from - b.to) - Math.abs(a.from - a.to)) : [];
+  // Runs of results through this round, in order.
+  const run = {};
+  universe.teams.forEach(t => { run[t] = { res: null, n: 0 }; });
+  for (let k = 0; k <= r; k++) season.rounds[k].forEach((g, i) => {
+    const sc = season.scores[LS.scoreKey(k, i)];
+    if (!sc) return;
+    [[g.home, sc.home - sc.away], [g.away, sc.away - sc.home]].forEach(([t, m]) => {
+      const res = m > 0 ? 'W' : m < 0 ? 'L' : 'D';
+      run[t] = run[t].res === res ? { res, n: run[t].n + 1 } : { res, n: 1 };
+    });
+  });
+  const longest = res => universe.teams.map(t => ({ team: t, n: run[t].res === res ? run[t].n : 0 }))
+    .sort((a, b) => b.n - a.n)[0];
+  const win = longest('W'), loss = longest('L');
+  let biggest = null, high = null;
+  season.rounds[r].forEach((g, i) => {
+    const sc = season.scores[LS.scoreKey(r, i)];
+    if (!sc) return;
+    const m = Math.abs(sc.home - sc.away);
+    if (sc.home !== sc.away && (!biggest || m > biggest.ws - biggest.ls)) {
+      biggest = sc.home > sc.away ? { w: g.home, l: g.away, ws: sc.home, ls: sc.away } : { w: g.away, l: g.home, ws: sc.away, ls: sc.home };
+    }
+    [[g.home, g.away, sc.home], [g.away, g.home, sc.away]].forEach(([t, o, p]) => { if (!high || p > high.pts) high = { team: t, opp: o, pts: p }; });
+  });
+  return {
+    round: r + 1,
+    leader: { team: after[0].team, pts: after[0].pts, gap: after[0].pts - after[1].pts, changed: !!before && before[0].team !== after[0].team },
+    second: after[1].team,
+    movers,
+    win: win.n >= 3 ? win : null,
+    loss: loss.n >= 3 ? loss : null,
+    biggest, high,
+    ladderBefore: before ? before.map(x => x.team) : null,
+    ladderAfter: after.map(x => x.team),
+  };
 }
 
 // ============================================================
@@ -1530,6 +1610,7 @@ return {
   generatePairings, assignHomeAway, assignSlots, planSeason,
   realDurationMs, gameStatusAt,
   seasonKeyOf, timelineFor, finalTimeline, decideRounds, decideFinals, finalsMatchup,
+  predictedSeason, roundEndMs, roundRecap,
   ladderAt, createUniverse, attach, advance, seasonOver, startNextSeason, currentRoundIdx, roundView,
   startingTalent, startingConsistency, consistencyLevels, volatilityOf,
   STAGES, STAGE_NAMES, startingClubs, coachGrade, simConfig, formConfig, REAL_WORLD, realWorldTalent,
