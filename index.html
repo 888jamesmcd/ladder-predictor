@@ -1069,7 +1069,9 @@ input[type=number] {
   width: 520px;
   max-width: 100%;
   max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   overflow-y: auto;
+  overscroll-behavior: contain;
   box-sizing: border-box;
   padding: 18px 18px 14px;
   background: #16213E;
@@ -1196,7 +1198,10 @@ input[type=number] {
 .mc-w-head { fill: #d61f2c; stroke: #ffffff; stroke-width: 1.5; }
 .mc-w-hit { fill: transparent; cursor: crosshair; }
 .mc-feed-title { margin-top: 14px; }
-.mc-feed { position: relative; max-height: 240px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; font-size: 13px; line-height: 1.35; }
+.mc-feed { position: relative; font-size: 13px; line-height: 1.35; }
+/* The worm (with its title and readout) stays pinned at the top of the panel
+   while the scoring list scrolls up underneath it. */
+.mc-worm-sticky { position: sticky; top: -18px; z-index: 2; margin: 0 -18px; padding: 12px 18px 6px; background: #16213E; box-shadow: 0 8px 10px -8px rgba(0, 0, 0, 0.6); }
 .mc-feed-min { color: #8888aa; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin: 10px 0 2px; }
 .mc-feed-min:first-child { margin-top: 0; }
 .mc-feed-row {
@@ -2137,6 +2142,39 @@ grid-template-columns: 32px 150px 40px 40px 40px 40px 40px 50px 50px 60px 65px 5
   cursor: pointer;
 }
 .finals-mc-btn:hover { background: #22223a; color: #ffffff; }
+.uni-team-link { cursor: pointer; border-radius: 6px; }
+.uni-team-link:hover .uni-abbr { text-decoration: underline; }
+.uni-lrow-tap { cursor: pointer; }
+.uni-lrow-tap:hover { background: rgba(255, 255, 255, 0.04); }
+.mc-logo-tap { cursor: pointer; }
+.ut-panel { width: 460px; }
+.ut-head { display: flex; align-items: center; gap: 12px; margin: 2px 30px 12px 0; }
+.ut-crest.uni-crest { width: 64px; height: 44px; flex-shrink: 0; }
+.ut-name { font-family: 'AFL Modern', 'DIN Next LT Pro', sans-serif; font-size: 24px; line-height: 1.05; }
+.ut-season { margin-top: 4px; max-width: 150px; padding: 4px 6px; font-size: 12px; }
+.ut-season-one { color: #8888aa; font-size: 12px; }
+.ut-sum { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 14px; }
+.ut-sum > div { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 6px; padding: 7px 4px; text-align: center; }
+.ut-sum b { display: block; font-size: 17px; font-variant-numeric: tabular-nums; }
+.ut-sum span { color: #8888aa; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+.ut-row { display: grid; grid-template-columns: 40px 1fr 40px 70px; align-items: center; gap: 8px; padding: 7px 10px; margin: 4px 0;
+  border-radius: 6px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.06); font-size: 13px; }
+.ut-final { border-color: rgba(240, 192, 64, 0.35); }
+.ut-tap { cursor: pointer; }
+.ut-tap:hover { background: rgba(255, 255, 255, 0.09); }
+.ut-rd { color: #8888aa; font-weight: 700; font-size: 11px; }
+.ut-final .ut-rd { color: #f0c040; }
+.ut-opp { display: flex; align-items: center; gap: 7px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #e0e0ee; }
+.ut-opp img { width: 26px; height: 18px; object-fit: contain; flex-shrink: 0; }
+.ut-ha { color: #8888aa; width: 12px; flex-shrink: 0; }
+.ut-res { justify-self: center; min-width: 26px; text-align: center; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+.ut-W { background: #1f5c2e; color: #c8f5c8; }
+.ut-L { background: #5a1e22; color: #ffc4c4; }
+.ut-D { background: #4a3a00; color: #f0c040; }
+.ut-live { background: #d61f2c; color: #ffffff; letter-spacing: 0.5px; }
+.ut-sc { text-align: right; font-variant-numeric: tabular-nums; color: #ffffff; }
+.ut-when { color: #8888aa; font-size: 11px; }
+.ut-bye .ut-opp { color: #8888aa; }
 .mc-q-input {
   width: 46px;
   padding: 2px 4px;
@@ -2772,6 +2810,24 @@ transform-origin: left center;
   .sport-nav {
     padding: 10px 16px;
     flex-wrap: wrap;
+    /* Stays put while scrolling on a phone, so switching sport or save is
+       always a tap away. */
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    background: #1A192E;
+  }
+  /* Universe's AFL | NRL switch sits under it the same way. */
+  .uni-sports {
+    position: sticky;
+    top: var(--nav-h, 0px);
+    z-index: 55;
+    background: #1A192E;
+    margin-left: -16px;
+    margin-right: -16px;
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-top: 6px;
   }
   .year-nav {
     padding: 8px 16px;
@@ -3597,6 +3653,18 @@ transform-origin: left center;
   <script>document.write('<script src="sim.js?v=' + Date.now() + '"><\/script>');</script>
   <!-- Universe mode's calendar and catch-up, on top of sim.js. Same cache-bust. -->
   <script>document.write('<script src="universe.js?v=' + Date.now() + '"><\/script>');</script>
+  <!-- The top bar's height, for anything that sticks just under it (Universe's
+       AFL | NRL switch on a phone). -->
+  <script>
+    (function () {
+      const nav = document.querySelector('.sport-nav');
+      if (!nav) return;
+      const set = () => document.documentElement.style.setProperty('--nav-h', nav.offsetHeight + 'px');
+      set();
+      if (window.ResizeObserver) new ResizeObserver(set).observe(nav);
+      else window.addEventListener('resize', set);
+    })();
+  </script>
   <!-- The service worker only shows kick-off alerts; it caches nothing. -->
   <script>
     if ('serviceWorker' in navigator) {
@@ -11205,8 +11273,27 @@ function closeMatchCentre() {
   if (mcCtx && mcCtx.raf) cancelAnimationFrame(mcCtx.raf);
   mcCtx = null;
   const el = document.getElementById('mc-overlay');
-  if (el) el.remove();
+  if (el) { el.remove(); mcLockPage(false); }
   document.removeEventListener('keydown', mcKeydown);
+}
+// While an overlay is open the page behind it stays put: no scrolling the
+// page by accident when a scroll inside the panel runs out. The page is pinned
+// in place (which iPhones respect, unlike overflow alone) and put back where
+// it was on close.
+let mcLockedY = null;
+function mcLockPage(on) {
+  const b = document.body;
+  if (on && mcLockedY == null) {
+    mcLockedY = window.scrollY;
+    b.style.position = 'fixed';
+    b.style.top = -mcLockedY + 'px';
+    b.style.left = '0';
+    b.style.right = '0';
+  } else if (!on && mcLockedY != null) {
+    b.style.position = b.style.top = b.style.left = b.style.right = '';
+    window.scrollTo(0, mcLockedY);
+    mcLockedY = null;
+  }
 }
 function mcKeydown(e) { if (e.key === 'Escape') closeMatchCentre(); }
 
@@ -11383,7 +11470,7 @@ function mcOpen(opts) {
 
   const team = (cfg, side) => `
     <div class="mc-team mc-team-${side}">
-      <img class="mc-logo mc-logo-${sport}" src="${cfg.logo || ''}" alt="">
+      <img class="mc-logo mc-logo-${sport}${opts.onTeam ? ' mc-logo-tap' : ''}" src="${cfg.logo || ''}" alt="" data-side="${side}">
       <div class="mc-abbr">${cfg.abbr || ''}</div>
       <div class="mc-pts"></div>
       <div class="mc-gb"></div>
@@ -11407,9 +11494,11 @@ function mcOpen(opts) {
         <tbody></tbody>
       </table>
       <div class="mc-q-note" hidden></div>
-      <div class="mc-section-title">Score worm</div>
-      <div class="mc-worm-wrap"></div>
-      <div class="mc-readout" aria-live="polite">&nbsp;</div>
+      <div class="mc-worm-sticky">
+        <div class="mc-section-title">Score worm</div>
+        <div class="mc-worm-wrap"></div>
+        <div class="mc-readout" aria-live="polite">&nbsp;</div>
+      </div>
       <div class="mc-section-title mc-feed-title">Scoring</div>
       <div class="mc-feed"></div>
     </div>`;
@@ -11426,6 +11515,9 @@ function mcOpen(opts) {
   overlay.addEventListener('click', e => { if (e.target === overlay) closeMatchCentre(); });
   overlay.querySelector('.mc-close').addEventListener('click', closeMatchCentre);
   document.addEventListener('keydown', mcKeydown);
+  // Universe: a club's logo opens its season.
+  if (opts.onTeam) overlay.querySelectorAll('.mc-logo-tap').forEach(img => img.addEventListener('click', () =>
+    opts.onTeam(img.dataset.side === 'home' ? game.home : game.away)));
 
   // Hover or drag along the worm to read the score at that point. The SVG is
   // redrawn while live, so the listeners sit on its wrapper.
@@ -11442,9 +11534,13 @@ function mcOpen(opts) {
   wrap.addEventListener('pointerleave', () => { c.hoverT = null; if (!c.raf) mcRender(c, 1, false); });
   // Scrolling back through the scoring list puts a line on the worm at the
   // score at the top of the list (gone again back at the top).
-  overlay.querySelector('.mc-feed').addEventListener('scroll', () => {
+  // The panel is the only thing that scrolls (a scroll box inside a scroll box
+  // fights itself on a phone). The worm stays pinned at the top of it, and the
+  // score passing under it puts the line on the worm.
+  overlay.querySelector('.mc-panel').addEventListener('scroll', () => {
     if (mcFeedCursor(c) && !c.raf) mcRender(c, 1, false);
   }, { passive: true });
+  mcLockPage(true);
 
   if (c.liveState && c.liveState()) mcTick();
   else mcFinish(c);
@@ -11609,12 +11705,14 @@ function mcRenderFeed(c, t, live) {
       <img class="mc-feed-logo mc-feed-logo-${sport}" src="${cfg.logo || ''}" alt="">
       <span>${team} ${MC_PLAY_NAMES[st.play] || st.play} - ${st.home}-${st.away}</span></div>`;
   });
-  // Someone reading further down keeps their place when a new score lands on
-  // top; anyone at the top sees it arrive.
-  const fromBottom = feed.scrollHeight - feed.scrollTop;
-  const atTop = feed.scrollTop < 4;
+  // Someone reading down the list keeps their place when a new score lands on
+  // top; anyone not yet into it sees it arrive.
+  const panel = overlay.querySelector('.mc-panel');
+  const pin = overlay.querySelector('.mc-worm-sticky').getBoundingClientRect().bottom;
+  const reading = feed.getBoundingClientRect().top < pin - 4;
+  const before = feed.offsetHeight;
   feed.innerHTML = html;
-  if (grew && !atTop) feed.scrollTop = feed.scrollHeight - fromBottom;
+  if (grew && reading) panel.scrollTop += feed.offsetHeight - before;
   mcFeedCursor(c);
 }
 // Where the worm's line sits: under a finger on the worm, else at the score
@@ -11623,9 +11721,12 @@ function mcCursorT(c) { return c.hoverT != null ? c.hoverT : c.feedT; }
 // The score at the top of the scrolled list. Returns true if that changed.
 function mcFeedCursor(c) {
   const feed = c.overlay.querySelector('.mc-feed');
+  const pin = c.overlay.querySelector('.mc-worm-sticky').getBoundingClientRect().bottom;
   let t = null;
-  if (feed.scrollTop > 4) {
-    const row = [...feed.querySelectorAll('.mc-feed-row')].find(r => r.offsetTop + r.offsetHeight > feed.scrollTop + 2);
+  // Once the list has scrolled up under the pinned worm: the first score
+  // showing below it.
+  if (feed.getBoundingClientRect().top < pin - 4) {
+    const row = [...feed.querySelectorAll('.mc-feed-row')].find(r => r.getBoundingClientRect().bottom > pin + 2);
     if (row) t = Number(row.dataset.t);
   }
   if (t === c.feedT) return false;
@@ -12224,7 +12325,7 @@ function uniGameHTML(g) {
   const side = (team, s) => {
     const cfg = team ? uniTeamCfg(team) : null;
     return {
-      crest: `<div><div class="uni-crest">${cfg && cfg.logo ? `<img src="${cfg.logo}" alt="">` : ''}</div>
+      crest: `<div${team ? ` class="uni-team-link" data-act="team" data-team="${team}" title="${team}'s season"` : ''}><div class="uni-crest">${cfg && cfg.logo ? `<img src="${cfg.logo}" alt="">` : ''}</div>
         <div class="uni-abbr">${cfg ? cfg.abbr : 'TBC'}</div></div>`,
       score: `<div><div class="uni-score" data-score="${s}"></div><div class="uni-gb" data-gb="${s}"></div></div>`,
     };
@@ -12407,7 +12508,7 @@ function uniRenderLadder(root, season, now) {
           ${cols.map(c => `<span class="${c.cls || ''}">${c.h}</span>`).join('')}</div>
         ${rows.map((r, i) => {
           const cfg = uniTeamCfg(r.team);
-          return `<div class="uni-lrow${cut(i)}" style="${grid}"><span class="uni-lpos">${i + 1}</span>
+          return `<div class="uni-lrow uni-lrow-tap${cut(i)}" style="${grid}" data-act="team" data-team="${r.team}" role="button" tabindex="0" aria-label="${r.team}'s season"><span class="uni-lpos">${i + 1}</span>
             <span class="uni-llogo"><span class="uni-crest uni-crest-sm"><img src="${cfg.logo}" alt=""></span></span>
             <span class="uni-lteam">${cfg.abbr}${r.live ? '<span class="uni-ldot" title="Playing now"></span>' : ''}</span>
             ${cols.map(c => `<span class="${c.cls || ''}">${c.v(r)}</span>`).join('')}</div>`;
@@ -13184,6 +13285,7 @@ function uniWire(root) {
     else if (act === 'talent-edit') { uniStartPick().editing = !uniStartPick().editing; uniStartVer++; uniRender(); }
     else if (act === 'delete') uniDelete();
     else if (act === 'alerts') uniToggleAlerts();
+    else if (act === 'team') { e.stopPropagation(); uniOpenTeam(b.dataset.team); }
     else if (act === 'next-season') uniNextSeason();
     else if (act === 'team-open') { uniTeamOpen = uniTeamOpen === b.dataset.team ? null : b.dataset.team; uniTeamEdit = false; uniRender(); }
     else if (act === 'team-edit') { uniTeamEdit = true; uniRender(); }
@@ -13204,6 +13306,9 @@ function uniWire(root) {
       uniRender();
     } else if (act === 'mc') { if (b.classList.contains('uni-clickable')) uniOpenGame(b.dataset.key); }
   }));
+  root.querySelectorAll('.uni-lrow-tap').forEach(row => row.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); }
+  }));
   root.querySelectorAll('.uni-trow-tap').forEach(row => row.addEventListener('keydown', e => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); }
   }));
@@ -13221,6 +13326,113 @@ function uniWire(root) {
       uniOpenGame(card.dataset.key);
     }
   }));
+}
+
+// ---------- a club's season ----------
+// Every game a club has in a season: home-and-away and finals, with byes.
+// Finished games show their score; a game in progress says so (its score is
+// in the match centre); games to come show when. Finished and live games in
+// the current season open their match centre.
+function uniOpenTeam(team, n) {
+  const U = window.LadderUniverse;
+  const scfg = uniScfg();
+  const seasons = uniState.seasons;
+  const season = seasons.find(x => x.n === n) || uniSeason();
+  const current = season === uniSeason();
+  const now = uniNow();
+  const maxMs = scfg.maxGameMins * 60000;
+  const cfg = uniTeamCfg(team);
+  const status = k => (now < k ? 'upcoming' : now < k + maxMs ? 'live' : 'final');
+  const games = [];
+  season.rounds.forEach((round, r) => {
+    const i = round.findIndex(g => g.home === team || g.away === team);
+    if (i < 0) {
+      if ((season.byes || [])[r] && season.byes[r].includes(team)) games.push({ label: 'R' + (r + 1), bye: true });
+      return;
+    }
+    const g = round[i];
+    games.push({ label: 'R' + (r + 1), page: r, key: 'R' + r + 'G' + i, g, kickoff: g.kickoff, score: season.scores['R' + (r + 1) + 'G' + i] });
+  });
+  scfg.finals.forEach((st, si) => st.games.forEach(([id]) => {
+    const f = season.finals[id];
+    if (f && (f.home === team || f.away === team)) {
+      games.push({ label: id, page: season.rounds.length + si, key: id, g: f, kickoff: f.kickoff, score: f.score, final: true });
+    }
+  }));
+  let w = 0, l = 0, d = 0, pf = 0, pa = 0;
+  const rows = games.map(x => {
+    if (x.bye) return `<div class="ut-row ut-bye"><span class="ut-rd">${x.label}</span><span class="ut-opp">Bye</span><span></span><span></span></div>`;
+    const home = x.g.home === team;
+    const opp = home ? x.g.away : x.g.home;
+    const oc = uniTeamCfg(opp);
+    const st = status(x.kickoff);
+    let res = '', sc = '';
+    if (st === 'final' && x.score) {
+      const mine = home ? x.score.home : x.score.away, theirs = home ? x.score.away : x.score.home;
+      const r = mine > theirs ? 'W' : mine < theirs ? 'L' : 'D';
+      // The record and points are the home-and-away season's, like the ladder.
+      if (!x.final) { if (r === 'W') w++; else if (r === 'L') l++; else d++; pf += mine; pa += theirs; }
+      res = `<span class="ut-res ut-${r}">${r}</span>`;
+      sc = `${mine}–${theirs}`;
+    } else if (st === 'live') {
+      res = '<span class="ut-res ut-live">LIVE</span>';
+    } else {
+      const day = uniFmtDay.format(x.kickoff).split(' ')[0].slice(0, 3);
+      sc = `<span class="ut-when">${day} ${uniTime(x.kickoff)}</span>`;
+    }
+    const tap = current && st !== 'upcoming';
+    return `<div class="ut-row${tap ? ' ut-tap' : ''}${x.final ? ' ut-final' : ''}"${tap ? ` data-page="${x.page}" data-key="${x.key}" role="button" tabindex="0"` : ''}>
+      <span class="ut-rd">${x.label}</span>
+      <span class="ut-opp"><span class="ut-ha">${home ? 'v' : '@'}</span><img src="${oc.logo}" alt="">${opp}</span>
+      ${res || '<span></span>'}<span class="ut-sc">${sc}</span></div>`;
+  });
+  const ladder = U.ladderAt(uniState, season, now);
+  const pos = ladder.findIndex(r => r.team === team) + 1;
+  const played = w + l + d;
+  const pick = seasons.length > 1 ? `<select class="uni-select ut-season" aria-label="Season">
+    ${seasons.slice().reverse().map(x => `<option value="${x.n}"${x.n === season.n ? ' selected' : ''}>Season ${x.n}</option>`).join('')}</select>` : `<span class="ut-season-one">Season ${season.n}</span>`;
+
+  closeMatchCentre();
+  const overlay = document.createElement('div');
+  overlay.id = 'mc-overlay';
+  overlay.className = 'mc-overlay';
+  overlay.innerHTML = `
+    <div class="mc-panel ut-panel" role="dialog" aria-modal="true" aria-label="${team}'s season">
+      <button type="button" class="mc-close" aria-label="Close">×</button>
+      <div class="ut-head">
+        <span class="uni-crest ut-crest">${cfg.logo ? `<img src="${cfg.logo}" alt="">` : ''}</span>
+        <div><div class="ut-name">${team}</div>${pick}</div>
+      </div>
+      <div class="ut-sum">
+        <div><b>${played ? uniOrdinal(pos) : '–'}</b><span>Ladder</span></div>
+        <div><b>${w}–${l}${d ? '–' + d : ''}</b><span>${d ? 'W–L–D' : 'W–L'}</span></div>
+        <div><b>${pf}</b><span>For</span></div>
+        <div><b>${pa}</b><span>Against</span></div>
+      </div>
+      <div class="mc-section-title">Results</div>
+      <div class="ut-list">${rows.join('') || '<div class="uni-rec-empty">No games yet.</div>'}</div>
+    </div>`;
+  document.body.appendChild(overlay);
+  mcLockPage(true);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeMatchCentre(); });
+  overlay.querySelector('.mc-close').addEventListener('click', closeMatchCentre);
+  document.addEventListener('keydown', mcKeydown);
+  const sel = overlay.querySelector('.ut-season');
+  if (sel) sel.addEventListener('change', () => uniOpenTeam(team, Number(sel.value)));
+  overlay.querySelectorAll('.ut-tap').forEach(row => {
+    row.addEventListener('click', () => uniTeamGame(Number(row.dataset.page), row.dataset.key));
+    row.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); } });
+  });
+}
+// From a club's season to one of its games: go to that round and open it.
+function uniTeamGame(page, key) {
+  closeMatchCentre();
+  uniView = 'games';
+  uniPage = page;
+  uniPageManual = page !== uniDefaultPage(uniSeason(), uniNow());
+  uniSig = '';
+  uniRender();
+  uniOpenMatchCentre(key);
 }
 
 // A tap on a card: the match centre once the game is on, the pre-match view
@@ -13305,6 +13517,7 @@ function uniOpenPreview(g, season) {
   overlay.addEventListener('click', e => { if (e.target === overlay) closeMatchCentre(); });
   overlay.querySelector('.mc-close').addEventListener('click', closeMatchCentre);
   document.addEventListener('keydown', mcKeydown);
+  mcLockPage(true);
 
   // Count down to the bounce; at kick-off, swap to the live match centre.
   const tick = () => {
@@ -13333,6 +13546,7 @@ function uniOpenMatchCentre(key) {
     sport, tl: g.tl, game: { home: g.home, away: g.away },
     hCfg: uniTeamCfg(g.home), aCfg: uniTeamCfg(g.away),
     meta: `Season ${season.n} · ${where}${g.venue ? ' · ' + g.venue : ''}`,
+    onTeam: t => uniOpenTeam(t),
     // Live off the real clock, breaks included.
     liveState: () => {
       const st = U.gameStatusAt(g.tl, g.kickoff, uniNow(), scfg);
