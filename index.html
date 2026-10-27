@@ -22,6 +22,10 @@
        kick-off alerts (iPhone only delivers web notifications to an app on the
        home screen). -->
   <link rel="manifest" href="manifest.webmanifest">
+  <!-- The Sunday paper's newsprint type: a blackletter nameplate, a tabloid
+       headline face and a serif for the copy. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=UnifrakturMaguntia&display=swap" rel="stylesheet">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <meta name="theme-color" content="#1A192E">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2155,6 +2159,68 @@ grid-template-columns: 32px 150px 40px 40px 40px 40px 40px 50px 50px 60px 65px 5
 .lv-score { font-family: 'AFL Modern', 'DIN Next LT Pro', sans-serif; font-size: 28px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .lv-next { color: #8888aa; font-size: 12px; margin: -2px 0 6px; }
 .uni-tabs .panel-toggle-btn { padding-left: 6px; padding-right: 6px; }
+/* The Sunday paper: newsprint, black ink, a tabloid headline and the score
+   clippings in condensed type. */
+.pp-picks { display: flex; gap: 8px; margin-bottom: 10px; }
+.pp-pick { max-width: 150px; }
+.pp {
+  /* Plain grey-white newsprint, a touch darker toward the foot, with a fine
+     paper grain over it (see .pp::after). */
+  background: linear-gradient(180deg, #eeeeeb, #e3e3df);
+  position: relative;
+  overflow: hidden;
+  color: #151412;
+  border-radius: 3px;
+  padding: 14px 14px 18px;
+  box-shadow: 0 1px 0 #fffbf0 inset, 0 10px 26px rgba(0, 0, 0, 0.45);
+  font-family: 'Libre Baskerville', Georgia, serif;
+}
+.pp::after {
+  /* Grain: random noise, multiplied in lightly, so the page reads as cheap
+     newsprint rather than a flat colour. No pattern to it. */
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0.33 0.33 0.33 0 0 0.33 0.33 0.33 0 0 0.33 0.33 0.33 0 0 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  mix-blend-mode: multiply;
+  opacity: 0.18;
+}
+.pp-mast { text-align: center; border-bottom: 3px double #151412; padding-bottom: 6px; }
+.pp-ears { display: flex; justify-content: space-between; font-family: 'HelveticaNeueMediumCond', sans-serif; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: #4a463e; }
+.pp-name { font-family: 'UnifrakturMaguntia', 'Old English Text MT', serif; font-size: clamp(30px, 9vw, 46px); line-height: 1.05; margin: 2px 0 4px; }
+.pp-dateline { display: flex; justify-content: space-between; border-top: 1px solid #151412; padding-top: 4px; font-family: 'HelveticaNeueMediumCond', sans-serif; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+.pp-front { display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: center; margin: 12px 0 8px; }
+.pp-photo { height: 84px; border: 1px solid #151412; background: #d6d6d2; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
+.pp-photo::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle, rgba(0, 0, 0, 0.22) 0.8px, transparent 1px) 0 0 / 3px 3px; mix-blend-mode: multiply; }
+.pp-photo img { width: 86%; height: 86%; object-fit: contain; filter: grayscale(1) contrast(1.35) brightness(0.95); }
+.pp-head { font-family: 'Anton', 'Impact', sans-serif; font-weight: normal; text-transform: uppercase; font-size: clamp(24px, 7vw, 36px); line-height: 0.98; margin: 0; letter-spacing: 0.2px; }
+.pp-stand { font-style: italic; font-size: 13px; line-height: 1.45; margin: 4px 0 12px; padding-bottom: 10px; border-bottom: 1px solid #151412; }
+.pp-body { display: grid; grid-template-columns: 1fr; gap: 14px; }
+@media (min-width: 560px) { .pp-body { grid-template-columns: 1fr 150px; } }
+.pp-sect { font-family: 'Anton', 'Impact', sans-serif; text-transform: uppercase; font-size: 15px; letter-spacing: 0.5px; border-bottom: 2px solid #151412; margin-bottom: 6px; }
+.pp-key, .pp-line { display: grid; grid-template-columns: 46px repeat(4, 1fr) 40px; align-items: baseline; font-family: 'HelveticaNeueMediumCond', 'Arial Narrow', sans-serif; font-variant-numeric: tabular-nums; }
+.pp-key { font-size: 9px; letter-spacing: 1px; color: #6a655a; text-align: right; }
+.pp-clip { padding: 6px 0 5px; border-bottom: 1px dotted #8f887a; }
+.pp-line { font-size: 15px; line-height: 1.3; color: #2a2824; }
+.pp-line .pp-q, .pp-line .pp-pts { text-align: right; }
+.pp-win { color: #000; font-weight: 700; }
+.pp-team { letter-spacing: 0.5px; }
+.pp-ft { text-decoration: none; }
+.pp-line.pp-nrl { grid-template-columns: 46px 34px 1fr auto; gap: 6px; }
+.pp-nrl .pp-pts { text-align: left; }
+.pp-bits { font-size: 12px; color: #4a463e; }
+.pp-ht { font-size: 12px; color: #4a463e; }
+.pp-venue { font-family: 'Libre Baskerville', Georgia, serif; font-style: italic; font-size: 10.5px; color: #5d584d; margin-top: 2px; }
+.pp-brief { margin: 0 0 12px; padding: 0; list-style: none; font-size: 12px; line-height: 1.4; }
+.pp-brief li { padding: 4px 0; border-bottom: 1px dotted #8f887a; }
+.pp-ladder { margin: 0; padding: 0; list-style: none; font-family: 'HelveticaNeueMediumCond', sans-serif; font-size: 14px; font-variant-numeric: tabular-nums; }
+.pp-ladder li, .pp-lhead { display: grid; grid-template-columns: 20px 1fr 28px; gap: 4px; align-items: baseline; padding: 1px 0; border-bottom: 1px dotted #b8b8b2; }
+.pp-lhead { font-family: 'HelveticaNeueMediumCond', sans-serif; font-size: 9px; letter-spacing: 1px; color: #6a655a; text-align: right; border-bottom: none; }
+.pp-ladder .pp-cut { border-bottom: 2px solid #151412; }
+.pp-lpos { color: #6a655a; }
+.pp-lpts { text-align: right; font-weight: 700; }
 .uni-team-link { cursor: pointer; border-radius: 6px; }
 .uni-team-link:hover .uni-abbr { text-decoration: underline; }
 .uni-lrow-tap { cursor: pointer; }
@@ -13088,14 +13154,15 @@ function uniRenderRecords(root, now) {
   const box = root.querySelector('[data-records]');
   if (!box) return;
   const games = uniFinishedGames(now);
-  const sig = [uniSport, uniRecTab, uniRecSeason, uniRecSeasonTab, uniState.seasons.length, games.length, uniH2H.join('|')].join('/');
+  const sig = [uniSport, uniRecTab, uniRecSeason, uniRecSeasonTab, uniPaperSeason, uniPaperRound, uniState.seasons.length, games.length, uniH2H.join('|')].join('/');
   if (box.dataset.sig === sig) return;
   box.dataset.sig = sig;
 
-  const tabs = [['season', 'Season'], ['history', 'History'], ['records', 'Records'], ['finals', 'Finals'], ['h2h', 'Head to head']];
+  const tabs = [['season', 'Season'], ['paper', 'Sunday paper'], ['history', 'History'], ['records', 'Records'], ['finals', 'Finals'], ['h2h', 'Head to head']];
   const nav = `<div class="uni-subtabs">${tabs.map(([k, label]) =>
     `<button type="button" class="uni-subtab${k === uniRecTab ? ' active' : ''}" data-act="rectab" data-tab="${k}">${label}</button>`).join('')}</div>`;
   const body = uniRecTab === 'season' ? uniRecSeasonHTML(games, now)
+    : uniRecTab === 'paper' ? uniRecPaperHTML(now)
     : uniRecTab === 'history' ? uniRecHistoryHTML(games, now)
     : uniRecTab === 'records' ? uniRecRecordsHTML(games)
     : uniRecTab === 'finals' ? uniRecFinalsHTML(games)
@@ -13106,10 +13173,120 @@ function uniRenderRecords(root, now) {
     uniRecSeason = Number(sel.value);
     uniRenderRecords(root, uniNow());
   }));
+  box.querySelectorAll('select[data-paper-season]').forEach(sel => sel.addEventListener('change', () => {
+    uniPaperSeason = Number(sel.value); uniPaperRound = null;
+    uniRenderRecords(root, uniNow());
+  }));
+  box.querySelectorAll('select[data-paper-round]').forEach(sel => sel.addEventListener('change', () => {
+    uniPaperRound = Number(sel.value);
+    uniRenderRecords(root, uniNow());
+  }));
   box.querySelectorAll('select[data-h2h]').forEach(sel => sel.addEventListener('change', () => {
     uniH2H[Number(sel.dataset.h2h)] = sel.value;
     uniRenderRecords(root, uniNow());
   }));
+}
+
+// ---------- the Sunday paper ----------
+// One front page per finished round: a tabloid headline with the featured
+// club's logo in newsprint black and white, a line on the ladder, and every
+// game's result as a score clipping (AFL quarter by quarter, NRL with tries,
+// goals and the half-time score), plus the round's other stories and the
+// top of the ladder.
+let uniPaperSeason = null;    // the season the paper is from (its n); null = the latest
+let uniPaperRound = null;     // the round (index); null = the latest finished one
+
+function uniRecPaperHTML(now) {
+  const U = window.LadderUniverse, LS = window.LadderSim;
+  const sport = uniState.sport, afl = sport === 'afl';
+  const seasons = uniState.seasons;
+  const season = seasons.find(x => x.n === uniPaperSeason) || seasons[seasons.length - 1];
+  const done = season.rounds.map((_, r) => r).filter(r => uniRoundOver(season, r, now));
+  if (!done.length) return '<div class="uni-rec-empty">The first edition comes out when Round 1 is over.</div>';
+  const r = done.includes(uniPaperRound) ? uniPaperRound : done[done.length - 1];
+  const rec = U.roundRecap(uniState, season, r);
+  const heads = LS.buildHeadlines({
+    sport, seasonKey: U.seasonKeyOf(uniState, season.n), teams: uniState.teams,
+    rounds: season.rounds.map(rd => rd.map(x => ({ home: x.home, away: x.away }))), scores: season.scores,
+    seeds: season.seeds || {}, config: U.simConfig(uniState), roundIdx: r,
+    ladderBefore: rec.ladderBefore, ladderAfter: rec.ladderAfter,
+  });
+  const lead = heads[0];
+  // The club on the front: the winner of the lead story's game, or the
+  // ladder leader when the lead is about the ladder.
+  const leadGame = lead && lead.gameIdx >= 0 ? season.rounds[r][lead.gameIdx] : null;
+  const leadScore = leadGame ? season.scores[LS.scoreKey(r, lead.gameIdx)] : null;
+  const cover = leadGame && leadScore ? (leadScore.home >= leadScore.away ? leadGame.home : leadGame.away) : rec.leader.team;
+  const headline = lead ? lead.text : `${rec.leader.team} on top after Round ${rec.round}`;
+  const standfirst = uniRecapText(rec, sport).replace(/ Check out the latest.*$/, '');
+  const date = uniFmtDay.format(U.roundEndMs(uniState, season, r));
+
+  const clip = (g, i) => {
+    const sc = season.scores[LS.scoreKey(r, i)];
+    const tl = U.timelineFor(uniState, season, r, i);
+    if (!sc || !tl) return '';
+    const homeWon = sc.home >= sc.away;
+    const order = homeWon ? ['home', 'away'] : ['away', 'home'];
+    const name = side => uniTeamCfg(g[side]).abbr;
+    let lines;
+    if (afl) {
+      const q = side => tl.periods.map(p => `${p.score[side].goals}.${p.score[side].behinds}`);
+      lines = order.map(side => `<div class="pp-line${side === order[0] && sc.home !== sc.away ? ' pp-win' : ''}">
+        <span class="pp-team">${name(side)}</span>${q(side).map((x, k) => `<span class="pp-q${k === 3 ? ' pp-ft' : ''}">${x}</span>`).join('')}
+        <span class="pp-pts">(${sc[side]})</span></div>`);
+    } else {
+      const ft = tl.periods[tl.periods.length - 1].score, ht = tl.periods[0].score;
+      lines = order.map(side => {
+        const f = ft[side];
+        const bits = [`T ${f.tries}`, `G ${f.goals}`].concat(f.fieldGoals ? [`FG ${f.fieldGoals}`] : []);
+        return `<div class="pp-line pp-nrl${side === order[0] && sc.home !== sc.away ? ' pp-win' : ''}">
+          <span class="pp-team">${name(side)}</span><span class="pp-pts">${sc[side]}</span>
+          <span class="pp-bits">${bits.join(' · ')}</span><span class="pp-ht">HT ${ht[side].points}</span></div>`;
+      });
+    }
+    const golden = tl.periods.some(p => p.label === 'GP');
+    return `<div class="pp-clip">${lines.join('')}
+      <div class="pp-venue">${uniCfg().venue(g.home)}${golden ? ' · after golden point' : ''}${sc.home === sc.away ? ' · drawn' : ''}</div></div>`;
+  };
+  const clips = season.rounds[r].map(clip).join('');
+  const brief = heads.slice(1, 5).map(h => `<li>${h.text}</li>`).join('');
+  // The full ladder as it stood after the round: place, club, points.
+  const cut = afl ? 6 : 8;
+  const ladder = U.ladderAt(uniState, season, U.roundEndMs(uniState, season, r)).map((x, i) => `<li class="${i === cut - 1 ? 'pp-cut' : ''}">
+    <span class="pp-lpos">${i + 1}</span><span class="pp-lteam">${uniTeamCfg(x.team).abbr}</span><span class="pp-lpts">${x.pts}</span></li>`).join('');
+  const cfg = uniTeamCfg(cover);
+
+  const pickSeason = seasons.length > 1 ? `<select class="uni-select pp-pick" data-paper-season aria-label="Season">
+    ${seasons.slice().reverse().map(x => `<option value="${x.n}"${x.n === season.n ? ' selected' : ''}>Season ${x.n}</option>`).join('')}</select>` : '';
+  const pickRound = `<select class="uni-select pp-pick" data-paper-round aria-label="Round">
+    ${done.slice().reverse().map(k => `<option value="${k}"${k === r ? ' selected' : ''}>Round ${k + 1}</option>`).join('')}</select>`;
+
+  return `<div class="pp-picks">${pickSeason}${pickRound}</div>
+  <article class="pp">
+    <header class="pp-mast">
+      <div class="pp-ears"><span>${uniCfg().name} edition</span><span>Price 50c</span></div>
+      <div class="pp-name">The Sunday Universe</div>
+      <div class="pp-dateline"><span>${date}</span><span>Round ${rec.round} · Season ${season.n}</span></div>
+    </header>
+    <div class="pp-front">
+      <div class="pp-photo">${cfg.logo ? `<img src="${cfg.logo}" alt="${cover}">` : ''}</div>
+      <h2 class="pp-head">${headline}</h2>
+    </div>
+    <p class="pp-stand">${standfirst}</p>
+    <div class="pp-body">
+      <section class="pp-results">
+        <div class="pp-sect">Round ${rec.round} results</div>
+        ${afl ? '<div class="pp-key"><span></span><span>QT</span><span>HT</span><span>3QT</span><span>FT</span><span></span></div>' : ''}
+        ${clips}
+      </section>
+      <aside class="pp-side">
+        ${brief ? `<div class="pp-sect">In brief</div><ul class="pp-brief">${brief}</ul>` : ''}
+        <div class="pp-sect">The ladder</div>
+        <div class="pp-lhead"><span></span><span></span><span>Pts</span></div>
+        <ol class="pp-ladder">${ladder}</ol>
+      </aside>
+    </div>
+  </article>`;
 }
 
 // ---------- one season ----------
