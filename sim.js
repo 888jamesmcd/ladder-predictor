@@ -126,6 +126,11 @@ const SIM_CONFIG = {
   },
   nrl: {
     AVG: 21, W: 0.30, HOME: 2,
+    // Lower-rated sides play looser, higher-scoring games: each side's score
+    // moves this many points per rating point the two sides average below
+    // (or above) the mean. Two 40-rated sides add about 2.5 each; two
+    // 60-rated sides lose about the same.
+    weakTempo: 0.25,
     // See afl.TEMPO. 7: a 70+ game about 3% of the time and a sub-20 one about
     // 5.5% (the floor at nil makes the low end come up more), roughly six and
     // eleven a season, and a game-total spread of ±14.
@@ -188,6 +193,10 @@ const SIM_CONFIG = {
       // Held off a late comeback: the lead fell by `drop` or more over the
       // last 40% of the game and the win ended up within `within`.
       lateHold: { drop: 12, within: 8 },
+      // How a game read: close is within a converted try; low and high are the
+      // game total; a see-saw has this many lead changes; comfy is a clear
+      // win short of a thrashing.
+      close: 6, lowTotal: 30, highTotal: 50, seesaw: 3, comfy: 18,
       pileOn: 40,        // a winning score this big is a story in itself
       // The match centre tells every game's story, so its bars sit lower than
       // the round list's. upsetMargin is what the favourite was expected to
@@ -205,6 +214,7 @@ const SIM_CONFIG = {
       shutout: false,
       bigScore: 150,
       lateHold: { drop: 24, within: 18 },   // four goals clawed back, won by three or fewer
+      close: 12, lowTotal: 140, highTotal: 190, seesaw: 5, comfy: 40,
       pileOn: 130,
       matchCentre: { comeback: 24, smashing: 60, upsetMargin: 12 },   // four goals, ten goals, two goals
     },
@@ -1429,6 +1439,7 @@ function buildHeadlines(opts) {
           winner + ' overturn ' + articleFor(deficit) + ' ' + deficit + '-point deficit to beat ' + loser + ' ' + ws + '–' + ls,
           winner + ' come from ' + deficit + ' down to beat ' + loser + ' ' + ws + '–' + ls,
           winner + ' storm back from ' + deficit + ' down to stun ' + loser,
+          winner + ' come from ' + deficit + ' down to topple ' + loser,
         ], used, 'comeback') });
       }
 
@@ -1449,6 +1460,59 @@ function buildHeadlines(opts) {
           possessive(loser) + ' late charge falls ' + margin + ' short against ' + winner,
           winner + ' hang on as ' + loser + ' close ' + articleFor(clawed) + ' ' + clawed + '-point gap',
         ], used, 'holdOff') });
+      }
+
+      // How the game went: how often the lead changed hands, and whether the
+      // winner only got in front for good late on.
+      let leadChanges = 0, lastSide = 0, tookLead = 0;
+      tl.steps.forEach(step => {
+        const m = step.home - step.away;
+        const side = m > 0 ? 1 : m < 0 ? -1 : 0;
+        if (side && lastSide && side !== lastSide) leadChanges++;
+        if (side) {
+          if (side === (homeWon ? 1 : -1) && lastSide !== side) tookLead = step.t;
+          lastSide = side;
+        }
+      });
+      const total = ws + ls;
+      const level = total <= th.lowTotal ? 'low' : total >= th.highTotal ? 'high' : 'mid';
+      const close = margin <= th.close;
+      const golden = sport === 'nrl' && margin === 1 && ws % 2 === 1 && ls % 2 === 0;
+      // Only got in front for good in the closing minutes, in a tight one.
+      const late = !golden && tookLead >= (sport === 'afl' ? 0.94 : 0.9) && margin <= th.close * 0.75 && deficit < th.comeback;
+      const loserRun = streaks[loser] && streaks[loser].type === 'L' ? streaks[loser].count : 0;
+      if (late) {
+        cands.push({ kind: 'lateSteal', weight: 96, text: pickVariant(rng, [
+          winner + ' steal the win late against ' + loser,
+          winner + ' snatch it at the death against ' + loser + ', ' + ws + '–' + ls,
+          'Late ' + winner + ' surge breaks ' + possessive(loser) + ' hearts',
+          winner + ' pinch a late win over ' + loser,
+          winner + ' leave it late to beat ' + loser + ' ' + ws + '–' + ls,
+        ], used, 'late') });
+      }
+      if (close && !late && leadChanges >= th.seesaw) {
+        cands.push({ kind: 'seesaw', weight: 82 + leadChanges, text: pickVariant(rng, level === 'low' ? [
+          winner + ' edge ' + loser + ' in a tight, see-sawing affair',
+          winner + ' win a gripping arm-wrestle with ' + loser + ', ' + ws + '–' + ls,
+          winner + ' come out on top of a ' + leadChanges + '-lead-change scrap with ' + loser,
+        ] : [
+          winner + ' edge ' + loser + ' in an entertaining back-and-forth, ' + ws + '–' + ls,
+          winner + ' win a see-sawing blockbuster against ' + loser,
+          winner + ' and ' + loser + ' trade blows before ' + winner + ' edge ahead',
+          winner + ' get the better of ' + loser + ' in a thriller with ' + leadChanges + ' lead changes',
+        ], used, 'seesaw') });
+      }
+      if (!close && margin >= th.comfy && margin < th.thrashing) {
+        cands.push({ kind: 'comfortable', weight: 44 + margin / 10, text: pickVariant(rng, loserRun >= 3 ? [
+          winner + ' ease past struggling ' + loser,
+          'Struggling ' + loser + ' no match for ' + winner + ', ' + ws + '–' + ls,
+          winner + ' dominate out-of-sorts ' + loser,
+        ] : [
+          winner + ' ease past ' + loser + ', ' + ws + '–' + ls,
+          winner + ' dominate ' + loser + ' to win by ' + margin,
+          winner + ' cruise to a ' + margin + '-point win over ' + loser,
+          winner + ' far too good for ' + loser,
+        ], used, 'comfy') });
       }
 
       // Upset — the underdog by pre-game rating won.
@@ -1532,6 +1596,24 @@ function buildHeadlines(opts) {
             'Underdogs ' + winner + ' thump ' + loser + ' ' + score,
             winner + ' tear favourites ' + loser + ' apart, ' + score,
           ];
+        } else if (late) {
+          tag = 'mcLate';
+          variants = [
+            winner + ' steal the win late against ' + loser,
+            winner + ' snatch it at the death against ' + loser + ', ' + score,
+            winner + ' leave it late to break ' + possessive(loser) + ' hearts',
+            'Late ' + winner + ' surge sinks ' + loser,
+          ];
+        } else if (close && leadChanges >= th.seesaw) {
+          tag = 'mcSeesaw';
+          variants = level === 'low' ? [
+            winner + ' edge ' + loser + ' in a tight, see-sawing affair',
+            winner + ' win a gripping arm-wrestle with ' + loser + ', ' + score,
+          ] : [
+            winner + ' win a see-sawing blockbuster against ' + loser,
+            winner + ' and ' + loser + ' trade blows before ' + winner + ' edge ahead, ' + score,
+            winner + ' edge ' + loser + ' in an entertaining back-and-forth',
+          ];
         } else if (clawed >= hold.drop * 0.75 && margin <= hold.within) {
           tag = 'mcHoldOff';
           variants = [
@@ -1549,6 +1631,7 @@ function buildHeadlines(opts) {
             winner + ' fight back from ' + articleFor(deficit) + ' ' + deficit + '-point hole to beat ' + loser,
             winner + ' overturn ' + articleFor(deficit) + ' ' + deficit + '-point deficit against ' + loser,
             winner + ' recover from a slow start to beat ' + loser,
+            winner + ' come from ' + deficit + ' down to topple ' + loser,
             loser + ' let ' + articleFor(deficit) + ' ' + deficit + '-point lead slip against ' + winner,
           ];
         } else if (upset) {
@@ -1583,11 +1666,16 @@ function buildHeadlines(opts) {
       }
 
       if (margin >= th.thrashing) {
-        cands.push({ kind: 'thrashing', weight: 50 + margin, text: pickVariant(rng, [
+        const lRun = streaks[loser] && streaks[loser].type === 'L' ? streaks[loser].count : 0;
+        cands.push({ kind: 'thrashing', weight: 50 + margin, text: pickVariant(rng, lRun >= 3 ? [
+          'Struggling ' + loser + ' thrashed by ' + margin + ' against ' + winner,
+          winner + ' pile more misery on struggling ' + loser + ', ' + ws + '–' + ls,
+          possessive(loser) + ' woes deepen with a ' + margin + '-point thumping by ' + winner,
+        ] : [
           winner + ' thrash ' + loser + ' by ' + margin,
-          winner + ' thrash ' + loser + ' ' + ws + '–' + ls,
+          winner + ' hand ' + loser + ' a ' + margin + '-point thumping',
+          winner + ' dominate ' + loser + ' from start to finish, ' + ws + '–' + ls,
           winner + ' run riot against ' + loser + ', winning by ' + margin,
-          winner + ' blow ' + loser + ' away by ' + margin,
           loser + ' flogged by ' + margin + ' as ' + winner + ' run rampant',
         ], used, 'thrash') });
       }
@@ -1604,13 +1692,24 @@ function buildHeadlines(opts) {
       // A tight finish is a story whether or not the favourite lost. Golden
       // point already covers the NRL 1-pointers, so this picks up the rest.
       if (margin <= th.thriller && !(sport === 'nrl' && margin === 1)) {
-        cands.push({ kind: 'thriller', margin: margin, weight: 68, text: pickVariant(rng, [
-          margin + ' points the difference as ' + winner + ' beat ' + loser + ', ' + ws + '–' + ls,
+        // Low-scoring and close is a grind; high-scoring and close, a blockbuster.
+        const tLevel = (ws + ls) <= th.lowTotal ? 'low' : (ws + ls) >= th.highTotal ? 'high' : 'mid';
+        cands.push({ kind: 'thriller', margin: margin, weight: 68, text: pickVariant(rng, tLevel === 'low' ? [
+          winner + ' grind out a win over ' + loser + ', ' + ws + '–' + ls,
+          winner + ' edge ' + loser + ' in a tight affair',
+          winner + ' win an arm-wrestle with ' + loser + ' by ' + margin,
+          winner + ' scrap their way past ' + loser + ', ' + ws + '–' + ls,
+        ] : tLevel === 'high' ? [
+          winner + ' edge ' + loser + ' in a ' + (ws + ls) + '-point blockbuster',
+          winner + ' outlast ' + loser + ' in a shootout, ' + ws + '–' + ls,
+          winner + ' win an entertaining thriller against ' + loser,
+          winner + ' hold on in a high-scoring classic with ' + loser,
+        ] : [
+          winner + ' edge ' + loser + ' in an entertaining clash, ' + ws + '–' + ls,
           winner + ' hold on to beat ' + loser + ' by ' + margin,
-          winner + ' survive a tight one against ' + loser + ', ' + ws + '–' + ls,
           winner + ' sneak home by ' + margin + ' against ' + loser,
-          winner + ' edge ' + loser + ' in a thriller, ' + ws + '–' + ls,
-        ], used, 'thriller') });
+          winner + ' survive a thriller against ' + loser + ', ' + ws + '–' + ls,
+        ], used, 'thriller' + tLevel) });
       }
 
       // Keeping a side to very little. The NRL version of this is the shutout
@@ -1696,7 +1795,7 @@ function buildHeadlines(opts) {
         const oBehinds = q[best][l].behinds - prevB[l].behinds;
 
         if (lead(0) > 0 && lead(1) > 0 && lead(2) > 0) {
-          cands.push({ kind: 'wireToWire', minor: true, weight: 30, text: pickVariant(rng, [
+          cands.push({ kind: 'wireToWire', minor: true, weight: 26, text: pickVariant(rng, [
             winner + ' lead at every change to beat ' + loser + ' ' + ws + '–' + ls,
             winner + ' never headed in a ' + margin + '-point win over ' + loser,
             winner + ' in control from the first bounce against ' + loser,
@@ -1711,11 +1810,16 @@ function buildHeadlines(opts) {
             winner + ' kick away late to beat ' + loser,
           ], used, 'lastQ') });
         }
-        if (bestDiff >= 4) {
-          cands.push({ kind: 'bigQuarter', minor: true, weight: 33 + bestDiff, text: pickVariant(rng, [
-            possessive(winner) + ' ' + qGoals + '-goal ' + qtrName[best] + ' quarter sinks ' + loser,
-            winner + ' blow the game open in the ' + qtrName[best] + ' quarter against ' + loser,
-            'A dominant ' + qtrName[best] + ' term sets up ' + possessive(winner) + ' win over ' + loser,
+        // A big quarter is only the story if it's the last one, or the one
+        // where the winner turned the game around.
+        const turned = best > 0 && lead(best - 1) <= 0 && lead(best) > 0;
+        if (bestDiff >= 4 && (best === 3 || turned)) {
+          cands.push({ kind: 'bigQuarter', minor: true, weight: 33 + bestDiff, text: pickVariant(rng, best === 3 ? [
+            possessive(winner) + ' ' + qGoals + '-goal last quarter sinks ' + loser,
+            winner + ' finish all over ' + loser + ' with a big last quarter',
+          ] : [
+            winner + ' turn the game in the ' + qtrName[best] + ' quarter to beat ' + loser,
+            'A ' + qGoals + '-goal ' + qtrName[best] + ' quarter turns the tide for ' + winner + ' against ' + loser,
           ], used, 'bigQ') });
         }
       }
@@ -1723,20 +1827,29 @@ function buildHeadlines(opts) {
         // Plain results, worded to suit how the game went: a scrap, a
         // comfortable win or a one-sided one.
         const score = ws + '–' + ls;
-        const close = margin <= (sport === 'afl' ? 12 : 6);
-        const big = margin >= (sport === 'afl' ? 40 : 18);
-        const variants = close ? [
+        const close = margin <= th.close;
+        const big = margin >= th.comfy;
+        const low = (ws + ls) <= th.lowTotal, high = (ws + ls) >= th.highTotal;
+        const variants = close ? (low ? [
+          winner + ' grind out a win over ' + loser + ', ' + score,
+          winner + ' edge ' + loser + ' in a tight affair',
+          winner + ' win a low-scoring scrap with ' + loser,
+          loser + ' fall just short in an arm-wrestle with ' + winner,
+        ] : high ? [
+          winner + ' edge ' + loser + ' in an entertaining shootout, ' + score,
+          winner + ' come out on top of a blockbuster with ' + loser,
+          loser + ' fall just short in a high-scoring thriller with ' + winner,
+        ] : [
           winner + ' edge past ' + loser + ', ' + score,
-          winner + ' grind out a win over ' + loser,
           winner + ' hang tough to beat ' + loser + ' ' + score,
           loser + ' fall just short against ' + winner,
           winner + ' scrape home against ' + loser,
-        ] : big ? [
-          winner + ' make light work of ' + loser + ', ' + score,
-          winner + ' cruise past ' + loser,
-          winner + ' far too strong for ' + loser,
+        ]) : big ? [
+          winner + ' hand ' + loser + ' a thumping, ' + score,
+          winner + ' ease past ' + loser,
+          winner + ' dominate ' + loser + ' to win by ' + margin,
           loser + ' outclassed by ' + winner + ', ' + score,
-          winner + ' stroll to a ' + margin + '-point win over ' + loser,
+          winner + ' thrash ' + loser + ' by ' + margin,
         ] : [
           winner + ' too good for ' + loser + ', ' + score,
           winner + ' account for ' + loser + ' ' + score,
@@ -1829,8 +1942,12 @@ function simulateGame(opts) {
   const vH = volatility && volatility[home] != null ? volatility[home] : 1;
   const vA = volatility && volatility[away] != null ? volatility[away] : 1;
 
-  const expHome = expectedScore(cfg, common, Rh, Ra, true);
-  const expAway = expectedScore(cfg, common, Ra, Rh, false);
+  // How open the game is: weaker pairings score more (see cfg.weakTempo).
+  const pace = cfg.weakTempo
+    ? -cfg.weakTempo * (((Rh.att + Rh.def) / 2 + (Ra.att + Ra.def) / 2) / 2 - common.MEAN)
+    : 0;
+  const expHome = expectedScore(cfg, common, Rh, Ra, true) + pace;
+  const expAway = expectedScore(cfg, common, Ra, Rh, false) + pace;
 
   // The three rolls — see cfg.TEMPO for why they are split.
   //   TEMPO lands on both sides identically, so it sets the game total (shootout

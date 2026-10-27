@@ -2142,6 +2142,19 @@ grid-template-columns: 32px 150px 40px 40px 40px 40px 40px 50px 50px 60px 65px 5
   cursor: pointer;
 }
 .finals-mc-btn:hover { background: #22223a; color: #ffffff; }
+.uni-tab-live { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.uni-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #d61f2c; box-shadow: 0 0 6px rgba(214, 31, 44, 0.8); }
+.lv-code-head { display: flex; align-items: center; gap: 8px; font-family: 'AFL Modern', 'DIN Next LT Pro', sans-serif; font-size: 20px; margin: 16px 0 8px; }
+.lv-code-head:first-child { margin-top: 2px; }
+.lv-game { background-color: #16213E; border: 1px solid #2a2a4a; border-radius: 10px; padding: 8px 12px 10px; margin-bottom: 8px; cursor: pointer; }
+.lv-game:hover { border-color: #4a4a6e; }
+.lv-clock { display: flex; align-items: center; justify-content: center; gap: 6px; color: #ffb3b3; font-size: 12px; font-weight: 700; letter-spacing: 0.4px; margin-bottom: 4px; }
+.lv-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
+.lv-team { display: flex; align-items: center; gap: 8px; font-family: 'AFL Modern', 'DIN Next LT Pro', sans-serif; font-size: 17px; }
+.lv-away { justify-content: flex-end; }
+.lv-score { font-family: 'AFL Modern', 'DIN Next LT Pro', sans-serif; font-size: 28px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lv-next { color: #8888aa; font-size: 12px; margin: -2px 0 6px; }
+.uni-tabs .panel-toggle-btn { padding-left: 6px; padding-right: 6px; }
 .uni-team-link { cursor: pointer; border-radius: 6px; }
 .uni-team-link:hover .uni-abbr { text-decoration: underline; }
 .uni-lrow-tap { cursor: pointer; }
@@ -11532,16 +11545,26 @@ function mcOpen(opts) {
   // Hover or drag along the worm to read the score at that point. The SVG is
   // redrawn while live, so the listeners sit on its wrapper.
   const wrap = overlay.querySelector('.mc-worm-wrap');
+  // With a mouse the line follows the pointer and goes when it leaves. With a
+  // finger it stays where it was left until a tap somewhere else clears it.
   const track = e => {
+    if (e.type === 'pointermove' && e.pointerType !== 'mouse' && !e.buttons && !c.touching) return;
     const r = wrap.getBoundingClientRect();
     const px = (e.clientX - r.left) * (MC_WORM.w / r.width);
     const f = Math.min(1, Math.max(0, (px - MC_WORM.padL) / (MC_WORM.w - MC_WORM.padL - MC_WORM.padR)));
     c.hoverT = f * c.axisEnd;
+    c.pinned = e.pointerType !== 'mouse';
     if (!c.raf) mcRender(c, 1, false);
   };
+  const clear = () => { c.hoverT = null; c.pinned = false; if (!c.raf) mcRender(c, 1, false); };
   wrap.addEventListener('pointermove', track);
-  wrap.addEventListener('pointerdown', track);
-  wrap.addEventListener('pointerleave', () => { c.hoverT = null; if (!c.raf) mcRender(c, 1, false); });
+  wrap.addEventListener('pointerdown', e => { c.touching = e.pointerType !== 'mouse'; track(e); });
+  wrap.addEventListener('pointerup', () => { c.touching = false; });
+  wrap.addEventListener('pointercancel', () => { c.touching = false; });
+  wrap.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') clear(); });
+  overlay.querySelector('.mc-panel').addEventListener('pointerdown', e => {
+    if (c.pinned && !wrap.contains(e.target)) clear();
+  });
   // Scrolling back through the scoring list puts a line on the worm at the
   // score at the top of the list (gone again back at the top).
   // The panel is the only thing that scrolls (a scroll box inside a scroll box
@@ -11969,25 +11992,33 @@ function uniKickoffItems(universe) {
     pred.rounds.forEach((_, r) => {
       const t = U.roundEndMs(universe, pred, r) + 30000;
       if (t < from) return;
-      items.push({ t, title: `${sc.name} Universe · Round ${r + 1} recap`, body: uniRecapText(U.roundRecap(universe, pred, r)), tag: `${sport}-recap-${season.n}-${r}` });
+      items.push({ t, title: `${sc.name} Universe · Round ${r + 1} recap`, body: uniRecapText(U.roundRecap(universe, pred, r), sport), tag: `${sport}-recap-${season.n}-${r}` });
     });
   } catch (e) { console.warn('round recaps not worked out', e); }
   return items.sort((a, b) => a.t - b.t);
 }
 
-// One line of a round's recap, for the notification.
-function uniRecapText(rec) {
-  const parts = [];
+// The round-end notification: one sentence on the top of the ladder, one on
+// the next-biggest story, then a nudge to the round.
+//   "Adelaide take top spot as St Kilda continue to struggle. Check out the
+//    latest from Round 7."
+function uniRecapText(rec, sport) {
   const L = rec.leader;
-  if (rec.round === 1) parts.push(`${L.team} top the ladder after Round 1`);
-  else parts.push(L.changed ? `${L.team} go top` : L.gap > 0 ? `${L.team} stay top, ${L.gap} pts clear` : `${L.team} stay top`);
-  const up = rec.movers.find(m => m.to < m.from), down = rec.movers.find(m => m.to > m.from);
-  if (up) parts.push(`${up.team} up ${up.from - up.to} to ${uniOrdinal(up.to)}`);
-  if (down) parts.push(`${down.team} slide to ${uniOrdinal(down.to)}`);
-  if (rec.win) parts.push(`${rec.win.team} make it ${rec.win.n} straight`);
-  if (rec.loss) parts.push(`${rec.loss.team} have lost ${rec.loss.n} in a row`);
-  if (rec.biggest) parts.push(`${rec.biggest.w} beat ${rec.biggest.l} by ${rec.biggest.ws - rec.biggest.ls}`);
-  return parts.join(' · ');
+  const top = rec.round === 1 ? `${L.team} top the ladder`
+    : L.changed ? `${L.team} take top spot`
+    : L.gap >= 6 ? `${L.team} stretch their lead at the top` : `${L.team} stay on top`;
+  const up = rec.movers.find(m => m.to < m.from && m.team !== L.team);
+  let also = '';
+  if (rec.loss && rec.loss.n >= 3) also = `${rec.loss.team} continue to struggle`;
+  else if (up && up.from - up.to >= 3) also = `${up.team} climb to ${uniOrdinal(up.to)}`;
+  else if (rec.win && rec.win.team !== L.team) also = `${rec.win.team} make it ${rec.win.n} straight`;
+  else if (rec.biggest) {
+    const big = rec.biggest.ws - rec.biggest.ls >= (sport === 'afl' ? 40 : 18);
+    // The leader's own win reads as how they got there, not a second club.
+    if (rec.biggest.w === L.team) return `${top} after ${big ? 'thumping' : 'beating'} ${rec.biggest.l}. Check out the latest from Round ${rec.round}.`;
+    also = `${rec.biggest.w} ${big ? 'thump' : 'beat'} ${rec.biggest.l}`;
+  }
+  return `${top}${also ? ' as ' + also : ''}. Check out the latest from Round ${rec.round}.`;
 }
 
 // Has round r's last siren gone? (Its games must be decided to know.)
@@ -12348,6 +12379,7 @@ function uniScreenHTML(season, games, now) {
       <button type="button" class="uni-ctl" data-act="delete">Reset</button>
     </div>
     <div class="uni-tabs">
+      <button type="button" class="panel-toggle-btn uni-tab-live${uniView === 'live' ? ' active' : ''}" data-act="view" data-view="live"><span class="uni-live-dot"></span>Live</button>
       <button type="button" class="panel-toggle-btn${uniView === 'games' ? ' active' : ''}" data-act="view" data-view="games">Games</button>
       <button type="button" class="panel-toggle-btn${uniView === 'ladder' ? ' active' : ''}" data-act="view" data-view="ladder">Ladder</button>
       <button type="button" class="panel-toggle-btn${uniView === 'talent' ? ' active' : ''}" data-act="view" data-view="talent">Teams</button>
@@ -12362,6 +12394,9 @@ function uniScreenHTML(season, games, now) {
   }
   if (uniView === 'talent') {
     return `<div class="uni-wrap">${head}<div data-talent-view></div></div>`;
+  }
+  if (uniView === 'live') {
+    return `<div class="uni-wrap">${head}<div data-live></div></div>`;
   }
 
   // Games, grouped by day.
@@ -12453,6 +12488,7 @@ function uniUpdate(root, season, games, now) {
       })() : '');
   }
 
+  if (uniView === 'live') { uniRenderLive(root, now); return; }
   if (uniView === 'ladder') { uniRenderLadder(root, season, now); return; }
   if (uniView === 'records') { uniRenderRecords(root, now); return; }
   if (uniView === 'talent') { uniRenderTalent(root, season, now); return; }
@@ -13369,6 +13405,7 @@ function uniWire(root) {
     else if (act === 'delete') uniDelete();
     else if (act === 'alerts') uniToggleAlerts();
     else if (act === 'team') { e.stopPropagation(); uniOpenTeam(b.dataset.team); }
+    else if (act === 'live-game') uniLiveGo(b.dataset.sport, Number(b.dataset.page), b.dataset.key);
     else if (act === 'next-season') uniNextSeason();
     else if (act === 'team-open') { uniTeamOpen = uniTeamOpen === b.dataset.team ? null : b.dataset.team; uniTeamEdit = false; uniRender(); }
     else if (act === 'team-edit') { uniTeamEdit = true; uniRender(); }
@@ -13409,6 +13446,101 @@ function uniWire(root) {
       uniOpenGame(card.dataset.key);
     }
   }));
+}
+
+// ---------- live, both codes ----------
+// Every game in progress in either Universe, on one page. The other code's
+// Universe is loaded and brought up to the clock here too (and saved, so its
+// alerts stay current). A tap goes to that game's match centre.
+function uniLiveUniverse(sp, now) {
+  const U = window.LadderUniverse;
+  if (sp === uniSport) return uniState;
+  if (!(sp in uniStates)) uniStates[sp] = uniLoad(sp);
+  const u = uniStates[sp];
+  if (u && U.advance(u, now)) {
+    cloudStorage.setItem(UNI_SPORTS[sp].key, JSON.stringify(u));
+    uniSaveKickoffs(u);
+  }
+  return u;
+}
+// { sp, page, key, home, away, kickoff, tl, st } for every game on now, and
+// the next one up if there's none.
+function uniLiveGames(sp, u, now) {
+  const U = window.LadderUniverse;
+  const scfg = u.config[sp];
+  const maxMs = scfg.maxGameMins * 60000;
+  const season = u.seasons[u.seasons.length - 1];
+  const live = [];
+  let next = null;
+  const look = (page, key, g, kickoff, tl) => {
+    if (now < kickoff) { if (!next || kickoff < next.kickoff) next = { sp, page, key, home: g.home, away: g.away, kickoff }; return; }
+    if (now > kickoff + maxMs || !tl) return;
+    const st = U.gameStatusAt(tl, kickoff, now, scfg);
+    if (st.status === 'live' || st.status === 'break') live.push({ sp, page, key, home: g.home, away: g.away, kickoff, tl, st });
+  };
+  season.rounds.forEach((round, r) => round.forEach((g, i) => {
+    if (now < g.kickoff - 7 * 86400000 || now > g.kickoff + maxMs) { if (now < g.kickoff && (!next || g.kickoff < next.kickoff)) next = { sp, page: r, key: 'R' + r + 'G' + i, home: g.home, away: g.away, kickoff: g.kickoff }; return; }
+    look(r, 'R' + r + 'G' + i, g, g.kickoff, now >= g.kickoff ? U.timelineFor(u, season, r, i) : null);
+  }));
+  scfg.finals.forEach((stage, si) => stage.games.forEach(([id]) => {
+    const f = season.finals[id];
+    if (f && f.home) look(season.rounds.length + si, id, f, f.kickoff, now >= f.kickoff ? U.finalTimeline(u, season, id) : null);
+  }));
+  return { live, next };
+}
+function uniLiveCfg(sp, team) {
+  return (UNI_SPORTS[sp].clubs().teamConfig[team]) || { abbr: team ? team.slice(0, 4).toUpperCase() : 'TBC', logo: '' };
+}
+function uniRenderLive(root, now) {
+  const box = root.querySelector('[data-live]');
+  if (!box) return;
+  const codes = Object.keys(UNI_SPORTS).map(sp => {
+    const u = uniLiveUniverse(sp, now);
+    return u ? Object.assign({ sp, has: true }, uniLiveGames(sp, u, now)) : { sp, has: false, live: [] };
+  });
+  const sig = codes.map(c => c.sp + ':' + (c.has ? c.live.map(g => g.key).join(',') + '|' + (c.next ? c.next.key : '') : 'none')).join('/');
+  if (box.dataset.sig !== sig) {
+    box.dataset.sig = sig;
+    box.innerHTML = codes.map(c => {
+      const name = UNI_SPORTS[c.sp].name;
+      if (!c.has) return `<div class="lv-code-head">${name}</div><div class="uni-rec-empty">No ${name} Universe started yet.</div>`;
+      const cards = c.live.map(g => {
+        const h = uniLiveCfg(c.sp, g.home), a = uniLiveCfg(c.sp, g.away);
+        const colour = t => (UNI_SPORTS[c.sp].colour(t) || '#22223a');
+        return `<div class="lv-game" data-act="live-game" data-sport="${c.sp}" data-page="${g.page}" data-key="${g.key}" role="button" tabindex="0"
+            style="background-image: linear-gradient(90deg, ${colour(g.home)}55 0%, transparent 42%, transparent 58%, ${colour(g.away)}55 100%)">
+          <div class="lv-clock" data-lv-clock="${c.sp}-${g.key}"></div>
+          <div class="lv-row">
+            <span class="lv-team"><span class="uni-crest uni-crest-sm"><img src="${h.logo}" alt=""></span>${h.abbr}</span>
+            <span class="lv-score" data-lv-score="${c.sp}-${g.key}"></span>
+            <span class="lv-team lv-away">${a.abbr}<span class="uni-crest uni-crest-sm"><img src="${a.logo}" alt=""></span></span>
+          </div>
+        </div>`;
+      }).join('');
+      const nx = c.next ? `<div class="lv-next">Next: ${uniLiveCfg(c.sp, c.next.home).abbr} v ${uniLiveCfg(c.sp, c.next.away).abbr} · ${uniDay(c.next.kickoff)}, ${uniTime(c.next.kickoff)}</div>` : '';
+      return `<div class="lv-code-head">${name}${c.live.length ? ` <span class="uni-live-pill">${c.live.length} live</span>` : ''}</div>
+        ${cards || `<div class="uni-rec-empty">No ${name} games on right now.</div>`}${c.live.length ? '' : nx}`;
+    }).join('');
+    uniWire(box);
+    box.querySelectorAll('.lv-game').forEach(card => card.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); }
+    }));
+  }
+  // The live bits: scores and clocks, every tick.
+  codes.forEach(c => (c.live || []).forEach(g => {
+    const sc = mcStateAt(c.sp, g.tl, g.st.t);
+    // Keys repeat across the codes (both have an R0G0), so they carry the code.
+    const scoreEl = box.querySelector(`[data-lv-score="${c.sp}-${g.key}"]`);
+    const clockEl = box.querySelector(`[data-lv-clock="${c.sp}-${g.key}"]`);
+    if (scoreEl) scoreEl.textContent = sc.home.points + ' – ' + sc.away.points;
+    if (clockEl) clockEl.innerHTML = '<span class="uni-r-dot"></span>' + (g.st.status === 'break'
+      ? (UNI_BREAK_NAMES[g.st.label] || g.st.label) : MC_SPORT[c.sp].clock(g.st.period, g.st.clock));
+  }));
+}
+// A tap on a live game: over to its code, its round, its match centre.
+function uniLiveGo(sp, page, key) {
+  if (sp !== uniSport) uniSwitchSport(sp);
+  uniTeamGame(page, key);
 }
 
 // ---------- a club's season ----------
