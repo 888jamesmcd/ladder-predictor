@@ -13208,7 +13208,8 @@ function uniPaperHeadline(season, r, rec, heads, sport) {
   const pick = arr => arr[Math.floor(rng() * arr.length)];
   const ladder = U.ladderAt(uniState, season, U.roundEndMs(uniState, season, r));
   const winPts = uniState.config[sport].ladder.win;
-  const cut = afl ? 6 : 8, total = season.rounds.length, left = total - r - 1;
+  // AFL finals reach 10th through the wildcard round.
+  const cut = afl ? 10 : 8, total = season.rounds.length, left = total - r - 1;
   const L = ladder[0], L2 = ladder[1];
   const cands = [];
   // The same story two weeks running is old news: it has to be much bigger
@@ -13334,8 +13335,10 @@ function uniRecPaperHTML(now) {
   const clips = season.rounds[r].map(clip).join('');
   const brief = heads.filter(h => h !== lead).slice(0, 4).map(h => `<li>${h.text}</li>`).join('');
   // The full ladder as it stood after the round: place, club, points.
-  const cut = afl ? 6 : 8;
-  const ladder = U.ladderAt(uniState, season, U.roundEndMs(uniState, season, r)).map((x, i) => `<li class="${i === cut - 1 ? 'pp-cut' : ''}">
+  // Rules under the finals cuts: the top 6 and, in the AFL, the wildcard
+  // places down to 10th.
+  const cuts = afl ? [6, 10] : [8];
+  const ladder = U.ladderAt(uniState, season, U.roundEndMs(uniState, season, r)).map((x, i) => `<li class="${cuts.includes(i + 1) ? 'pp-cut' : ''}">
     <span class="pp-lpos">${i + 1}</span><span class="pp-lteam">${uniTeamCfg(x.team).abbr}</span><span class="pp-lpts">${x.pts}</span></li>`).join('');
   const cfg = uniTeamCfg(cover);
 
