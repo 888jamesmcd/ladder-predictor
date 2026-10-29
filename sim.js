@@ -1157,6 +1157,9 @@ function buildNrlTimeline(home, away, rng, config, halves) {
     const period = at >= half ? 1 : 0;
     events.splice(k, 0, Object.assign(fg, { period, clock: at - period * half }));
   });
+  // Golden point ends on its first score: the period runs only until the kick.
+  const gpKick = events.find(e => e.period === 2);
+  if (gpKick) periods[2].len = gpKick.clock + 1;
   events.forEach(e => {
     const pd = periods[e.period];
     e.t = pd.start + (Math.max(0, e.clock) / pd.len) * (pd.end - pd.start);
@@ -1478,12 +1481,14 @@ function buildHeadlines(opts) {
       const level = total <= th.lowTotal ? 'low' : total >= th.highTotal ? 'high' : 'mid';
       const close = margin <= th.close;
       const golden = sport === 'nrl' && margin === 1 && ws % 2 === 1 && ls % 2 === 0;
-      // Only got in front for good in the closing minutes, in a tight one.
-      const late = !golden && tookLead >= (sport === 'afl' ? 0.94 : 0.9) && margin <= th.close * 0.75 && deficit < th.comeback;
+      // Only got in front for good in the last quarter (AFL) or the last
+      // quarter-hour (NRL), in a tight one: they stole it late.
+      const lateFrom = sport === 'afl' ? tl.periods[tl.periods.length - 1].start : 0.8;
+      const late = !golden && tookLead >= lateFrom && margin <= th.close && deficit < th.comeback;
       const loserRun = streaks[loser] && streaks[loser].type === 'L' ? streaks[loser].count : 0;
       if (late) {
         cands.push({ kind: 'lateSteal', weight: 96, text: pickVariant(rng, [
-          winner + ' steal the win late against ' + loser,
+          winner + ' steal a win late from ' + loser,
           winner + ' snatch it at the death against ' + loser + ', ' + ws + '–' + ls,
           'Late ' + winner + ' surge breaks ' + possessive(loser) + ' hearts',
           winner + ' pinch a late win over ' + loser,
@@ -1498,7 +1503,7 @@ function buildHeadlines(opts) {
         ] : [
           winner + ' edge ' + loser + ' in an entertaining back-and-forth, ' + ws + '–' + ls,
           winner + ' win a see-sawing blockbuster against ' + loser,
-          winner + ' and ' + loser + ' trade blows before ' + winner + ' edge ahead',
+          winner + ' edge ' + loser + ' in a thriller',
           winner + ' get the better of ' + loser + ' in a thriller with ' + leadChanges + ' lead changes',
         ], used, 'seesaw') });
       }
@@ -1539,6 +1544,15 @@ function buildHeadlines(opts) {
             winner + ' humble ' + loser + ' by ' + margin + ' as favourites',
             'Boilover of the round: ' + winner + ' beat ' + loser + ' by ' + margin,
           ];
+        } else if (late || (close && leadChanges >= th.seesaw)) {
+          tag = 'upsetThriller';
+          variants = late ? [
+            'Underdogs ' + winner + ' steal a win late from ' + loser,
+            winner + ' snatch a late upset over ' + loser + ', ' + ws + '–' + ls,
+          ] : [
+            winner + ' upset ' + loser + ' in a thriller',
+            'Underdogs ' + winner + ' edge ' + loser + ' in a thriller, ' + ws + '–' + ls,
+          ];
         } else if (margin <= th.narrowUpset) {
           tag = 'upsetNarrow';
           variants = [
@@ -1556,7 +1570,7 @@ function buildHeadlines(opts) {
         }
         // Outrank the plain thrashing line — that a favourite was beaten this
         // badly is the bigger story, and the wording already carries the margin.
-        cands.push({ kind: 'upset', weight: 70 + gap / 4, text: pickVariant(rng, variants, used, tag) });
+        cands.push({ kind: 'upset', weight: (tag === 'upsetThriller' ? 100 : 70) + gap / 4, text: pickVariant(rng, variants, used, tag) });
       }
 
       // The match centre's lead story. Comebacks, upsets and hidings are told
@@ -1596,10 +1610,24 @@ function buildHeadlines(opts) {
             'Underdogs ' + winner + ' thump ' + loser + ' ' + score,
             winner + ' tear favourites ' + loser + ' apart, ' + score,
           ];
+        } else if (upset && late) {
+          tag = 'mcUpsetLate';
+          variants = [
+            'Underdogs ' + winner + ' steal a win late from ' + loser,
+            winner + ' stun ' + loser + ' late, ' + score,
+            winner + ' snatch a late upset over ' + loser,
+          ];
+        } else if (upset && close) {
+          tag = 'mcUpsetClose';
+          variants = [
+            winner + ' upset ' + loser + ' in a thriller',
+            winner + ' upset ' + loser + ' in a thriller, ' + score,
+            'Underdogs ' + winner + ' edge ' + loser + ' in a thriller',
+          ];
         } else if (late) {
           tag = 'mcLate';
           variants = [
-            winner + ' steal the win late against ' + loser,
+            winner + ' steal a win late from ' + loser,
             winner + ' snatch it at the death against ' + loser + ', ' + score,
             winner + ' leave it late to break ' + possessive(loser) + ' hearts',
             'Late ' + winner + ' surge sinks ' + loser,
@@ -1611,7 +1639,8 @@ function buildHeadlines(opts) {
             winner + ' win a gripping arm-wrestle with ' + loser + ', ' + score,
           ] : [
             winner + ' win a see-sawing blockbuster against ' + loser,
-            winner + ' and ' + loser + ' trade blows before ' + winner + ' edge ahead, ' + score,
+            winner + ' edge ' + loser + ' in a thriller, ' + score,
+            winner + ' win a thriller against ' + loser,
             winner + ' edge ' + loser + ' in an entertaining back-and-forth',
           ];
         } else if (clawed >= hold.drop * 0.75 && margin <= hold.within) {
