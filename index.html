@@ -12954,7 +12954,7 @@ function uniStartTalentHTML() {
           value="${Math.round(r[k])}" data-talent-team="${t}" data-talent-key="${k}" aria-label="${t} ${k === 'att' ? 'attack' : 'defence'}">`;
         return `<div class="uni-tedit-club">
           <div class="uni-trow"><span class="uni-llogo"><span class="uni-crest uni-crest-sm"><img src="${cfg.logo}" alt=""></span></span>
-            <span class="uni-lteam">${cfg.abbr}</span>${field('att')}${field('def')}<span data-ovr>${uniTalentNum((r.att + r.def) / 2)}</span></div>
+            <span class="uni-lteam${uniSport === 'rugby' ? ' uni-lteam-full' : ''}">${uniSport === 'rugby' ? uniLadderName(t) : cfg.abbr}</span>${field('att')}${field('def')}<span data-ovr>${uniTalentNum((r.att + r.def) / 2)}</span></div>
           <div class="uni-tedit-sub">
             <select class="uni-tinput uni-tselect" data-talent-team="${t}" data-talent-key="stage" aria-label="${t} list stage">
               <option value="">Stage: auto</option>
