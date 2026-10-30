@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="112" height="78" viewBox="0 0 112 78" role="img" aria-label="Harstad Knights">
+  <defs><linearGradient id="sh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".10"/><stop offset="1" stop-color="#000" stop-opacity=".12"/></linearGradient></defs>
+  <rect width="112" height="78" fill="#c8102e"/><rect x="30" y="0" width="16" height="78" fill="#ffffff"/><rect x="0" y="31" width="112" height="16" fill="#ffffff"/><rect x="34" y="0" width="8" height="78" fill="#f2c14e"/><rect x="0" y="35" width="112" height="8" fill="#f2c14e"/>
+  <rect width="112" height="78" fill="url(#sh)"/>
+  <rect x="0.5" y="0.5" width="111" height="77" fill="none" stroke="#fff" stroke-opacity=".12"/>
+</svg>
