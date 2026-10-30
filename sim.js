@@ -171,6 +171,28 @@ const SIM_CONFIG = {
       convertRate: 0.78,    // share of those top-up tries that are converted
     },
   },
+  // Rugby union (Norsk Rugby): tries 5, conversions 2, penalty goals and drop
+  // goals 3. About 24 a side, 48 a game, with a wide spread: TEMPO 12 has
+  // about one game in seven under 25 between them (a 13-9 grind) and one in
+  // fourteen 80 or more.
+  rugby: {
+    AVG: 22, W: 0.34, HOME: 3,
+    weakTempo: 0.25,           // see nrl.weakTempo
+    TEMPO: 12, SWING: 7.5, IND: 3.5,
+    // Level at full time goes to golden point (first score wins). Union games
+    // land level a little more often than league ones.
+    DRAW_BAND: 0.9,
+    SCORE_FLOOR: 0, SCORE_CEIL: 90,
+    POSITION_SPREAD: 20,
+    goldenPoint: {
+      settle: 0.9,             // share of level games settled in golden point; the rest stay drawn
+      tryShare: 0.25,          // a try (5, no conversion) wins it; otherwise a penalty or drop goal (3)
+    },
+    // Hardly any union game has fewer points than this between both sides:
+    // most are topped up with penalty goals (the result stays the same).
+    minGameTotal: 16, keepLowTotal: 0.03,
+    keepNil: 0.3,              // share of nil scores left alone
+  },
   // Round headlines — see buildHeadlines(). A game only gets a headline if it
   // clears one of these bars, so an unremarkable round prints nothing at all.
   headlines: {
@@ -217,6 +239,21 @@ const SIM_CONFIG = {
       close: 12, lowTotal: 140, highTotal: 190, seesaw: 5, comfy: 40,
       pileOn: 130,
       matchCentre: { comeback: 24, smashing: 60, upsetMargin: 12 },   // four goals, ten goals, two goals
+    },
+    rugby: {
+      upsetGap: 22,
+      comeback: 15,      // two converted tries and more
+      thrashing: 35,
+      thriller: 3,       // inside a penalty goal
+      lowScore: 6,
+      narrowUpset: 7,    // a converted try
+      streak: 5,
+      shutout: true,
+      bigScore: 55,
+      lateHold: { drop: 14, within: 7 },
+      close: 7, lowTotal: 30, highTotal: 65, seesaw: 3, comfy: 20,
+      pileOn: 50,
+      matchCentre: { comeback: 12, smashing: 30, upsetMargin: 7 },
     },
   },
   // Play-by-play reconstruction — see buildProgression().
@@ -270,6 +307,22 @@ const SIM_CONFIG = {
       // still sprays a few. Their tilt is scaled by this.
       behindTilt: 0.5,
     },
+    // Rugby union halves — see buildRugbyTimeline(). Same momentum model as
+    // the NRL's.
+    rugby: {
+      halfMins: 40,
+      phasesPerHalf: 4,
+      flowSD: 0.30, phaseSD: 0.30,
+      penaltyTilt: 0.5,
+      // How a side's points break down (see rugbyBreakdown): tries per point
+      // scored, penalty goals expected per game, conversion and drop goal rates.
+      triesPerPoint: 0.12, penaltyBase: 0.6, penaltyPerPoint: 0.03,
+      conversionRate: 0.74, dropGoalRate: 0.02,
+      gapAfterTry: 180, gapAfterGoal: 60,
+      conversionDelay: [55, 95],   // a union conversion takes longer than a league one
+      goldenPointWidth: 0.08,
+      dropGoalFrom: 65,            // drop goals only from this minute (or in golden point)
+    },
   },
   // Goals/behinds split for the AFL display layer. Bands are cumulative
   // probability thresholds; these are the values already shipping in
@@ -321,7 +374,7 @@ function hashKey(str) {
   return h >>> 0;
 }
 function num(v, fallback) { const n = Number(v); return Number.isFinite(n) ? n : fallback; }
-function sportCfg(config, sport) { return sport === 'afl' ? config.afl : config.nrl; }
+function sportCfg(config, sport) { return sport === 'afl' ? config.afl : sport === 'rugby' ? config.rugby : config.nrl; }
 
 // ============================================================
 // SCORE ACCESS — the app's flat "R{n}G{i}" keying
@@ -695,6 +748,55 @@ function nrlBreakdown(total, rng) {
   if (maxTries > 0 && tries > 1 && r() < 0.35) tries--;
   const goals = (points - tries * 4) / 2;
   return { tries, goals: Math.max(0, goals), fieldGoals };
+}
+
+// Rugby union: tries 5, conversions 2 (one per try at most), penalty and drop
+// goals 3. Every total can be made except 1, 2 and 4.
+function rugbyValid(p) { return p >= 0 && p !== 1 && p !== 2 && p !== 4; }
+// The nearest makeable total to `value`, never below lo.
+function rugbyScore(value, cfg, lo) {
+  let p = clamp(Math.round(Math.max(0, value)), lo || 0, cfg.SCORE_CEIL);
+  for (let d = 0; d < 4; d++) {
+    if (rugbyValid(p + d) && p + d <= cfg.SCORE_CEIL) return p + d;
+    if (p - d >= (lo || 0) && rugbyValid(p - d)) return p - d;
+  }
+  return p;
+}
+
+function poissonP(k, lambda) {
+  let p = Math.exp(-lambda);
+  for (let i = 1; i <= k; i++) p *= lambda / i;
+  return p;
+}
+// The plays that make up a union total: { tries, conversions, penalties,
+// dropGoals }. Every way of making the total is weighed by how likely it is
+// (tries and penalty goals by Poisson, conversions by the conversion rate) and
+// one is drawn.
+function rugbyBreakdown(points, rng, config) {
+  const p = (config || SIM_CONFIG).progression.rugby;
+  const P = Math.max(0, Math.round(points));
+  const lt = Math.max(0.2, P * p.triesPerPoint);
+  const lk = p.penaltyBase + P * p.penaltyPerPoint;
+  const opts = [];
+  for (let T = 0; T * 5 <= P; T++) {
+    for (let C = 0; C <= T; C++) {
+      for (let D = 0; D <= 1; D++) {
+        const rest = P - 5 * T - 2 * C - 3 * D;
+        if (rest < 0 || rest % 3) continue;
+        const K = rest / 3;
+        let comb = 1;
+        for (let i = 0; i < C; i++) comb = comb * (T - i) / (i + 1);
+        const w = poissonP(T, lt) * comb * Math.pow(p.conversionRate, C) * Math.pow(1 - p.conversionRate, T - C) *
+          poissonP(K, lk) * (D ? p.dropGoalRate : 1 - p.dropGoalRate);
+        if (w > 0) opts.push({ w, b: { tries: T, conversions: C, penalties: K, dropGoals: D } });
+      }
+    }
+  }
+  if (!opts.length) return { tries: 0, conversions: 0, penalties: Math.floor(P / 3), dropGoals: 0 };
+  const sum = opts.reduce((a, o) => a + o.w, 0);
+  let r = rng() * sum;
+  for (const o of opts) { r -= o.w; if (r <= 0) return o.b; }
+  return opts[opts.length - 1].b;
 }
 
 // ============================================================
@@ -1217,7 +1319,163 @@ function buildProgression(opts) {
       opts.awaySplit || generateGoalsBehinds(away, rng, config),
       rng, config).steps;
   }
+  if (opts.sport === 'rugby') return buildRugbyTimeline(home, away, rng, config, opts.gp).steps;
   return buildNrlTimeline(home, away, rng, config).steps;
+}
+
+// Rugby union: two 40-minute halves, plus golden point when a level game was
+// settled by the first score in extra time (gp: the winner's last play).
+// Returns { steps, periods } like buildNrlTimeline. Steps carry each side's
+// running tries, conversions, penalties and drop goals (and goals: conversions
+// plus penalty goals); periods carry the same counts at each break.
+function buildRugbyTimeline(home, away, rng, config, gp) {
+  const P = config.progression;
+  const n = P.rugby;
+  const margin = home - away;
+  const golden = !!gp && margin !== 0 && (Math.abs(margin) === 3 || Math.abs(margin) === 5);
+  const winnerSide = margin > 0 ? 'home' : 'away';
+  // In golden point the winner's regulation score is the loser's: level at 80.
+  const reg = { home, away };
+  if (golden) reg[winnerSide] = Math.min(home, away);
+  const gpPlay = golden ? (Math.abs(margin) === 5 ? 'try' : (rng() < 0.7 ? 'penaltyGoal' : 'dropGoal')) : null;
+
+  const half = n.halfMins * 60;
+  const gpLen = P.goldenPointWindow * 60;
+  const hw = golden ? (1 - n.goldenPointWidth) / 2 : 0.5;
+  const periods = [
+    { label: '1H', start: 0, end: hw, len: half, offset: 0 },
+    { label: '2H', start: hw, end: 2 * hw, len: half, offset: half },
+  ];
+  if (golden) periods.push({ label: 'GP', start: 2 * hw, end: 1, len: gpLen, offset: 2 * half });
+
+  const PH = n.phasesPerHalf;
+  const tilts = [];
+  for (let h = 0; h < 2; h++) {
+    const flow = gaussian(rng, 0, n.flowSD);
+    for (let ph = 0; ph < PH; ph++) tilts.push(flow + gaussian(rng, 0, n.phaseSD));
+  }
+  const weights = (sign, scale) => {
+    const w = tilts.map(m => Math.exp(sign * m * scale));
+    const sum = w.reduce((a, b) => a + b, 0);
+    return w.map(x => x / sum);
+  };
+
+  const breakdown = ['home', 'away'].map(team => [team, rugbyBreakdown(reg[team], rng, config)]);
+  const gapAfter = e => e.play === 'convertedTry' || e.play === 'try' ? n.gapAfterTry : n.gapAfterGoal;
+  // Lay the plays out; a half too crowded to keep every gap is dealt again
+  // (a few tries at most), so the clock never squeezes two scores together.
+  let events;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    events = [];
+    const drops = [];
+    const dropFrom = (n.dropGoalFrom - n.halfMins) * 60;
+    breakdown.forEach(([team, b]) => {
+      const sign = team === 'home' ? 1 : -1;
+      const tryW = weights(sign, 1), penW = weights(sign, n.penaltyTilt);
+      const at = w => {
+        const ph = pickCount(rng, w);
+        const period = Math.floor(ph / PH), k = ph % PH;
+        const lo = Math.max(30, half * k / PH), hi = Math.min(half - 1, half * (k + 1) / PH);
+        return { period, clock: Math.round(lo + rng() * (hi - lo)) };
+      };
+      for (let i = 0; i < b.tries; i++) events.push(Object.assign({ team, play: i < b.conversions ? 'convertedTry' : 'try', points: i < b.conversions ? 7 : 5 }, at(tryW)));
+      for (let i = 0; i < b.penalties; i++) events.push(Object.assign({ team, play: 'penaltyGoal', points: 3 }, at(penW)));
+      for (let i = 0; i < b.dropGoals; i++) drops.push({ team, play: 'dropGoal', points: 3, period: 1 });
+    });
+
+    // A restart after every score: push plays back until the gap is long
+    // enough, then pull them forward from the siren the same way.
+    const convRoom = n.conversionDelay[1] + 1;
+    const abs = e => e.period * half + e.clock;
+    events.sort((a, b) => abs(a) - abs(b));
+    [0, 1].forEach(pi => {
+      const pe = events.filter(e => e.period === pi);
+      for (let i = 1; i < pe.length; i++) pe[i].clock = Math.max(pe[i].clock, pe[i - 1].clock + gapAfter(pe[i - 1]));
+      if (pe.length) {
+        const last = pe[pe.length - 1];
+        last.clock = Math.min(last.clock, half - 1 - (last.play === 'convertedTry' ? convRoom : 0));
+      }
+      for (let i = pe.length - 2; i >= 0; i--) pe[i].clock = Math.min(pe[i].clock, pe[i + 1].clock - gapAfter(pe[i]));
+      pe.forEach(e => { e.clock = Math.max(0, e.clock); });
+    });
+    events.sort((a, b) => abs(a) - abs(b));
+
+    // Drop goals go in last, late in the second half, wherever there's room
+    // around the plays already laid out. With nowhere to go one becomes a
+    // penalty goal (also 3), placed after the last score if it can be.
+    drops.forEach(dg => {
+      const second = events.filter(e => e.period === 1);
+      const free = [];
+      for (let k = 0; k <= second.length; k++) {
+        const prev = second[k - 1], next = second[k];
+        const from = Math.max(dropFrom, prev ? prev.clock + gapAfter(prev) : 0);
+        const to = (next ? next.clock : half) - n.gapAfterGoal;
+        if (to >= from) free.push([from, to]);
+      }
+      if (free.length) {
+        const [from, to] = free[Math.floor(rng() * free.length)];
+        dg.clock = Math.round(from + rng() * (to - from));
+      } else {
+        dg.play = 'penaltyGoal';
+        const last = second[second.length - 1];
+        dg.clock = last ? Math.min(half - 1, last.clock + gapAfter(last)) : Math.round(rng() * (half - 1));
+      }
+      events.push(dg);
+      events.sort((a, b) => abs(a) - abs(b));
+    });
+    const ok = events.every((e, k) => k === 0 || events[k - 1].period !== e.period ||
+      e.clock - events[k - 1].clock >= gapAfter(events[k - 1]));
+    if (ok) break;
+  }
+
+  // Golden point: one play and the game is over, so the period ends with it.
+  if (golden) {
+    const clock = Math.round(20 + rng() * (gpLen - 20));
+    events.push({ team: winnerSide, play: gpPlay, points: Math.abs(margin), period: 2, clock });
+    periods[2].len = clock + 1;
+  }
+  events.forEach(e => {
+    const pd = periods[e.period];
+    e.t = pd.start + (Math.max(0, e.clock) / pd.len) * (pd.end - pd.start);
+  });
+
+  // A converted try is two plays: the try (5), then the kick (2) a minute or
+  // so later.
+  const plays = [];
+  events.forEach(e => {
+    if (e.play !== 'convertedTry') { plays.push(e); return; }
+    const pd = periods[e.period];
+    const d = Math.round(n.conversionDelay[0] + rng() * (n.conversionDelay[1] - n.conversionDelay[0]));
+    const kick = Math.min(pd.len - 1, e.clock + d);
+    plays.push(Object.assign({}, e, { play: 'try', points: 5 }));
+    plays.push(Object.assign({}, e, { play: 'conversion', points: 2, clock: kick,
+      t: pd.start + (kick / pd.len) * (pd.end - pd.start) }));
+  });
+
+  const blank = () => ({ points: 0, tries: 0, conversions: 0, penalties: 0, dropGoals: 0, goals: 0 });
+  const c = { home: blank(), away: blank() };
+  const snap = () => ({ home: Object.assign({}, c.home), away: Object.assign({}, c.away) });
+  let pi = 0;
+  const steps = plays.map(e => {
+    while (e.period > pi) { periods[pi].score = snap(); pi++; }
+    const side = c[e.team];
+    side.points += e.points;
+    if (e.play === 'try') side.tries++;
+    else if (e.play === 'conversion') { side.conversions++; side.goals++; }
+    else if (e.play === 'penaltyGoal') { side.penalties++; side.goals++; }
+    else if (e.play === 'dropGoal') side.dropGoals++;
+    return {
+      home: c.home.points, away: c.away.points, team: e.team, play: e.play, points: e.points,
+      minute: Math.round((periods[e.period].offset + e.clock) / 60),
+      period: e.period, clock: e.clock, t: e.t,
+      homeTries: c.home.tries, homeConversions: c.home.conversions, homePenalties: c.home.penalties,
+      homeDropGoals: c.home.dropGoals, homeGoals: c.home.goals,
+      awayTries: c.away.tries, awayConversions: c.away.conversions, awayPenalties: c.away.penalties,
+      awayDropGoals: c.away.dropGoals, awayGoals: c.away.goals,
+    };
+  });
+  for (; pi < periods.length; pi++) periods[pi].score = snap();
+  return { steps, periods };
 }
 
 // ============================================================
@@ -1282,6 +1540,8 @@ function buildMatchTimeline(opts) {
     if (ignored) tl.breaksIgnored = true;
     return tl;
   }
+  // Rugby union: the score says whether golden point settled it (s.gp).
+  if (opts.sport === 'rugby') return buildRugbyTimeline(home, away, rng, config, !!s.gp);
   if (br) {
     const h = br.home[0], a = br.away[0];
     if (h >= 0 && a >= 0 && h <= home && a <= away) {
@@ -1381,7 +1641,7 @@ function buildHeadlines(opts) {
   const config = opts.config || SIM_CONFIG;
   const { sport, teams, rounds, scores, seeds, roundIdx } = opts;
   const H = config.headlines;
-  const th = sport === 'afl' ? H.afl : H.nrl;
+  const th = sport === 'afl' ? H.afl : sport === 'rugby' ? H.rugby : H.nrl;
   const seasonKey = opts.seasonKey || '';
   const round = rounds[roundIdx] || [];
   if (!round.length) return [];
@@ -1431,7 +1691,41 @@ function buildHeadlines(opts) {
 
       // Comeback — rebuild the same play-by-play the card animated and look for
       // the largest deficit the winner came back from.
-      tl = buildMatchTimeline({ sport, seasonKey, roundIdx, gameIdx: gi, game, score: s, config });
+      tl = buildMatchTimeline({ sport, seasonKey, roundIdx, gameIdx: gi, game, config,
+        score: sport === 'rugby' && scores[scoreKey(roundIdx, gi)].gp ? Object.assign({ gp: true }, s) : s });
+      // Rugby union golden point is in the score, not the margin.
+      const rugbyGolden = sport === 'rugby' && tl.periods.some(p => p.label === 'GP');
+      if (rugbyGolden) {
+        const gpPlay = tl.steps[tl.steps.length - 1].play;
+        const how = gpPlay === 'try' ? 'try' : gpPlay === 'dropGoal' ? 'drop goal' : 'penalty';
+        cands.push({ kind: 'goldenPoint', weight: 92, text: pickVariant(rng, [
+          winner + ' win it in golden point against ' + loser,
+          'Golden point: ' + winner + ' edge ' + loser + ' ' + ws + '–' + ls,
+          'A golden-point ' + how + ' wins it for ' + winner + ' against ' + loser,
+        ], used, 'gp') });
+      }
+      // Union: a try-fest, and the half-time bonus point.
+      if (sport === 'rugby') {
+        const ftR = tl.periods[tl.periods.length - 1].score;
+        const wT = ftR[homeWon ? 'home' : 'away'].tries;
+        if (wT >= 7) {
+          cands.push({ kind: 'tryFest', weight: 60 + wT * 2, text: pickVariant(rng, [
+            winner + ' run in ' + wT + ' tries against ' + loser,
+            winner + ' cross ' + wT + ' times to beat ' + loser + ', ' + ws + '–' + ls,
+            wT + '-try ' + winner + ' too good for ' + loser,
+          ], used, 'tryFest') });
+        }
+        // The bonus point for leading at half time: news when the side that
+        // banked it went on to lose, or a winner had to come from behind.
+        const htR = tl.periods[0].score;
+        const htW = htR[homeWon ? 'home' : 'away'].points, htL = htR[homeWon ? 'away' : 'home'].points;
+        if (only != null && htL > htW) {
+          cands.push({ kind: 'htBonus', minor: true, weight: 26 + (htL - htW) / 2, text: pickVariant(rng, [
+            loser + ' bank a half-time bonus point but lose to ' + winner,
+            loser + ' lead at the break for a bonus point, then fall to ' + winner + ' ' + ws + '–' + ls,
+          ], used, 'htBonus') });
+        }
+      }
       let deficit = 0;
       tl.steps.forEach(step => {
         const behind = homeWon ? step.away - step.home : step.home - step.away;
@@ -1480,7 +1774,7 @@ function buildHeadlines(opts) {
       const total = ws + ls;
       const level = total <= th.lowTotal ? 'low' : total >= th.highTotal ? 'high' : 'mid';
       const close = margin <= th.close;
-      const golden = sport === 'nrl' && margin === 1 && ws % 2 === 1 && ls % 2 === 0;
+      const golden = sport === 'nrl' ? margin === 1 && ws % 2 === 1 && ls % 2 === 0 : rugbyGolden;
       // Only got in front for good in the last quarter (AFL) or the last
       // quarter-hour (NRL), in a tight one: they stole it late.
       const lateFrom = sport === 'afl' ? tl.periods[tl.periods.length - 1].start : 0.8;
@@ -1582,7 +1876,7 @@ function buildHeadlines(opts) {
         const upset = gap * 2 * cfg.W >= mc.upsetMargin;   // the favourite's expected margin
         const smash = margin >= mc.smashing;
         const score = ws + '–' + ls;
-        const golden = sport === 'nrl' && margin === 1 && ws % 2 === 1 && ls % 2 === 0;
+        const golden = sport === 'nrl' ? margin === 1 && ws % 2 === 1 && ls % 2 === 0 : rugbyGolden;
         let variants = null, tag;
         if (golden && (comeback || upset)) {
           // Golden point is the headline; the rest is how they got there.
@@ -1775,7 +2069,7 @@ function buildHeadlines(opts) {
     // half). Every game has one, so they only ever feed the match centre.
     if (only != null) {
       const fmt = sp => sp.goals + '.' + sp.behinds;
-      if (!drawn && tl && sport === 'nrl') {
+      if (!drawn && tl && (sport === 'nrl' || sport === 'rugby')) {
         const w = homeWon ? 'home' : 'away', l = homeWon ? 'away' : 'home';
         const ht = tl.periods[0].score, ft = tl.periods[1].score;
         const htLead = ht[w].points - ht[l].points;
@@ -2002,6 +2296,7 @@ function simulateGame(opts) {
   if (isDraw) {
     const level = sport === 'nrl'
       ? Math.min(nrlEvenScore(rawTotal / 2, cfg), cfg.SCORE_CEIL - 1)
+      : sport === 'rugby' ? Math.min(rugbyScore(rawTotal / 2, cfg), cfg.SCORE_CEIL - 5)
       : clamp(Math.round(rawTotal / 2), 0, cfg.SCORE_CEIL);
     // Golden point: a game level at full time is usually settled by a field goal
     // in extra time. That's why the NRL has far more 1-point margins than draws.
@@ -2009,6 +2304,12 @@ function simulateGame(opts) {
       goldenPoint = true;
       if (actualMargin >= 0) { hs = level + 1; as = level; }
       else { hs = level; as = level + 1; }
+    } else if (sport === 'rugby' && rng() < cfg.goldenPoint.settle) {
+      // Union golden point: the first score wins it, a try (5) or a kick (3).
+      goldenPoint = true;
+      const gpPts = rng() < cfg.goldenPoint.tryShare ? 5 : 3;
+      if (actualMargin >= 0) { hs = level + gpPts; as = level; }
+      else { hs = level; as = level + gpPts; }
     } else {
       hs = level; as = level;
     }
@@ -2026,6 +2327,13 @@ function simulateGame(opts) {
       if (winner <= loser) winner = loser + 2;
       const fg = nrlFieldGoals(winner, loser, rng, cfg);
       winner = fg.winner; loser = fg.loser;
+    } else if (sport === 'rugby') {
+      loser = rugbyScore(loser, cfg);
+      winner = rugbyScore(winner, cfg);
+      if (winner <= loser) winner = rugbyScore(loser + 1, cfg, loser + 1);
+      // Being held scoreless is rare in union: most nils get a penalty goal
+      // (the result stays the same).
+      if (loser === 0 && winner > 3 && rng() >= cfg.keepNil) loser = 3;
     } else {
       winner = Math.round(winner); loser = Math.round(loser);
       if (winner <= loser) winner = loser + 1;
@@ -2049,8 +2357,21 @@ function simulateGame(opts) {
     }
   }
 
+  // Rugby union: hardly any game has under minGameTotal between the two sides.
+  // Top it up with penalty goals, keeping the result: the loser kicks one if
+  // it still loses, otherwise the winner does; a draw gets one each.
+  if (sport === 'rugby' && !goldenPoint && hs + as < cfg.minGameTotal && rng() >= cfg.keepLowTotal) {
+    for (let guard = 0; guard < 8 && hs + as < cfg.minGameTotal; guard++) {
+      if (hs === as) { hs += 3; as += 3; continue; }
+      const homeWon = hs > as;
+      const w = homeWon ? hs : as, l = homeWon ? as : hs;
+      if (l + 3 < w) { if (homeWon) as += 3; else hs += 3; }
+      else if (homeWon) hs += 3; else as += 3;
+    }
+  }
+
   // Last guard: 0-0 would read as "not played" everywhere downstream.
-  if (hs === 0 && as === 0) { hs = sport === 'nrl' ? 6 : 30; as = hs; }
+  if (hs === 0 && as === 0) { hs = sport === 'nrl' ? 6 : sport === 'rugby' ? 3 : 30; as = hs; }
 
   return { home: hs, away: as, expHome, expAway, actualMargin, total: hs + as, goldenPoint };
 }
@@ -2085,7 +2406,7 @@ function simulateRound(opts) {
     const res = simulateGame({
       home: round[g].home, away: round[g].away, ratings, volatility, config, sport, rng,
     });
-    out[key] = { home: res.home, away: res.away };
+    out[key] = sport === 'rugby' && res.goldenPoint ? { home: res.home, away: res.away, gp: true } : { home: res.home, away: res.away };
   }
   return out;
 }

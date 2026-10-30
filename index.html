@@ -1797,6 +1797,10 @@ input[type=number] {
 }
 .uni-lteam { white-space: nowrap; text-align: left; padding-left: 8px; font-family: 'AFL Modern', 'DIN Next LT Pro', sans-serif; font-size: 17px; padding-top: 2px; }
 .uni-lhead .uni-lteam { font-family: 'DIN Next LT Pro', sans-serif; font-size: 11px; }
+/* Norsk Rugby's ladder spells the club out, so it runs smaller and trims to fit. */
+.uni-lteam-full { display: flex; flex-direction: column; justify-content: center; font-size: 14px; line-height: 1.1; overflow: hidden; padding-top: 0; }
+.uni-lteam-full .uni-ltown { font-family: 'DIN Next LT Pro', sans-serif; font-size: 10.5px; color: #9a9ab4; }
+.uni-lteam-full .uni-ltown, .uni-lteam-full .uni-lclub { overflow: hidden; text-overflow: ellipsis; }
 .uni-lpct { color: #c8c8dc; }
 .uni-lpts { font-weight: 700; }
 .uni-cut-top6 { border-bottom: 2px solid #f0c040; }
@@ -3795,7 +3799,7 @@ let activeSaveSlotId = '';
 
 // Keys that belong to the account, not to a save: the registry itself, and
 // the Universe, which sits alongside the saves rather than inside one.
-const UNSLOTTED_KEYS = new Set([SAVE_REGISTRY_KEY, 'lp_universe_afl', 'lp_universe_nrl', 'lp_kickoffs_afl', 'lp_kickoffs_nrl']);
+const UNSLOTTED_KEYS = new Set([SAVE_REGISTRY_KEY, 'lp_universe_afl', 'lp_universe_nrl', 'lp_kickoffs_afl', 'lp_kickoffs_nrl', 'lp_universe_rugby', 'lp_kickoffs_rugby']);
 function slotPrefixedKey(key) {
   if (UNSLOTTED_KEYS.has(key)) return key;
   return activeSaveSlotId ? ('slot_' + activeSaveSlotId + '__' + key) : key;
@@ -11256,8 +11260,8 @@ const NRL_WORM_COLOURS = {
   'Wests Tigers': ['#F68B1F', '#000000'],
 };
 function mcWormColours(sport, home, away) {
-  const prim = t => sport === 'afl' ? AFL_TEAM_COLOURS[t] : (NRL_WORM_COLOURS[t] || [])[0];
-  const alt = t => sport === 'afl' ? AFL_WORM_ALT_COLOURS[t] : (NRL_WORM_COLOURS[t] || [])[1];
+  const prim = t => sport === 'afl' ? AFL_TEAM_COLOURS[t] : sport === 'rugby' ? ((NORSK_CLUBS[t] || [])[2] || [])[0] : (NRL_WORM_COLOURS[t] || [])[0];
+  const alt = t => sport === 'afl' ? AFL_WORM_ALT_COLOURS[t] : sport === 'rugby' ? ((NORSK_CLUBS[t] || [])[2] || [])[1] : (NRL_WORM_COLOURS[t] || [])[1];
   const hex = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
   const hc = prim(home) || '#4CAF50';
   let ac = prim(away) || '#888888';
@@ -11285,6 +11289,15 @@ const MC_SPORT = {
     detail: () => '',
     cellDetail: () => '',
     // The NRL clock runs on through the match: the second half starts at 40:00.
+    clock: (p, clock) => p.label + ' ' + mcClock(p.offset + clock),
+  },
+  // Norsk Rugby (Universe only): halves and golden point, as the NRL.
+  rugby: {
+    seasons: () => ({}),
+    logoW: 30, logoH: 21,              // jersey crests, 112x78
+    periodName: p => ({ '1H': '1st half', '2H': '2nd half', GP: 'Golden pt' })[p.label] || p.label,
+    detail: () => '',
+    cellDetail: () => '',
     clock: (p, clock) => p.label + ' ' + mcClock(p.offset + clock),
   },
 };
@@ -11773,7 +11786,7 @@ function mcRender(c, t, live, label) {
 // isn't redrawing it every frame (and a scroll through it isn't cut short).
 const MC_PLAY_NAMES = {
   goal: 'Goal', behind: 'Behind',
-  try: 'Try', conversion: 'Conversion', penaltyGoal: 'Penalty goal', fieldGoal: 'Field goal',
+  try: 'Try', conversion: 'Conversion', penaltyGoal: 'Penalty goal', fieldGoal: 'Field goal', dropGoal: 'Drop goal',
 };
 function mcOrdinal(n) {
   const v = n % 100;
@@ -11944,6 +11957,52 @@ function mcWormSVG(c, upTo, live, periods) {
 
 // What differs between the AFL and NRL Universes. Each sport has its own
 // Universe, stored under its own key, started and reset on its own.
+// Norsk Rugby: the made-up Norwegian rugby union league (Universe only).
+// Each club: short name, home ground, and worm colours [main, alt].
+const NORSK_CLUBS = {
+  'Alta Ravens':           ['ALT', 'Altafjord Arena',      ['#2a2c33', '#8a8f9a']],
+  'Bodø Wolves':           ['BOD', 'Nordlandshallen',      ['#0f4c5c', '#7fb7c4']],
+  'Drammen Bears':         ['DRA', 'Marienlyst Park',      ['#5a3820', '#e3a64c']],
+  'Fredrikstad Jotun':     ['FRE', 'Gamlebyen Stadion',    ['#48525f', '#9fdcff']],
+  'Harstad Knights':       ['HAR', 'Trondenes Arena',      ['#c8102e', '#f2c14e']],
+  'Kirkenes Power':        ['KIR', 'Grenseland Arena',     ['#a3245a', '#ffd23f']],
+  'Kristiansand Frost':    ['KRI', 'Sørlandet Arena',      ['#1d5fa8', '#7fb5e6']],
+  'Levanger Bucks':        ['LEV', 'Innherred Park',       ['#d9661f', '#5a2a0c']],
+  'Lofoten Fjords':        ['LOF', 'Svolvær Havn Stadion', ['#13918b', '#0c5c58']],
+  'Mosjøen Hawks':         ['MSJ', 'Vefsn Arena',          ['#a8743a', '#2e1a08']],
+  'Moss Valkyries':        ['MOS', 'Jeløy Park',           ['#233b9e', '#f2c14e']],
+  'Narvik Owls':           ['NAR', 'Ofoten Arena',         ['#141d42', '#ffc928']],
+  'Oslo Thunder':          ['OSL', 'Oslo Rugbyarena',      ['#3a1f6b', '#ffd23f']],
+  'Sandefjord Sea Eagles': ['SAN', 'Hvalfangst Park',      ['#e5ad1f', '#13284d']],
+  'Senja Vikings':         ['SEN', 'Finnsnes Arena',       ['#e2a823', '#c8372d']],
+  'Steinkjer Dragons':     ['STE', 'Steinkjer Arena',      ['#2f9a46', '#0f3d1a']],
+  'Tromsø Reindeer':       ['TRO', 'Ishavsstadion',        ['#1d5a3a', '#9cc79a']],
+  'Trondheim Raiders':     ['TRA', 'Nidaros Arena',        ['#17171a', '#e8702a']],
+  'Trondheim Trolls':      ['TRL', 'Byåsen Park',          ['#5d6b1f', '#b58a3c']],
+  'Trøndelag Bulls':       ['TBU', 'Stjørdal Arena',       ['#7a1e22', '#e0b43c']],
+};
+// Norsk Rugby's game cards show the club in full, town over name (the AFL
+// and NRL cards use the short name).
+function uniFullName(team) {
+  const i = team.indexOf(' ');
+  return i < 0 ? team : team.slice(0, i) + '<br>' + team.slice(i + 1);
+}
+// ...and its ladder stacks them the same way, the town small above the name.
+function uniLadderName(team) {
+  const i = team.indexOf(' ');
+  return i < 0 ? team : `<span class="uni-ltown">${team.slice(0, i)}</span><span class="uni-lclub">${team.slice(i + 1)}</span>`;
+}
+function norskLogo(team) {
+  const slug = team.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ø/g, 'o').replace(/[^A-Za-z]+/g, '-').toLowerCase();
+  return 'logos/norsk/' + slug + '.svg';
+}
+// In the same shape as a predictor season, so the Universe screens can read it
+// the same way: teams, and each one's abbreviation and logo.
+const NORSK_SEASON = {
+  teams: Object.keys(NORSK_CLUBS),
+  teamConfig: Object.fromEntries(Object.keys(NORSK_CLUBS).map(t => [t, { abbr: NORSK_CLUBS[t][0], logo: norskLogo(t) }])),
+};
+
 const UNI_SPORTS = {
   afl: {
     name: 'AFL',
@@ -11970,18 +12029,42 @@ const UNI_SPORTS = {
     blurb: '27 rounds with a bye each, then the top-eight finals',
     showGB: false,
   },
+  rugby: {
+    name: 'Norsk Rugby',
+    key: 'lp_universe_rugby',
+    seasonKey: null,           // made up: no real season to start from
+    clubs: () => NORSK_SEASON,
+    colour: t => (NORSK_CLUBS[t] || [])[2] && NORSK_CLUBS[t][2][0],
+    venue: t => (NORSK_CLUBS[t] || [])[1] || '',
+    schedule: ['1:00 · 3:00 · 5:00 · 7:00am', '2:00 · 4:00 · 6:00am', '1:30 · 3:30 · 5:30am'],
+    roundDays: 'three mornings',
+    blurb: '19 rounds, Derby Round, then the top-eight knockout',
+    showGB: false,
+    noRealWorld: true,
+  },
 };
 let uniSport = 'afl';         // the Universe on screen
 const uniStates = {};         // loaded Universes, by sport
 const UNI_TZ = 'Australia/Brisbane';
 const UNI_FINALS_NAMES = {
   WC: 'Wildcard Round', W1: 'Finals Week 1', SF: 'Semi Finals', PF: 'Preliminary Finals', GF: 'Grand Final',
+  QF: 'Quarter Finals', FD: 'Grand Final Day',    // Norsk Rugby's knockout
 };
 const UNI_FINAL_LABELS = {
   WC1: 'Wildcard final', WC2: 'Wildcard final', QF1: 'Qualifying final', QF2: 'Qualifying final',
   EF1: 'Elimination final', EF2: 'Elimination final', SF1: 'Semi final', SF2: 'Semi final',
   PF1: 'Preliminary final', PF2: 'Preliminary final', GF: 'Grand Final',
 };
+// Norsk Rugby's knockout reuses some of the ids (QF1, SF1, GF) for different
+// games, so its names are looked up first for that league.
+const NORSK_FINAL_LABELS = {
+  QF1: 'Quarter-final', QF2: 'Quarter-final', QF3: 'Quarter-final', QF4: 'Quarter-final',
+  SF1: 'Semi-final', SF2: 'Semi-final', '3RD': 'Third-place playoff', GF: 'Grand Final',
+};
+function uniFinalLabel(id, sport) {
+  const sp = sport || (uniState && uniState.sport);
+  return (sp === 'rugby' && NORSK_FINAL_LABELS[id]) || UNI_FINAL_LABELS[id];
+}
 
 let uniState = null;          // the loaded universe, or null if none started
 let uniView = 'games';        // 'games' | 'ladder' | 'records'
@@ -12036,7 +12119,7 @@ function uniKickoffItems(universe) {
   universe.config[sport].finals.forEach((stage, si) => stage.games.forEach(([id, time]) => {
     const f = season.finals[id];
     const t = f ? f.kickoff : U.finalKickoff(universe, season, si, time);
-    add(t, UNI_FINALS_NAMES[stage.stage], f ? { home: f.home, away: f.away, tag: UNI_FINAL_LABELS[id] } : { tag: UNI_FINAL_LABELS[id] });
+    add(t, UNI_FINALS_NAMES[stage.stage], f ? { home: f.home, away: f.away, tag: uniFinalLabel(id, sport) } : { tag: uniFinalLabel(id, sport) });
   }));
   const items = [...slots.entries()].sort((a, b) => a[0] - b[0]).map(([t, x]) => {
     const name = l => l.home ? `${l.home} v ${l.away}` : `The ${l.tag.toLowerCase()}`;
@@ -12079,7 +12162,7 @@ function uniRecapText(rec, sport) {
   else if (up && up.from - up.to >= 3) also = `${up.team} climb to ${uniOrdinal(up.to)}`;
   else if (rec.win && rec.win.team !== L.team) also = `${rec.win.team} make it ${rec.win.n} straight`;
   else if (rec.biggest) {
-    const big = rec.biggest.ws - rec.biggest.ls >= (sport === 'afl' ? 40 : 18);
+    const big = rec.biggest.ws - rec.biggest.ls >= (sport === 'afl' ? 40 : sport === 'rugby' ? 25 : 18);
     // The leader's own win reads as how they got there, not a second club.
     if (rec.biggest.w === L.team) return `${top} after ${big ? 'thumping' : 'beating'} ${rec.biggest.l}. Check out the latest from Round ${rec.round}.`;
     also = `${rec.biggest.w} ${big ? 'thump' : 'beat'} ${rec.biggest.l}`;
@@ -12103,7 +12186,7 @@ function uniRoundRecapHTML(season, r) {
   const crest = t => `<span class="uni-crest uni-crest-xs"><img src="${uniTeamCfg(t).logo}" alt=""></span>`;
   const L = rec.leader;
   const lead = `<div class="rr-lead">${crest(L.team)}<div><b>${L.team}</b>
-    <span>${rec.round === 1 ? 'top after Round 1' : L.changed ? 'go top' : 'stay top'}${L.gap > 0 ? ` · ${L.gap} pts clear of ${rec.second}` : ` · on ${uniState.sport === 'nrl' ? 'points difference' : 'percentage'} from ${rec.second}`}</span></div></div>`;
+    <span>${rec.round === 1 ? 'top after Round 1' : L.changed ? 'go top' : 'stay top'}${L.gap > 0 ? ` · ${L.gap} pts clear of ${rec.second}` : ` · on ${uniState.sport === 'nrl' || uniState.sport === 'rugby' ? 'points difference' : 'percentage'} from ${rec.second}`}</span></div></div>`;
   const movers = rec.movers.slice(0, 4).map(m => `<div class="rr-line">${crest(m.team)}<span>${m.team}</span>
     <span class="${m.to < m.from ? 'uni-streak-W' : 'uni-streak-L'}">${m.to < m.from ? '▲' : '▼'}${Math.abs(m.from - m.to)}</span>
     <span class="rr-dim">${uniOrdinal(m.from)} → ${uniOrdinal(m.to)}</span></div>`).join('');
@@ -12132,7 +12215,9 @@ function uniRoundRecapHTML(season, r) {
 }
 function uniSaveKickoffs(universe) {
   try {
-    cloudStorage.setItem('lp_kickoffs_' + universe.sport, JSON.stringify({ items: uniKickoffItems(universe), savedAt: Date.now() }));
+    // Norsk Rugby has its own mute, so it can stay quiet while the others alert.
+    const items = universe.alertsMuted ? [] : uniKickoffItems(universe);
+    cloudStorage.setItem('lp_kickoffs_' + universe.sport, JSON.stringify({ items, savedAt: Date.now() }));
   } catch (e) { console.warn('kick-off list not saved', e); }
 }
 
@@ -12256,7 +12341,7 @@ function uniGames(season, page, now) {
       : { status: 'upcoming', startsInMs: Math.max(0, kickoff - now) };
     return Object.assign({
       key: id, finalId: id, home: f ? f.home : null, away: f ? f.away : null, kickoff, tl,
-      venue: f ? (f.venue || uniCfg().venue(f.home)) : '', tag: UNI_FINAL_LABELS[id], prime: false,
+      venue: f ? (f.venue || uniCfg().venue(f.home)) : '', tag: uniFinalLabel(id), prime: false,
     }, st);
   });
 }
@@ -12408,11 +12493,12 @@ function uniIntroHTML() {
       <div class="uni-eyebrow">${c.name} Universe</div>
       <h1 class="uni-title">A season that plays itself</h1>
       <p class="uni-copy">Every game kicks off at a real time and takes as long as a real game.
-        A round runs over two days: ${c.blurb}, a two-day break, and the next season.
+        A round runs over ${c.roundDays || 'two days'}: ${c.blurb}, a two-day break, and the next season.
         Check in whenever you like.</p>
       <div class="uni-intro-sched">
         <div><span>Day 1</span>${c.schedule[0]}</div>
-        <div><span>Day 2</span>${c.schedule[1]}</div>
+        <div><span>Day 2</span>${c.schedule[1]}</div>${c.schedule[2] ? `
+        <div><span>Day 3</span>${c.schedule[2]}</div>` : ''}
       </div>
       ${uniStartTalentHTML()}
       <button type="button" class="uni-start" data-act="start">Start season</button>
@@ -12441,7 +12527,8 @@ function uniScreenHTML(season, games, now) {
     <div class="uni-controls">
       ${uniNotStarted(season) && !uniState.test ? '<button type="button" class="uni-ctl uni-ctl-go" data-act="start-now">Start now</button>' : ''}
       ${window.LadderUniverse.seasonOver(uniState, season, now) ? `<button type="button" class="uni-ctl uni-ctl-go" data-act="next-season">Start Season ${season.n + 1} now</button>` : ''}
-      <button type="button" class="uni-ctl${uniAlertsOn ? ' uni-ctl-on' : ''}" data-act="alerts" aria-pressed="${!!uniAlertsOn}">Kick-off alerts: ${uniAlertsOn ? 'On' : 'Off'}</button>
+      <button type="button" class="uni-ctl${uniAlertsOn ? ' uni-ctl-on' : ''}" data-act="alerts" aria-pressed="${!!uniAlertsOn}">Kick-off alerts: ${uniAlertsOn ? 'On' : 'Off'}</button>${uniState.sport === 'rugby' && uniAlertsOn ? `
+      <button type="button" class="uni-ctl${uniState.alertsMuted ? '' : ' uni-ctl-on'}" data-act="league-alerts" aria-pressed="${!uniState.alertsMuted}">Norsk alerts: ${uniState.alertsMuted ? 'Off' : 'On'}</button>` : ''}
       <button type="button" class="uni-ctl" data-act="delete">Reset</button>
     </div>
     <div class="uni-tabs">
@@ -12510,7 +12597,7 @@ function uniGameHTML(g) {
     const cfg = team ? uniTeamCfg(team) : null;
     return {
       crest: `<div${team ? ` class="uni-team-link" data-act="team" data-team="${team}" title="${team}'s season"` : ''}><div class="uni-crest">${cfg && cfg.logo ? `<img src="${cfg.logo}" alt="">` : ''}</div>
-        <div class="uni-abbr">${cfg ? cfg.abbr : 'TBC'}</div></div>`,
+        <div class="uni-abbr">${cfg ? (uniState.sport === 'rugby' ? uniFullName(team) : cfg.abbr) : 'TBC'}</div></div>`,
       score: `<div><div class="uni-score" data-score="${s}"></div><div class="uni-gb" data-gb="${s}"></div></div>`,
     };
   };
@@ -12648,12 +12735,15 @@ function uniRenderLadder(root, season, now) {
   const box = root.querySelector('[data-ladder]');
   if (!box) return;
   const nrl = uniState.sport === 'nrl';
+  // Norsk Rugby reads like the NRL ladder (points difference, top eight),
+  // with bonus points (for leading at half time) in place of byes.
+  const rugby = uniState.sport === 'rugby';
   // Finished games only, unless Live is on: then games in progress count as
   // they stand.
   const rows = window.LadderUniverse.ladderAt(uniState, season, now, { live: uniLadderLive });
   const streaks = {};
   rows.forEach(r => { streaks[r.team] = uniStreak(season, r.team, now); });
-  const sig = uniLadderFull + '|' + uniLadderLive + '|' + rows.map(r => r.team + r.p + r.b + r.pts + r.f + r.a + (r.live ? '*' : '') + streaks[r.team]).join(',');
+  const sig = uniLadderFull + '|' + uniLadderLive + '|' + rows.map(r => r.team + r.p + r.b + r.pts + r.f + r.a + (r.bp != null ? 'b' + r.bp : '') + (r.live ? '*' : '') + streaks[r.team]).join(',');
   if (box.dataset.sig === sig) return;
   box.dataset.sig = sig;
 
@@ -12672,16 +12762,20 @@ function uniRenderLadder(root, season, now) {
     { h: 'L', w: 22, v: r => r.l },
     { h: 'D', w: 22, v: r => r.d },
   ];
+  // Norsk Rugby spells its clubs out, so on the standard ladder draws (rare in
+  // union) and the streak make room; Extended has them.
+  if (rugby && !uniLadderFull) cols.pop();
   if (nrl) cols.push({ h: 'B', w: 22, v: r => r.b });
+  if (rugby) cols.push({ h: 'BP', w: 24, v: r => r.bp });
   if (uniLadderFull) cols.push({ h: 'F', w: 38, v: r => r.f }, { h: 'A', w: 38, v: r => r.a });
-  cols.push(nrl ? { h: 'PD', w: 38, cls: 'uni-lpct', v: r => (r.p || r.b ? pd(r.diff) : '—') }
+  cols.push(nrl || rugby ? { h: 'PD', w: 38, cls: 'uni-lpct', v: r => (r.p || r.b ? pd(r.diff) : '—') }
                 : { h: '%', w: 46, cls: 'uni-lpct', v: pct });
-  cols.push({ h: 'Streak', w: 40, v: streakCell });
+  if (!rugby || uniLadderFull) cols.push({ h: 'Streak', w: 40, v: streakCell });
   cols.push({ h: 'Pts', w: 30, cls: 'uni-lpts', v: r => r.pts });
-  const grid = `grid-template-columns: 20px 50px minmax(44px, 1fr) ${cols.map(c => c.w + 'px').join(' ')};`;
+  const grid = `grid-template-columns: 20px ${rugby ? 40 : 50}px minmax(44px, 1fr) ${cols.map(c => c.w + 'px').join(' ')};`;
 
   // AFL: top 6 straight in, 7-10 to the wildcard round. NRL: top 8.
-  const cut = i => nrl ? (i === 7 ? ' uni-cut-top6' : '') : (i === 5 ? ' uni-cut-top6' : i === 9 ? ' uni-cut-wild' : '');
+  const cut = i => nrl || rugby ? (i === 7 ? ' uni-cut-top6' : '') : (i === 5 ? ' uni-cut-top6' : i === 9 ? ' uni-cut-wild' : '');
   box.innerHTML = `
     <div class="uni-ladder-bar">
       <button type="button" class="uni-ctl${uniLadderLive ? ' uni-ctl-live' : ''}" data-act="ladder-live" aria-pressed="${uniLadderLive}">${uniLadderLive ? '<span class="uni-r-dot"></span>Live' : 'Live'}</button>
@@ -12695,12 +12789,12 @@ function uniRenderLadder(root, season, now) {
           const cfg = uniTeamCfg(r.team);
           return `<div class="uni-lrow uni-lrow-tap${cut(i)}" style="${grid}" data-act="team" data-team="${r.team}" role="button" tabindex="0" aria-label="${r.team}'s season"><span class="uni-lpos">${i + 1}</span>
             <span class="uni-llogo"><span class="uni-crest uni-crest-sm"><img src="${cfg.logo}" alt=""></span></span>
-            <span class="uni-lteam">${cfg.abbr}${r.live ? '<span class="uni-ldot" title="Playing now"></span>' : ''}</span>
+            <span class="uni-lteam${rugby ? ' uni-lteam-full' : ''}">${rugby ? uniLadderName(r.team) : cfg.abbr}${r.live ? '<span class="uni-ldot" title="Playing now"></span>' : ''}</span>
             ${cols.map(c => `<span class="${c.cls || ''}">${c.v(r)}</span>`).join('')}</div>`;
         }).join('')}
       </div>
-      <div class="uni-lkey">${nrl
-        ? '<span class="uni-key-top6"></span>Top 8 make the finals'
+      <div class="uni-lkey">${nrl || rugby
+        ? '<span class="uni-key-top6"></span>Top 8 make the finals' + (rugby ? ' · BP: a bonus point for leading at half time' : '')
         : '<span class="uni-key-top6"></span>Top 6 straight into finals <span class="uni-key-wild"></span>7–10 wildcard round'}
         ${uniLadderLive ? '<span class="uni-ldot uni-ldot-key"></span>Playing now, counted as it stands' : ''}</div>
     </div>`;
@@ -12721,9 +12815,10 @@ let uniStartVer = 0;          // bumped when the picker needs redrawing
 
 function uniStartPick() {
   if (!uniStartState || uniStartState.sport !== uniSport) {
-    uniStartState = { sport: uniSport, preset: 'real', seed: uniNewSeed(), seeds: null, consistency: null, stages: {}, editing: false };
-    uniStartState.seeds = uniPresetTalent('real', uniStartState.seed);
-    uniStartState.consistency = uniPresetConsistency('real', uniStartState.seed);
+    const first = uniCfg().noRealWorld ? 'random' : 'real';
+    uniStartState = { sport: uniSport, preset: first, seed: uniNewSeed(), seeds: null, consistency: null, stages: {}, editing: false };
+    uniStartState.seeds = uniPresetTalent(first, uniStartState.seed);
+    uniStartState.consistency = uniPresetConsistency(first, uniStartState.seed);
   }
   return uniStartState;
 }
@@ -12877,7 +12972,7 @@ function uniStartTalentHTML() {
     <div class="uni-tpick">
       <div class="uni-eyebrow">Starting point</div>
       <div class="uni-subtabs">
-        ${UNI_TALENT_PRESETS.map(p => `<button type="button" class="uni-subtab${pick.preset === p.id ? ' active' : ''}"
+        ${UNI_TALENT_PRESETS.filter(p => !(p.id === 'real' && uniCfg().noRealWorld)).map(p => `<button type="button" class="uni-subtab${pick.preset === p.id ? ' active' : ''}"
           data-act="talent-preset" data-preset="${p.id}">${p.name}</button>`).join('')}
       </div>
       <p class="uni-muted" data-tblurb>${blurb}</p>
@@ -13220,7 +13315,8 @@ function uniPaperHeadline(season, r, rec, heads, sport) {
 
   // This round's games.
   const games = season.rounds[r].map((g, i) => ({ g, sc: season.scores[LS.scoreKey(r, i)] })).filter(x => x.sc);
-  const close = games.filter(x => Math.abs(x.sc.home - x.sc.away) <= (afl ? 12 : 6)).length;
+  const rugby = sport === 'rugby';
+  const close = games.filter(x => Math.abs(x.sc.home - x.sc.away) <= (afl ? 12 : rugby ? 7 : 6)).length;
   const upsets = heads.filter(h => h.kind === 'upset').length;
   const avgTotal = games.reduce((a, x) => a + x.sc.home + x.sc.away, 0) / Math.max(1, games.length);
   const leaderGame = games.find(x => x.g.home === L.team || x.g.away === L.team);
@@ -13261,9 +13357,9 @@ function uniPaperHeadline(season, r, rec, heads, sport) {
   // The round itself.
   if (upsets >= 2) add('upsets', 54 + upsets * 5, [`Round of upsets: favourites fall`, `Boilover round shakes up the ladder`, `${upsets} upsets in a wild round`]);
   if (close >= Math.ceil(games.length / 2)) add('thrillers', 56 + close * 2, [`Thriller round: ${close} games go down to the wire`, `Nail-biters everywhere in Round ${r + 1}`, `${close} close finishes in a round of thrillers`]);
-  if (avgTotal >= (afl ? 185 : 48)) add('highScoring', 50, [`Points flow in a high-scoring round`, `Shootouts across Round ${r + 1}`]);
-  else if (avgTotal <= (afl ? 135 : 30)) add('lowScoring', 48, [`Defences rule in a low-scoring round`, `Points dry up in Round ${r + 1}`]);
-  if (rec.biggest && rec.biggest.ws - rec.biggest.ls >= (afl ? 80 : 36)) add('hiding', 57, [`${rec.biggest.w} flatten ${rec.biggest.l} by ${rec.biggest.ws - rec.biggest.ls}`, `${rec.biggest.ws - rec.biggest.ls}-point hiding for ${rec.biggest.l}`]);
+  if (avgTotal >= (afl ? 185 : rugby ? 65 : 48)) add('highScoring', 50, [`Points flow in a high-scoring round`, `Shootouts across Round ${r + 1}`]);
+  else if (avgTotal <= (afl ? 135 : rugby ? 35 : 30)) add('lowScoring', 48, [`Defences rule in a low-scoring round`, `Points dry up in Round ${r + 1}`]);
+  if (rec.biggest && rec.biggest.ws - rec.biggest.ls >= (afl ? 80 : rugby ? 40 : 36)) add('hiding', 57, [`${rec.biggest.w} flatten ${rec.biggest.l} by ${rec.biggest.ws - rec.biggest.ls}`, `${rec.biggest.ws - rec.biggest.ls}-point hiding for ${rec.biggest.l}`]);
 
   // Nothing standing out: the ladder as it is.
   add('steady', 20, [`${L.team} stay top after Round ${r + 1}`, `${L.team} hold firm at the top`]);
@@ -13322,7 +13418,9 @@ function uniRecPaperHTML(now) {
       const ft = tl.periods[tl.periods.length - 1].score, ht = tl.periods[0].score;
       lines = order.map(side => {
         const f = ft[side];
-        const bits = [`T ${f.tries}`, `G ${f.goals}`].concat(f.fieldGoals ? [`FG ${f.fieldGoals}`] : []);
+        const bits = sport === 'rugby'
+          ? [`T ${f.tries}`, `C ${f.conversions}`, `P ${f.penalties}`].concat(f.dropGoals ? [`DG ${f.dropGoals}`] : [])
+          : [`T ${f.tries}`, `G ${f.goals}`].concat(f.fieldGoals ? [`FG ${f.fieldGoals}`] : []);
         return `<div class="pp-line pp-nrl${side === order[0] && sc.home !== sc.away ? ' pp-win' : ''}">
           <span class="pp-team">${name(side)}</span><span class="pp-pts">${sc[side]}</span>
           <span class="pp-bits">${bits.join(' · ')}</span><span class="pp-ht">HT ${ht[side].points}</span></div>`;
@@ -13408,20 +13506,22 @@ function uniRoundLadders(season, now) {
   return out;
 }
 function uniCutClass(i) {
-  const nrl = uniState.sport === 'nrl';
+  const nrl = uniState.sport === 'nrl' || uniState.sport === 'rugby';
   return nrl ? (i === 7 ? ' uni-cut-top6' : '') : (i === 5 ? ' uni-cut-top6' : i === 9 ? ' uni-cut-wild' : '');
 }
 
 function uniRecSeasonLadderHTML(season, now) {
   const nrl = uniState.sport === 'nrl';
+  const rugby = uniState.sport === 'rugby';
   const rows = window.LadderUniverse.ladderAt(uniState, season, now);
   if (!rows.some(r => r.p)) return '<div class="uni-rec-empty">No games finished yet this season.</div>';
   const cols = [['P', r => r.p], ['W', r => r.w], ['L', r => r.l], ['D', r => r.d]];
   if (nrl) cols.push(['B', r => r.b]);
+  if (rugby) cols.push(['BP', r => r.bp]);
   cols.push(['F', r => r.f], ['A', r => r.a]);
-  cols.push(nrl ? ['PD', r => (r.diff > 0 ? '+' : '') + r.diff] : ['%', r => (r.p && isFinite(r.pct) ? r.pct.toFixed(1) : '—')]);
+  cols.push(nrl || rugby ? ['PD', r => (r.diff > 0 ? '+' : '') + r.diff] : ['%', r => (r.p && isFinite(r.pct) ? r.pct.toFixed(1) : '—')]);
   cols.push(['Pts', r => r.pts]);
-  const widths = cols.map(([h]) => (h === 'F' || h === 'A' || h === 'PD' ? 38 : h === '%' ? 46 : h === 'Pts' ? 30 : 22) + 'px').join(' ');
+  const widths = cols.map(([h]) => (h === 'F' || h === 'A' || h === 'PD' ? 38 : h === '%' ? 46 : h === 'Pts' ? 30 : h === 'BP' ? 24 : 22) + 'px').join(' ');
   const grid = `grid-template-columns: 20px 50px minmax(44px, 1fr) ${widths};`;
   return `<div class="uni-ladder uni-ladder-full"><div class="uni-ladder-scroll">
     <div class="uni-lrow uni-lhead" style="${grid}"><span>#</span><span></span><span class="uni-lteam">Team</span>${cols.map(([h]) => `<span>${h}</span>`).join('')}</div>
@@ -13444,7 +13544,7 @@ function uniRecProgressionHTML(season, now) {
   const W = 620, H = 300, L = 24, R = 12, T = 10, B = 22;
   const x = i => L + (ladders.length === 1 ? (W - L - R) / 2 : i * (W - L - R) / (ladders.length - 1));
   const y = p => T + (p - 1) * (H - T - B) / (n - 1);
-  const cut = uniState.sport === 'nrl' ? 8 : 6;
+  const cut = uniState.sport === 'nrl' || uniState.sport === 'rugby' ? 8 : 6;
   const lines = teams.map(t => {
     const pts = ladders.map((l, i) => `${x(i)},${y(l.order.indexOf(t) + 1)}`).join(' ');
     return `<polyline points="${pts}" fill="none" stroke="${uniColour(t)}" stroke-width="2" stroke-linejoin="round" opacity="0.9"><title>${t}</title></polyline>`;
@@ -13498,6 +13598,15 @@ function uniRecResultsHTML(season, now) {
   </table></div></div>`;
 }
 
+// Norsk Rugby's knockout is played in kick-off order (QF4 first, GF last) but
+// reads as a bracket in feeder order: QF1 and QF4 into SF1, QF2 and QF3 into
+// SF2, the grand final above the playoff.
+const NORSK_BRACKET_ORDER = ['QF1', 'QF4', 'QF2', 'QF3', 'SF1', 'SF2', 'GF', '3RD'];
+function uniBracketOrder(games) {
+  if (uniState.sport !== 'rugby') return games;
+  return games.slice().sort((a, b) => NORSK_BRACKET_ORDER.indexOf(a[0]) - NORSK_BRACKET_ORDER.indexOf(b[0]));
+}
+
 // The finals as a bracket: one column per finals week, winners through.
 function uniRecBracketHTML(season, games) {
   const done = {};
@@ -13510,12 +13619,12 @@ function uniRecBracketHTML(season, games) {
   };
   const cols = uniStages().map(stage => `<div class="uni-bk-col">
     <div class="uni-bk-stage">${UNI_FINALS_NAMES[stage.stage]}</div>
-    <div class="uni-bk-games">${stage.games.map(([id]) => {
+    <div class="uni-bk-games">${uniBracketOrder(stage.games).map(([id]) => {
       const f = season.finals[id] || {};
       const g = done[id];
       const hw = g && g.hs > g.as, aw = g && g.as > g.hs;
       return `<div class="uni-bk-game${id === 'GF' ? ' uni-bk-gf' : ''}">
-        <div class="uni-bk-label">${UNI_FINAL_LABELS[id]}</div>
+        <div class="uni-bk-label">${uniFinalLabel(id)}</div>
         ${side(f.home, g ? g.hs : null, hw)}${side(f.away, g ? g.as : null, aw)}
       </div>`;
     }).join('')}</div></div>`).join('');
@@ -13667,6 +13776,7 @@ function uniWire(root) {
     else if (act === 'talent-edit') { uniStartPick().editing = !uniStartPick().editing; uniStartVer++; uniRender(); }
     else if (act === 'delete') uniDelete();
     else if (act === 'alerts') uniToggleAlerts();
+    else if (act === 'league-alerts') { uniState.alertsMuted = !uniState.alertsMuted; uniSave(); uniSig = ''; uniRender(); }
     else if (act === 'team') { e.stopPropagation(); uniOpenTeam(b.dataset.team); }
     else if (act === 'live-game') uniLiveGo(b.dataset.sport, Number(b.dataset.page), b.dataset.key);
     else if (act === 'next-season') uniNextSeason();
@@ -13950,7 +14060,7 @@ function uniOpenPreview(g, season) {
   const ladder = U.ladderAt(uniState, season, now);
   const pos = t => ladder.findIndex(x => x.team === t) + 1;
   const row = t => ladder.find(x => x.team === t);
-  const where = g.finalId ? UNI_FINAL_LABELS[g.finalId] : 'Round ' + (uniPage + 1);
+  const where = g.finalId ? uniFinalLabel(g.finalId) : 'Round ' + (uniPage + 1);
 
   const teamCol = (team, side) => {
     const cfg = uniTeamCfg(team);
@@ -14019,7 +14129,7 @@ function uniOpenMatchCentre(key) {
   if (!g || !g.tl) return;
   const scfg = uniScfg();
   const sport = uniState.sport;
-  const where = g.finalId ? UNI_FINAL_LABELS[g.finalId] : 'Round ' + (uniPage + 1);
+  const where = g.finalId ? uniFinalLabel(g.finalId) : 'Round ' + (uniPage + 1);
   mcOpen({
     sport, tl: g.tl, game: { home: g.home, away: g.away },
     hCfg: uniTeamCfg(g.home), aCfg: uniTeamCfg(g.away),
@@ -14038,7 +14148,7 @@ function uniOpenMatchCentre(key) {
         const [w, l] = s.home > s.away ? [g.home, g.away] : [g.away, g.home];
         return g.finalId === 'GF'
           ? `${w} win the Season ${season.n} premiership, beating ${l} ${Math.max(s.home, s.away)}–${Math.min(s.home, s.away)}`
-          : `${w} beat ${l} in the ${UNI_FINAL_LABELS[g.finalId].toLowerCase()}`;
+          : `${w} beat ${l} in the ${uniFinalLabel(g.finalId).toLowerCase()}`;
       }
       const eng = {
         teams: uniState.teams,

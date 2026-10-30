@@ -176,6 +176,74 @@ const UNIVERSE_CONFIG = {
       ['Roosters', 'Rabbitohs'], ['Panthers', 'Eels'],
     ],
   },
+  // Norsk Rugby: a made-up Norwegian rugby union league, played overnight
+  // Brisbane time so it's all done by breakfast. 20 sides, everyone plays
+  // everyone once over 19 rounds, then Round 20 is Derby Round: every side
+  // meets its rival a second time.
+  rugby: {
+    rounds: 20,
+    daysPerRound: 3,
+    slots: [
+      ['01:00', '03:00', '05:00', '07:00'],
+      ['02:00', '04:00', '06:00'],
+      ['01:30', '03:30', '05:30'],
+    ],
+    // The last game of each morning. A derby that wants prime time and finds
+    // these taken gets the next-latest game of a morning (see assignSlots).
+    primeSlots: [[0, 3], [1, 2], [2, 2]],
+    maxMeetings: 2,
+    rematchGap: 8,
+    byeRounds: [],        // 20 sides: everyone plays every round
+    // Ten minutes at half time; golden point follows straight on.
+    breaks: [10, 0],
+    breakLabels: ['HT', 'GP'],
+    maxGameMins: 40 + 10 + 40 + 10 + 5,
+    // Four points a win, two a draw, plus a bonus point for leading at half
+    // time (win or lose; nobody gets it when it's level at the break); then
+    // points difference.
+    ladder: { win: 4, draw: 2, bye: 0, sortBy: 'diff', bonus: { halfTimeLead: 1 } },
+    wildcard: false,
+    // Straight knockout for the top eight: quarter-finals 1v8, 2v7, 3v6, 4v5;
+    // semi-finals W-QF1 v W-QF4 and W-QF2 v W-QF3; then the third-place
+    // playoff and the grand final on the last morning. See knockoutMatchup().
+    finalsSystem: 'knockout8',
+    finals: [
+      { stage: 'QF', games: [['QF4', '01:00'], ['QF3', '03:00'], ['QF2', '05:00'], ['QF1', '07:00']] },
+      { stage: 'SF', games: [['SF2', '04:00'], ['SF1', '07:00']] },
+      { stage: 'FD', games: [['3RD', '04:00'], ['GF', '07:00']] },
+    ],
+    grandFinalVenue: 'Nasjonalarenaen',
+    offSeasonDays: 2,
+    // Derby Round: the six headline rivalries take prime time, the four
+    // smaller ones the rest of the round.
+    staples: [
+      { teams: ['Trondheim Raiders', 'Trondheim Trolls'], rounds: [20], slot: 'prime' },
+      { teams: ['Oslo Thunder', 'Drammen Bears'], rounds: [20], slot: 'prime' },
+      { teams: ['Fredrikstad Jotun', 'Moss Valkyries'], rounds: [20], slot: 'prime' },
+      { teams: ['Trøndelag Bulls', 'Levanger Bucks'], rounds: [20], slot: 'prime' },
+      { teams: ['Narvik Owls', 'Harstad Knights'], rounds: [20], slot: 'prime' },
+      { teams: ['Tromsø Reindeer', 'Senja Vikings'], rounds: [20], slot: 'prime' },
+      { teams: ['Bodø Wolves', 'Lofoten Fjords'], rounds: [20] },
+      { teams: ['Alta Ravens', 'Kirkenes Power'], rounds: [20] },
+      { teams: ['Sandefjord Sea Eagles', 'Kristiansand Frost'], rounds: [20] },
+      { teams: ['Steinkjer Dragons', 'Mosjøen Hawks'], rounds: [20] },
+    ],
+    // Rivals meet twice: once in the season, again in Derby Round.
+    twice: [
+      ['Trondheim Raiders', 'Trondheim Trolls'], ['Oslo Thunder', 'Drammen Bears'],
+      ['Fredrikstad Jotun', 'Moss Valkyries'], ['Trøndelag Bulls', 'Levanger Bucks'],
+      ['Narvik Owls', 'Harstad Knights'], ['Tromsø Reindeer', 'Senja Vikings'],
+      ['Bodø Wolves', 'Lofoten Fjords'], ['Alta Ravens', 'Kirkenes Power'],
+      ['Sandefjord Sea Eagles', 'Kristiansand Frost'], ['Steinkjer Dragons', 'Mosjøen Hawks'],
+    ],
+    // The 20 clubs, for a new Norsk Rugby universe.
+    teams: [
+      'Alta Ravens', 'Bodø Wolves', 'Drammen Bears', 'Fredrikstad Jotun', 'Harstad Knights',
+      'Kirkenes Power', 'Kristiansand Frost', 'Levanger Bucks', 'Lofoten Fjords', 'Mosjøen Hawks',
+      'Moss Valkyries', 'Narvik Owls', 'Oslo Thunder', 'Sandefjord Sea Eagles', 'Senja Vikings',
+      'Steinkjer Dragons', 'Tromsø Reindeer', 'Trondheim Raiders', 'Trondheim Trolls', 'Trøndelag Bulls',
+    ],
+  },
 };
 
 // ============================================================
@@ -488,9 +556,12 @@ function assignSlots(round, ranking, rng, scfg) {
   // Staples with a slot of their own go first: 'prime' takes the best prime
   // slot, 'last' the round's final game.
   const taken = [];
+  // Closest to the end of its morning first: the second-last game of each day.
+  const latestFree = () => all.filter(x => !taken.includes(x) && !isPrime(x))
+    .sort((a, b) => (scfg.slots[a.day].length - a.slot) - (scfg.slots[b.day].length - b.slot) || a.day - b.day)[0];
   games.forEach(g => {
     if (!g.fixedSlot) return;
-    const x = g.fixedSlot === 'prime' ? prime[0] : all[all.length - 1];
+    const x = g.fixedSlot === 'prime' ? (prime.find(p => !taken.includes(p)) || latestFree()) : all[all.length - 1];
     Object.assign(g, x, { prime: g.fixedSlot === 'prime' });
     taken.push(x);
     delete g.fixedSlot;
@@ -777,6 +848,7 @@ function clubsFromSeeds(universe, season) {
 const POSITIONS = {
   afl: { att: ['key forward', 'small forward', 'midfielder', 'ruckman'], def: ['key defender', 'half-back', 'tagger', 'inside midfielder'] },
   nrl: { att: ['halfback', 'five-eighth', 'fullback', 'centre'], def: ['prop', 'lock', 'back-rower', 'hooker'] },
+  rugby: { att: ['fly-half', 'scrum-half', 'winger', 'fullback'], def: ['openside flanker', 'lock', 'prop', 'number eight'] },
 };
 
 // The next season's clubs, seeds, consistency and off-season story, from the
@@ -1275,8 +1347,12 @@ function ladderAt(universe, season, nowMs, opts) {
   const rows = {};
   universe.teams.forEach(t => {
     rows[t] = { team: t, p: 0, w: 0, l: 0, d: 0, b: 0, f: 0, a: 0, pts: 0 };
+    if (pts.bonus) rows[t].bp = 0;
   });
   const maxMs = maxDurationMs(scfg);
+  // Rugby union bonus points need the half-time score: from the timeline,
+  // worked out once per game (see gameHalfTime), or for a game in play.
+  const liveHalfTime = {};
   season.rounds.forEach((round, r) => {
     let roundDone = true;
     round.forEach((g, i) => {
@@ -1293,6 +1369,10 @@ function ladderAt(universe, season, nowMs, opts) {
           for (const step of tl.steps) { if (step.t <= st.t) at = step; else break; }
           s = { home: at ? at.home : 0, away: at ? at.away : 0 };
           inPlay = true;
+          if (pts.bonus) {
+            const p1 = tl.periods[0];
+            liveHalfTime[LS.scoreKey(r, i)] = st.t >= p1.end ? { home: p1.score.home.points, away: p1.score.away.points } : null;
+          }
         }
       }
       const H = rows[g.home], A = rows[g.away];
@@ -1302,6 +1382,14 @@ function ladderAt(universe, season, nowMs, opts) {
       if (s.home > s.away) { H.w++; A.l++; H.pts += pts.win; }
       else if (s.away > s.home) { A.w++; H.l++; A.pts += pts.win; }
       else { H.d++; A.d++; H.pts += pts.draw; A.pts += pts.draw; }
+      if (pts.bonus) {
+        // A game in play only counts its half-time score once half time is here.
+        const ht = inPlay ? liveHalfTime[LS.scoreKey(r, i)] : gameHalfTime(universe, season, r, i);
+        if (ht && ht.home !== ht.away) {
+          const leader = ht.home > ht.away ? H : A;
+          leader.bp += pts.bonus.halfTimeLead; leader.pts += pts.bonus.halfTimeLead;
+        }
+      }
     });
     // The bye counts once the rest of the round has been played.
     if (roundDone) ((season.byes || [])[r] || []).forEach(t => { rows[t].b++; rows[t].pts += pts.bye; });
@@ -1310,6 +1398,22 @@ function ladderAt(universe, season, nowMs, opts) {
   return Object.values(rows)
     .map(x => Object.assign(x, { pct: x.a ? (x.f / x.a) * 100 : (x.f ? Infinity : 0), diff: x.f - x.a }))
     .sort((a, b) => b.pts - a.pts || tiebreak(b) - tiebreak(a) || a.team.localeCompare(b.team));
+}
+
+// The half-time score of a finished home-and-away game, from its timeline.
+// Timelines are deterministic, so this is cached on the game and its score.
+const halfTimeCache = new Map();
+function gameHalfTime(universe, season, r, i) {
+  const s = season.scores[LS.scoreKey(r, i)];
+  const key = seasonKeyOf(universe, season.n) + '|' + r + '|' + i + '|' + s.home + ':' + s.away + (s.gp ? 'gp' : '');
+  let v = halfTimeCache.get(key);
+  if (!v) {
+    const ht = timelineFor(universe, season, r, i).periods[0].score;
+    v = { home: ht.home.points, away: ht.away.points };
+    if (halfTimeCache.size > 20000) halfTimeCache.clear();
+    halfTimeCache.set(key, v);
+  }
+  return v;
 }
 
 // ============================================================
@@ -1354,6 +1458,33 @@ function finalsMatchup(id, ladder, results, wildcard) {
   }
 }
 
+// Norsk Rugby's straight knockout (finalsSystem 'knockout8'): quarter-finals
+// 1v8, 2v7, 3v6, 4v5; semi-finals W-QF1 v W-QF4 and W-QF2 v W-QF3; the grand
+// final between the semi winners and the third-place playoff ('3RD') between
+// the semi losers. The higher-ranked side is always at home.
+function knockoutMatchup(id, ladder, results) {
+  const pos = i => ladder[i - 1];
+  const winner = f => results[f] && results[f].winner;
+  const loser = f => results[f] && results[f].loser;
+  const seeded = (a, b) => (a && b ? (ladder.indexOf(a) < ladder.indexOf(b) ? { home: a, away: b } : { home: b, away: a }) : null);
+  switch (id) {
+    case 'QF1': return seeded(pos(1), pos(8));
+    case 'QF2': return seeded(pos(2), pos(7));
+    case 'QF3': return seeded(pos(3), pos(6));
+    case 'QF4': return seeded(pos(4), pos(5));
+    case 'SF1': return seeded(winner('QF1'), winner('QF4'));
+    case 'SF2': return seeded(winner('QF2'), winner('QF3'));
+    case 'GF': return seeded(winner('SF1'), winner('SF2'));
+    case '3RD': return seeded(loser('SF1'), loser('SF2'));
+    default: return null;
+  }
+}
+// Who plays in a final under this league's system.
+function finalMatchupFor(scfg, id, ladder, results) {
+  return scfg.finalsSystem === 'knockout8' ? knockoutMatchup(id, ladder, results)
+    : finalsMatchup(id, ladder, results, scfg.wildcard);
+}
+
 // Decide each finals day once its first game kicks off. A final can't be
 // drawn: a level result is replayed with a fresh roll — extra time in all but
 // name, until the timeline grows an extra-time period of its own.
@@ -1381,7 +1512,7 @@ function decideFinals(universe, season, nowMs) {
         if (f.score) results[k] = f.score.home > f.score.away
           ? { winner: f.home, loser: f.away } : { winner: f.away, loser: f.home };
       });
-      const m = finalsMatchup(id, season.finalLadder, results, scfg.wildcard);
+      const m = finalMatchupFor(scfg, id, season.finalLadder, results);
       if (!m) return;
       let res, salt = 0;
       do {
@@ -1395,7 +1526,8 @@ function decideFinals(universe, season, nowMs) {
       season.finals[id] = {
         home: m.home, away: m.away, stage: stage.stage, kickoff,
         venue: id === 'GF' ? scfg.grandFinalVenue : null,
-        score: { home: res.home, away: res.away },
+        score: res.goldenPoint && universe.sport === 'rugby'
+          ? { home: res.home, away: res.away, gp: true } : { home: res.home, away: res.away },
       };
       changed = true;
     });
@@ -1609,7 +1741,7 @@ return {
   brisbaneMidnight, slotMs, firstDay0,
   generatePairings, assignHomeAway, assignSlots, planSeason,
   realDurationMs, gameStatusAt,
-  seasonKeyOf, timelineFor, finalTimeline, decideRounds, decideFinals, finalsMatchup,
+  seasonKeyOf, timelineFor, finalTimeline, decideRounds, decideFinals, finalsMatchup, knockoutMatchup, finalMatchupFor, gameHalfTime,
   predictedSeason, roundEndMs, roundRecap,
   ladderAt, createUniverse, attach, advance, seasonOver, startNextSeason, currentRoundIdx, roundView,
   startingTalent, startingConsistency, consistencyLevels, volatilityOf,
